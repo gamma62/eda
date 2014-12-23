@@ -1,0 +1,96 @@
+# System-wide configuration file
+# do not edit, save a copy to ~/.eda/ instead
+
+# macro file for eda with commented samples, see edamacro(5)
+#
+# ---sample
+#KEY_NONE	whynot
+#	go_up
+#	go_home
+#	keypress_enter
+#	go_up
+#	type_text	$0
+#	shell_cmd	date +fw%V
+#	switch_text_cmd
+#.
+# ---end sample
+#
+KEY_C_Y		delline_alias
+#Description: alias for Alt-D
+	delline
+.
+KEY_NONE	symdiff
+#Description: symmetrical difference set operation on word sets, words in two separate line blocks
+	filter_cmd __PROGHOME__/set_op.pl --word --symdiff
+.
+KEY_NONE	union
+#Description: union set operation on word sets, words in two separate line blocks
+	filter_cmd __PROGHOME__/set_op.pl --word --union
+.
+KEY_NONE	inter
+#Description: intersection set operation on word sets, words in two separate line blocks
+	filter_cmd __PROGHOME__/set_op.pl --word --inter
+.
+KEY_NONE	:w
+#Description: alias for save
+	save_file
+.
+KEY_NONE	:wq
+#Description: alias for file
+	file_file
+.
+KEY_NONE	:q!
+#Description: alias for qquit
+	drop_file
+.
+KEY_NONE	:qo
+#Description: alias for qoth
+	quit_others
+.
+#KEY_NONE	cvs
+##Description: run CVS command
+#	vcstool cvs $0
+#.
+#KEY_NONE	svn
+##Description: run subversion command
+#	vcstool svn $0
+#.
+#KEY_NONE	hg
+##Description: run mercurial command
+#	vcstool hg $0
+#.
+#KEY_NONE	hgdiff
+##Description: run hg diff on that file and process the outcome
+#	filter_all func
+#	vcstool hg diff -g -p ^G
+#	is_special diff
+#	process_diff
+#.
+#KEY_NONE	svndiff
+##Description: run svn diff on that file and process the outcome
+#	filter_all func
+#	vcstool svn diff ^G
+#	is_special diff
+#	process_diff
+#.
+#KEY_NONE	cindent
+##Description: reindent C code in buffer
+#	select_all
+#	filter_cmd indent -kr -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
+#	finish_in_fg
+#	over_select
+#.
+#KEY_NONE	xmlindent
+##Description: reindent xml text in buffer
+#	select_all
+#	filter_cmd xmllint --format -
+#	finish_in_fg
+#	over_select
+#.
+#KEY_NONE	print
+##Description: print with shadow marks, selection lines or all lines
+#	select_all
+#	filter_shadow_cmd a2ps -1 -f8
+#	finish_in_fg
+#	reset_select
+#.

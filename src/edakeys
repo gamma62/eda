@@ -1,0 +1,145 @@
+# System-wide configuration file
+# do not edit, save a copy to ~/.eda/ instead
+
+# edakeys - default Function -> Key bindings
+# (see also macros and current setting by the cmds command)
+
+### reserved keys ###
+# KEY_RETURN	  KEY_DC	    KEY_DOWN	      KEY_C_C		KEY_C_P
+# KEY_TAB		  KEY_HOME	    KEY_LEFT	      KEY_C_I		KEY_C_Q
+# KEY_ESC		  KEY_END	    KEY_RIGHT	      KEY_C_M		KEY_C_S
+# KEY_BACKSPACE	  KEY_UP	    KEY_F12	      KEY_C_O		KEY_C_Z
+# KEY_IC
+
+### general keys ###
+# KEY_NONE	  KEY_C_F2	    KEY_C_X	      KEY_M_SEVEN	KEY_M_K
+# KEY_PPAGE	  KEY_C_F3	    KEY_C_Y	      KEY_M_EIGHT	KEY_M_L
+# KEY_NPAGE	  KEY_C_F4	    KEY_M_RETURN      KEY_M_NINE	KEY_M_M
+# KEY_F1		  KEY_C_F5	    KEY_M_SPACE	      KEY_M_COLON	KEY_M_N
+# KEY_F2		  KEY_C_F6	    KEY_M_EXCLAM      KEY_M_SEMICOLON	KEY_M_O
+# KEY_F3		  KEY_C_F7	    KEY_M_DQUOTE      KEY_M_LESSTHAN	KEY_M_P
+# KEY_F4		  KEY_C_F8	    KEY_M_HASH	      KEY_M_EQUAL	KEY_M_Q
+# KEY_F5		  KEY_C_F9	    KEY_M_DOLLAR      KEY_M_GREATHAN	KEY_M_R
+# KEY_F6		  KEY_C_F10	    KEY_M_PERCENT     KEY_M_QMARK	KEY_M_S
+# KEY_F7		  KEY_C_F11	    KEY_M_AMPERSAND   KEY_M_AT		KEY_M_T
+# KEY_F8		  KEY_C_F12	    KEY_M_SQUOTE      KEY_M_LSQBRAC	KEY_M_U
+# KEY_F9		  KEY_C_A	    KEY_M_LPAREN      KEY_M_BACKSLASH	KEY_M_V
+# KEY_F10		  KEY_C_B	    KEY_M_RPAREN      KEY_M_RSQBRAC	KEY_M_W
+# KEY_F11		  KEY_C_D	    KEY_M_STAR	      KEY_M_CARET	KEY_M_X
+# KEY_S_F1	  KEY_C_E	    KEY_M_PLUS	      KEY_M_UNDERLINE	KEY_M_Y
+# KEY_S_F2	  KEY_C_F	    KEY_M_COMMA	      KEY_M_GRAVEACC	KEY_M_Z
+# KEY_S_F3	  KEY_C_G	    KEY_M_MINUS	      KEY_M_A		KEY_M_LCURBRAC
+# KEY_S_F4	  KEY_C_H	    KEY_M_DOT	      KEY_M_B		KEY_M_BAR
+# KEY_S_F5	  KEY_C_J	    KEY_M_SLASH	      KEY_M_C		KEY_M_RCURBRAC
+# KEY_S_F6	  KEY_C_K	    KEY_M_ZERO	      KEY_M_D		KEY_M_TILDE
+# KEY_S_F7	  KEY_C_L	    KEY_M_ONE	      KEY_M_E		KEY_C_UP
+# KEY_S_F8	  KEY_C_N	    KEY_M_TWO	      KEY_M_F		KEY_C_DOWN
+# KEY_S_F9	  KEY_C_R	    KEY_M_THREE	      KEY_M_G		KEY_C_LEFT
+# KEY_S_F10	  KEY_C_T	    KEY_M_FOUR	      KEY_M_H		KEY_C_RIGHT
+# KEY_S_F11	  KEY_C_U	    KEY_M_FIVE	      KEY_M_I		KEY_C_PPAGE
+# KEY_S_F12	  KEY_C_V	    KEY_M_SIX	      KEY_M_J		KEY_C_NPAGE
+# KEY_C_F1	  KEY_C_W
+
+### Function -> Key bindings ###
+#go_page_up		KEY_PPAGE
+#go_page_down		KEY_NPAGE
+#prev_nonblank		KEY_C_LEFT
+#next_nonblank		KEY_C_RIGHT
+#go_top		KEY_C_PPAGE
+#go_bottom		KEY_C_NPAGE
+#center_focusline		KEY_F5
+#reload_file		KEY_NONE
+#reload_bydiff		KEY_NONE
+#prev_file		KEY_NONE
+#next_file		KEY_F8
+#save_file		KEY_F2
+#file_file		KEY_F3
+#quit_file		KEY_F4
+#drop_file		KEY_NONE
+#quit_others		KEY_S_F4
+#quit_all		KEY_NONE
+#file_all		KEY_NONE
+#hide_file		KEY_C_F2
+#deleol		KEY_F6
+#del2bol		KEY_S_F6
+#delline		KEY_M_D
+#duplicate		KEY_F7
+#line_select		KEY_M_L
+#reset_select		KEY_M_U
+#select_all		KEY_NONE
+#cp_select		KEY_M_C
+#mv_select		KEY_M_M
+#rm_select		KEY_M_G
+#over_select		KEY_NONE
+#go_select_first		KEY_M_A
+#go_select_last		KEY_M_E
+#unindent_left		KEY_S_F7
+#indent_right		KEY_S_F8
+#shift_left		KEY_S_F9
+#shift_right		KEY_S_F10
+#pad_block		KEY_NONE
+#cut_block		KEY_NONE
+#left_cut_block		KEY_NONE
+#split_block		KEY_NONE
+#join_block		KEY_NONE
+#filter_tmp_all		KEY_M_EQUAL
+#filter_expand_up		KEY_C_U
+#filter_expand_down		KEY_C_N
+#filter_restrict		KEY_C_E
+#incr_filter_level		KEY_NONE
+#decr_filter_level		KEY_NONE
+#incr2_filter_level		KEY_NONE
+#decr2_filter_level		KEY_NONE
+#incr_filter_cycle		KEY_M_BACKSLASH
+#process_diff		KEY_NONE
+#repeat_search		KEY_C_L
+#tag_focusline		KEY_S_F1
+#highlight_word		KEY_C_H
+#search_word		KEY_C_J
+#tag_line_byword		KEY_C_K
+#search_cmd_macro		KEY_C_F
+#tomatch		KEY_F9
+#forcematch		KEY_C_F9
+#fold_block		KEY_C_F10
+#fold_thisfunc		KEY_C_F11
+#tag_view_info		KEY_F10
+#tag_jump_to		KEY_F11
+#is_special		KEY_NONE
+#locate_find_switch		KEY_NONE
+#multisearch_cmd		KEY_M_Q
+#find_cmd		KEY_NONE
+#locate_cmd		KEY_NONE
+#find_window_switch		KEY_M_W
+#fw_option_switch		KEY_NONE
+#fsearch_path_macro		KEY_NONE
+#fsearch_args_macro		KEY_NONE
+#save_project		KEY_NONE
+#list_buffers		KEY_M_R
+#bm_set		KEY_M_ZERO
+#bm_clear		KEY_NONE
+#bm_jump1		KEY_M_ONE
+#bm_jump2		KEY_M_TWO
+#bm_jump3		KEY_M_THREE
+#bm_jump4		KEY_M_FOUR
+#bm_jump5		KEY_M_FIVE
+#bm_jump6		KEY_M_SIX
+#bm_jump7		KEY_M_SEVEN
+#bm_jump8		KEY_M_EIGHT
+#bm_jump9		KEY_M_NINE
+#show_commands		KEY_NONE
+#mhist_pop		KEY_C_T
+#stop_bg_process		KEY_NONE
+#prefix_macro		KEY_M_GRAVEACC
+#smartind_macro		KEY_M_MINUS
+#shadow_macro		KEY_NONE
+#view_bname		KEY_F1
+#ins_bname		KEY_C_B
+#ins_varname		KEY_C_V
+#ins_filename		KEY_C_G
+#cp_text2cmd		KEY_C_X
+#word_case		KEY_C_F5
+#mouse_support		KEY_NONE
+#force_redraw		KEY_C_R
+#recording_switch		KEY_NONE
+#version		KEY_NONE
+
