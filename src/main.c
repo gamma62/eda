@@ -2,7 +2,7 @@
 * main.c
 * main function, init, defaults, signal handler and log tools
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -61,7 +61,7 @@ main (int argc, char *argv[])
 {
 	int opt;
 	char find_symbol[TAGSTR_SIZE];
-	int loadtags = 0, keytest = 0, noconfig = 0;
+	int loadtags = 0, keytest = 0;
 	int which_next = 0;
 	struct sigaction sigAct;
 
@@ -100,12 +100,12 @@ main (int argc, char *argv[])
 			keytest = 1;
 			break;
 		case 'n':
-			noconfig = 1;
+			cnf.noconfig = 1;
 			break;
 		case 'V':
 			printf ("%s\n", long_version_string);
 			printf ("\n\
-Copyright 2003-2011 Attila Gy. Molnar.\n\
+Copyright 2003-2014 Attila Gy. Molnar.\n\
 \n\
 Eda is free software: you can redistribute it and/or modify\n\
 it under the terms of the GNU General Public License as published by\n\
@@ -150,14 +150,18 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 
 	/* setup syslog */
 	openlog("eda", LOG_PID, LOG_LOCAL0);
+	if (cnf.noconfig) {
+		setlogmask( LOG_MASK(LOG_EMERG) );
 #ifndef DEVELOPMENT_VERSION
-	setlogmask( LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR) );
+	} else {
+		setlogmask( LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR) );
 #endif
+	}
 
-	if (process_rcfile(noconfig) || process_keyfile(noconfig) || process_seqfile(noconfig)) {
+	if (process_rcfile(cnf.noconfig) || process_keyfile(cnf.noconfig) || process_seqfile(cnf.noconfig)) {
 		leave("resource processing failed");
 	}
-	if (process_macrofile(noconfig)) {
+	if (process_macrofile(cnf.noconfig)) {
 		leave("macro processing failed");
 	}
 
@@ -183,7 +187,7 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 
 	/* load project, settings and files --- before log start */
 	if (cnf.project[0] != '\0') {
-		if (process_project(noconfig)) {
+		if (process_project(cnf.noconfig)) {
 			leave("project processing failed");
 		}
 	}
@@ -228,7 +232,12 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	if (loadtags) {
 		if (!tag_load_file()) {
 			if (find_symbol[0] != '\0') {
-				which_next = tag_jump_to(find_symbol); /* 0 is success */
+				which_next = tag_jump_to(find_symbol); /* 0 or 1 */
+				/* 0 - cannot open tags file --> empty ring if no other files
+				*  0 - one match (success)
+				*  1 - multiple matches, jump to the first
+				*  1 - no match --> empty ring if other files
+				*/
 			}
 		}
 	}
@@ -245,8 +254,9 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 		leave("empty ring");
 #endif
 	} else {
-		/* select the first file in the ring -- if no jump required */
-		if (which_next < -1) { /* ring_size > 1 and/or tag_jump_to() invalid */
+		/* select the first file in the ring -- except jump required */
+		if (which_next < -1) {
+			/* ring_size > 1 and tag_load_file failed or not required */
 			cnf.ring_curr = cnf.ring_size;
 			next_file();
 		}
@@ -314,8 +324,8 @@ leave (const char *reason)
 	/* tags */
 	tag_rm_all();
 
-	/* motion history */
-	mhist_clear();
+	/* motion history -- useless */
+	mhist_clear(-1);
 
 	/* keys and macros */
 	drop_macros();
@@ -335,15 +345,46 @@ leave (const char *reason)
 static void
 set_defaults(void)
 {
-	unsigned i;
+	unsigned i=0, groupsize=0;
 	char *ptr=NULL;
 
 	memset(&cnf, 0, sizeof(cnf));
 	cnf.bootup = 0;
+	cnf.noconfig = 0;
 
 	/* to avoid special characters in pipe inputs */
 	setenv("LANG", "C", 1);
 	setlocale(LC_ALL, "C"); /* this may fail */
+
+	/* user, group */
+	cnf.uid = getuid();
+	cnf.gid = getgid();
+	cnf.euid = geteuid();
+	cnf.egid = getegid();
+	groupsize = (sizeof(cnf.groups) / sizeof(cnf.groups[0]));
+	for (i=0; i<groupsize; i++)
+		cnf.groups[i] = 0;
+	if (getgroups(groupsize-1, cnf.groups) < 0) {
+		cnf.groups[0] = cnf.egid;
+	}
+
+	/* process */
+	cnf.pid = getpid();
+	cnf.ppid = getppid();
+	cnf.sid = getsid(0);
+	cnf.pgid = getpgid(0);
+	/*
+	*	char *cterminal;
+	*	cterminal = ctermid(NULL);
+	*	ctermfd = open(cterminal, O_NOCTTY, O_RDONLY);
+	*	if (ctermfd > 0) {
+	*		//session id from controlling tty -- tcgetsid(ctermfd)
+	*		//terminal foreground process group from controlling tty -- tcgetpgrp(ctermfd)
+	*		close(ctermfd);
+	*	}
+	*/
+
+	cnf.starttime = time(NULL);
 
 	/* global settings */
 	cnf.gstat = 0;
@@ -355,7 +396,7 @@ set_defaults(void)
 	cnf.indentsize = (cnf.gstat & GSTAT_INDENT) ? 1 : 4;	/* 1 tab or 4 spaces */
 	cnf.pref = (cnf.gstat & GSTAT_PREFIX) ? PREFIXSIZE : 0;
 
-	cnf.palette = 1;
+	cnf.palette = 0;
 	cnf.trace = 0;		/* count of tracemsg[] lines */
 
 	/* wgetch engine and terminal resize */
@@ -398,13 +439,12 @@ set_defaults(void)
 		cnf.bookmark[i].ring = -1;
 
 	/* motion history */
-	cnf.mhist_curr = NULL;
+	cnf.mhistory = NULL;
 
 	/*
 	* external tools and settings
 	* (overwrite from rcfile)
 	*/
-	strncpy(cnf.disp_opts,	"%f%l %p%r%x",		sizeof(cnf.disp_opts));
 	strncpy(cnf.find_path,	"/usr/bin/find",	sizeof(cnf.find_path));
 	strncpy(cnf.find_opts,	". -type f -name '*.[ch]' -exec egrep -nH -w", sizeof(cnf.find_opts));
 	strncpy(cnf.tags_file,	"./tags",		sizeof(cnf.tags_file));
@@ -471,6 +511,8 @@ tracemsg(const char *format, ...)
 	 * like before cnf.bootup
 	 */
 	if (!cnf.bootup || (cnf.gstat & GSTAT_SILENT) || cnf.maxx < 20)
+		return;
+	if (cnf.trace >= TRACESIZE)
 		return;
 
 	va_start (args, format);

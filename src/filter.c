@@ -2,7 +2,7 @@
 * filter.c
 * base and advanced functions for filtered view and edit (like a builtin egrep)
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -560,12 +560,14 @@ block_name (int ri)
 		return (symbol);
 	}
 
+	/* general fallback */
+	strncpy(symbol, "(unknown)", 10);
+
 	if (CURR_FILE.ftype != C_FILETYPE &&
 	CURR_FILE.ftype != PERL_FILETYPE &&
 	CURR_FILE.ftype != TCL_FILETYPE &&
 	CURR_FILE.ftype != SHELL_FILETYPE)
 	{
-		strncpy(symbol, "(unknown)", 13);
 		return (symbol);
 	}
 
@@ -613,6 +615,9 @@ block_name (int ri)
 		}
 	}
 
+	/* new fallback */
+	strncpy(symbol, "(file level)", 13);
+
 	/* on the header line, try to match block name... */
 	if (CURR_FILE.ftype == C_FILETYPE) {
 		if (lx->llen > 10 && strncmp(&lx->buff[0], "typedef", 7) == 0) {
@@ -652,9 +657,6 @@ block_name (int ri)
 		}
 		FILT_LOG(LOG_DEBUG, "Shell ... [%s]", symbol);
 	}
-
-	if (symbol[0] == '\0')
-		strncpy(symbol, "(file level)", 13);
 
 	FILT_LOG(LOG_DEBUG, "symbol [%s]", symbol);
 	return (symbol);

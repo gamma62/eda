@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # set_op.pl
 #
-# Copyright 2003-2011 Attila Gy. Molnar
+# Copyright 2003-2014 Attila Gy. Molnar
 #
 # This file is part of eda project.
 #

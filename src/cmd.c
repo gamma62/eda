@@ -2,7 +2,7 @@
 * cmd.c
 * basic editing command set, command history, event handler functios: ed_cmdline, ed_text, ed_common
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -41,7 +41,7 @@ extern MACROS *macros;
 extern int MLEN;
 
 /* local proto */
-static void reset_clhistory(const char *from);
+static void reset_clhistory(void);
 static CMDLINE *clhistory_unlink (CMDLINE *runner);
 static void clhistory_rm_olddup (char *buff, int len, int depth);
 static void go2end_cmdline(void);
@@ -49,11 +49,11 @@ static void go2end_cmdline(void);
 /* come back to the most recent item
 */
 static void
-reset_clhistory(const char *from)
+reset_clhistory(void)
 {
 	while (cnf.clhistory != NULL && cnf.clhistory->next != NULL)
 		cnf.clhistory = cnf.clhistory->next;
-	HIST_LOG(LOG_DEBUG, "done, called from [%s]", from);
+	cnf.reset_clhistory = 0;
 }
 
 /*
@@ -101,7 +101,7 @@ clhistory_push (const char *buff, int len)
 		strncpy(ptr->buff, buff, ptr->len);
 		ptr->buff[ptr->len] = '\0';
 
-		HIST_LOG(LOG_DEBUG, "command added, cnf.clhist_size %d, prev [%s] %d", 
+		HIST_LOG(LOG_DEBUG, "command added, cnf.clhist_size %d, prev [%s] %d",
 			cnf.clhist_size, cnf.clhistory->prev->buff, cnf.clhistory->prev->len);
 	}
 
@@ -113,30 +113,34 @@ clhistory_push (const char *buff, int len)
 static CMDLINE *
 clhistory_unlink (CMDLINE *runner)
 {
-	CMDLINE *base;
+	CMDLINE *xbase;
 
 	if (runner == NULL) {
 		return NULL;
 
 	} else if (runner->next != NULL) {
-		base = runner->next;
-		base->prev = runner->prev;
-		if (base->prev != NULL)
-			(base->prev)->next = base;
-		FREE(runner); runner = NULL;
+		xbase = runner->next;
+		xbase->prev = runner->prev;
+		if (xbase->prev != NULL)
+			(xbase->prev)->next = xbase;
+
+		FREE(runner);
+		runner = NULL;
 		cnf.clhist_size--;
 
 	} else {
 		/* up, since cannot go down */
-		base = runner->prev;
-		if (base != NULL) {
-			base->next = NULL;
+		xbase = runner->prev;
+		if (xbase != NULL) {
+			xbase->next = NULL;
 		}
-		FREE(runner); runner = NULL;
+
+		FREE(runner);
+		runner = NULL;
 		cnf.clhist_size--;
 	}
 
-	return (base);
+	return (xbase);
 }
 
 /* remove old items from command line history, keep most recent,
@@ -149,24 +153,25 @@ clhistory_cleanup (int keep)
 	int item=0;
 
 	HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d and should keep %d", cnf.clhist_size, keep);
-	reset_clhistory("clhistory_cleanup");
+	reset_clhistory();
 
 	runner = cnf.clhistory;
 	while (++item < keep && runner != NULL && runner->prev != NULL) {
 		runner = runner->prev;
 	}
-	HIST_LOG(LOG_DEBUG, "prev is NULL %d, next is NULL %d", (runner->prev == NULL), (runner->next == NULL));
+	HIST_LOG(LOG_DEBUG, "back %d items, prev %d, next %d",
+		item, (runner->prev != NULL), (runner->next != NULL));
 
 	while (runner != NULL) {
-		if (runner->prev != NULL) {
-			clhistory_unlink(runner->prev);
-		} else {
+		if (runner->prev == NULL) {
 			break;
+		} else {
+			clhistory_unlink(runner->prev);
 		}
 	}
-	HIST_LOG(LOG_DEBUG, "prev is NULL %d, next is NULL %d", (runner->prev == NULL), (runner->next == NULL));
 
-	HIST_LOG(LOG_INFO, "done, (kept %d), cnf.clhist_size %d", cnf.clhist_size, item);
+	HIST_LOG(LOG_INFO, "done, (kept %d, prev %d, next %d), cnf.clhist_size %d",
+		cnf.clhist_size, (runner->prev != NULL), (runner->next != NULL), item);
 	return (runner==NULL);
 }
 
@@ -186,6 +191,7 @@ clhistory_rm_olddup (char *buff, int len, int depth)
 				/* zero-length items should not be here */
 				if (strncmp(runner->buff, buff, len) == 0) {
 					clhistory_unlink(runner);
+					removed++;
 					break;
 				}
 			}
@@ -194,7 +200,9 @@ clhistory_rm_olddup (char *buff, int len, int depth)
 		}
 	}
 
-	HIST_LOG(LOG_INFO, "done, depth=%d, removed=%d, cnf.clhist_size %d", depth, removed, cnf.clhist_size);
+	if (removed) {
+		HIST_LOG(LOG_INFO, "done, removed [%s], cnf.clhist_size %d", buff, cnf.clhist_size);
+	}
 	return;
 }
 
@@ -213,6 +221,10 @@ clhistory_prev (void)
 
 	if (cnf.clhistory == NULL || cnf.clhistory->prev == NULL) {
 		return 0;
+	}
+
+	if (cnf.reset_clhistory) {
+		reset_clhistory();
 	}
 
 	HIST_LOG(LOG_DEBUG, "---clhistory before skip [%s] ...", cnf.clhistory->buff);
@@ -242,7 +254,7 @@ clhistory_prev (void)
 		prefixlength = MIN(prefixlength,7);
 		try = cnf.clhistory->prev;
 		while (try != NULL) {
-			if ((try->len >= prefixlength) && 
+			if ((try->len >= prefixlength) &&
 			    (strncmp(try->buff, cnf.cmdline_buff, prefixlength) == 0))
 			{
 				cnf.clhistory = try;
@@ -292,6 +304,11 @@ clhistory_next (void)
 		return 0;
 	}
 
+	if (cnf.reset_clhistory) {
+		reset_clhistory();
+	}
+
+
 	HIST_LOG(LOG_DEBUG, "+++clhistory before skip [%s] ...", cnf.clhistory->buff);
 
 	/* skip to next... with prefix filtering
@@ -301,7 +318,7 @@ clhistory_next (void)
 		prefixlength = MIN(prefixlength,7);
 		try = cnf.clhistory->next;
 		while (try != NULL) {
-			if ((try->len >= prefixlength) && 
+			if ((try->len >= prefixlength) &&
 			    (strncmp(try->buff, cnf.cmdline_buff, prefixlength) == 0))
 			{
 				cnf.clhistory = try;
@@ -387,7 +404,7 @@ ed_cmdline (int ch)
 	case KEY_C_P:
 		clhistory_next();
 		break;
-	
+
 	/* switch to text area */
 	case KEY_DOWN:
 		go_down();
@@ -413,10 +430,10 @@ ed_cmdline (int ch)
 				cnf.clpos--;
 				cnf.cmdline_len--;
 				cnf.cmdline_buff[cnf.cmdline_len] = '\0';
-				/* skip to left */
+				/* skip to left (stepwise) */
 				if (cnf.cloff > cnf.clpos)
-					cnf.cloff = cnf.clpos;
-				reset_clhistory("ed_cmdline");
+					cnf.cloff = (cnf.clpos > 5) ? (cnf.clpos - 5) : 0;
+				cnf.reset_clhistory = 1;
 			}
 			break;
 		case KEY_DC:
@@ -425,14 +442,14 @@ ed_cmdline (int ch)
 					cnf.cmdline_buff[ii] = cnf.cmdline_buff[ii+1];
 				cnf.cmdline_len--;
 				cnf.cmdline_buff[cnf.cmdline_len] = '\0';
-				reset_clhistory("ed_cmdline");
+				cnf.reset_clhistory = 1;
 			}
 			break;
 		case KEY_F6:
 			if (cnf.clpos < cnf.cmdline_len) {
 				cnf.cmdline_buff[cnf.clpos] = '\0';
 				cnf.cmdline_len = cnf.clpos;
-				reset_clhistory("ed_cmdline");
+				cnf.reset_clhistory = 1;
 			}
 			break;
 
@@ -446,8 +463,9 @@ ed_cmdline (int ch)
 			break;
 		case KEY_LEFT:
 			cnf.clpos = (cnf.clpos > 0) ? cnf.clpos-1 : 0;
+			/* skip to left (stepwise) */
 			if (cnf.cloff > cnf.clpos)
-				cnf.cloff = cnf.clpos + 1;
+				cnf.cloff = (cnf.clpos > 5) ? (cnf.clpos - 5) : 0;
 			break;
 		case KEY_RIGHT:
 			cnf.clpos = (cnf.clpos < CMDLINESIZE-1) ? cnf.clpos+1 : CMDLINESIZE-1;
@@ -461,7 +479,7 @@ ed_cmdline (int ch)
 				break;
 			}
 
-			reset_clhistory("ed_cmdline");
+			cnf.reset_clhistory = 1;
 
 			/* filename globbing
 			 * always, except ... where we can use regexp
@@ -495,12 +513,10 @@ ed_cmdline (int ch)
 				if (ii >= 1) {
 					cnf.cmdline_len = strlen(cnf.cmdline_buff);
 					cnf.clpos = cnf.cmdline_len;	/* after last */
-					if (cnf.clpos - cnf.cloff > cnf.maxx-1)
-						cnf.cloff = cnf.clpos - cnf.maxx + 1;
-					else if (cnf.cloff > cnf.clpos)
-						cnf.cloff = cnf.clpos + 1;
+					if (cnf.clpos > cnf.maxx - 1)
+						cnf.cloff = cnf.clpos - cnf.maxx + 10;
 					if (ii > 1 && choices != NULL) {
-						tracemsg("%s", choices);	/* maybe lots of lines */
+						tracemsg("%s", choices);	/* limited lines */
 					}
 				}
 				FREE(choices); choices = NULL;
@@ -554,18 +570,18 @@ cmdline_to_clhistory (char *buff, int length)
 {
 	int xlength = length;
 
-	HIST_LOG(LOG_DEBUG, "start...");
-	reset_clhistory("cmdline_to_clhistory");
+	HIST_LOG(LOG_INFO, "start (going to reset and trip)...");
+	reset_clhistory();
 
 	/* strip all blanks, even if this can cut ending of regexp pattern
 	 */
-	strip_blanks (0x03, buff, &xlength);
+	strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, buff, &xlength);
 
 	if (xlength > 0) {
 		clhistory_rm_olddup (buff, xlength, 5);
 		clhistory_push (buff, xlength);
 	}
-	HIST_LOG(LOG_DEBUG, "end...");
+	HIST_LOG(LOG_INFO, "done (after olddup and push)...");
 }
 
 /*
@@ -696,11 +712,11 @@ keypress_enter (void)
 	int push = sizeof(insert);
 	int offset = 0;
 
-	if ((CURR_FILE.fflag & FSTAT_INTERACT) && 
+	if ((CURR_FILE.fflag & FSTAT_INTERACT) &&
 	    (CURR_FILE.pipe_input != 0) &&
 	    (CURR_FILE.lineno == CURR_FILE.num_lines))
 	{
-		/* push the bytes into child's reader pipe, 
+		/* push the bytes into child's reader pipe,
 		* but they will be echoed back, therefor remove the rest
 		* after the prompt (assumed it has constant size)
 		*/
@@ -1322,7 +1338,7 @@ type_cmd (const char *str)
 
 	slen = strlen(str);
 	if (slen > 0 && cnf.cmdline_len + slen < CMDLINESIZE-1) {
-		reset_clhistory("type_cmd");
+		cnf.reset_clhistory = 1;
 
 		if (cnf.clpos < cnf.cmdline_len) {
 			for (i = cnf.cmdline_len-1; i >= cnf.clpos; i--) {
@@ -1346,25 +1362,28 @@ type_cmd (const char *str)
 }
 
 /*
-** cp_text2cmd - copy current line from text area to the command line
+** cp_text2cmd - copy current line from text area to the command line, overwrite rest of line
 */
 int
 cp_text2cmd (void)
 {
-	int ret=0, i;
+	int ret=0, i=0, j=0;
 
-	reset_clhistory("cp_text2cmd");
+	cnf.reset_clhistory = 1;
 
-	cnf.cloff = cnf.clpos = 0;
+	// keep clpos and cloff
+	j = cnf.clpos;
 	for (i=0; i < CURR_LINE->llen-1; i++) {
-		cnf.cmdline_buff[i] = CURR_LINE->buff[i];
-		if (i == CMDLINESIZE-1) {
-			ret = 1;
+		if (j < CMDLINESIZE-1) {
+			cnf.cmdline_buff[j] = CURR_LINE->buff[i];
+			j++;
+		} else {
+			j = CMDLINESIZE-1;
 			break;
 		}
 	}
-	cnf.cmdline_len = i;
-	cnf.cmdline_buff[i] = '\0';
+	cnf.cmdline_len = j;
+	cnf.cmdline_buff[j] = '\0';
 
 	CURR_FILE.fflag |= FSTAT_CMD;
 	cnf.gstat |= GSTAT_UPDNONE;
@@ -1377,7 +1396,7 @@ cp_text2cmd (void)
 * this is a low-level function, does not LINE structure, for that
 * call milbuff() instead
 * return error if realloc failed
-* 
+*
 */
 int
 csere (char **buffer, int *bufsize, int from, int length, const char *replacement, int rl)
@@ -1581,7 +1600,9 @@ type_text (const char *str)
 		}
 		begin = last;
 	}
-	PIPE_LOG(LOG_DEBUG, "last_input_length %d", CURR_FILE.last_input_length);
+	if (CURR_FILE.fflag & FSTAT_INTERACT) {
+		PIPE_LOG(LOG_DEBUG, "last_input_length %d", CURR_FILE.last_input_length);
+	}
 
 	if (smartind)
 		cnf.gstat |= GSTAT_SMARTIND;
@@ -2032,12 +2053,11 @@ int
 ed_common (int ch)
 {
 	int ret=4;
-	int mi=0, ti=0, ii=0;
-	int exec=0;
-	char empty[10];
-	char *mptr;
+	int mi=0, ti=0;
+	char args_buff[CMDLINESIZE];
 
-	empty[0] = '\0';
+	/* macros may need this space */
+	memset(args_buff, 0, sizeof(args_buff));
 
 	switch (ch)
 	{
@@ -2056,8 +2076,6 @@ ed_common (int ch)
 
 	default:
 		/* search down fkey in macros[].fkey and table[].fkey
-		* the HASH function "key_value -> index" would not be better because
-		* key_value is set by change_fkey_in_table() at bootup
 		*/
 
 		for (mi=0; mi < MLEN; mi++) {
@@ -2066,32 +2084,7 @@ ed_common (int ch)
 			}
 		}
 		if (mi >= 0 && mi < MLEN) {
-			if ( !(macros[mi].mflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
-				CMD_LOG(LOG_DEBUG, "macro: run mi=%d name=[%s]", mi, macros[mi].name);
-				cnf.gstat |= GSTAT_SILENT;
-				for (ii=0; ii < macros[mi].items; ii++) {
-					ti = macros[mi].maclist[ii].m_index;
-					if (table[ti].tflag & TSTAT_ARGS) {
-						mptr = macros[mi].maclist[ii].m_args;
-						REC_LOG(LOG_DEBUG, "trace macro %d [%s] [%s]", ti, table[ti].fullname, mptr);
-						if (cnf.gstat & GSTAT_RECORD)
-							record(table[ti].fullname, mptr);
-						exec = (table[ti].funcptr)(mptr);
-					} else {
-						REC_LOG(LOG_DEBUG, "trace macro %d [%s]", ti, table[ti].fullname);
-						if (cnf.gstat & GSTAT_RECORD)
-							record(table[ti].fullname, "");
-						exec = ((FUNCP0) table[ti].funcptr)();
-					}
-					if (exec) {
-						CMD_LOG(LOG_WARNING, "macro: last (ti=%d) [%s] returned: %d",
-							ti, table[ti].fullname, exec);
-						break;	/* stop macro */
-					}
-				}/* macros[mi].maclist[] */
-				cnf.gstat &= ~GSTAT_SILENT;
-			}/* change allowed */
-
+			run_macro_command (mi, args_buff);
 			break;	/* switch */
 		}
 
@@ -2100,28 +2093,12 @@ ed_common (int ch)
 				break;
 		}
 		if (ti >= 0 && ti < TLEN) {
-			if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
-				if (table[ti].tflag & TSTAT_ARGS) {
-					REC_LOG(LOG_DEBUG, "key %d [%s] []", ti, table[ti].fullname);
-					if (cnf.gstat & GSTAT_RECORD)
-						record(table[ti].fullname, empty);
-					exec = (table[ti].funcptr)(empty);
-				} else {
-					REC_LOG(LOG_DEBUG, "key %d [%s]", ti, table[ti].fullname);
-					if (cnf.gstat & GSTAT_RECORD)
-						record(table[ti].fullname, "");
-					exec = ((FUNCP0) table[ti].funcptr)();
-				}
-				if (exec) {
-					CMD_LOG(LOG_WARNING, "key: last (ti=%d) [%s] returned: %d",
-						ti, table[ti].fullname, exec);
-				}
-			}/* change allowed */
-
+			run_command (ti, args_buff);
 			break;	/* switch */
 		}
 
-		CMD_LOG(LOG_DEBUG, "search for key [0x%X] in table[] and macros[] failed", ch);
+		/* warning in event_handler */
+
 		ret = 0;
 		break;
 	} /* switch */

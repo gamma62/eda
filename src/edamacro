@@ -21,15 +21,15 @@ KEY_C_Y		delline_alias
 .
 KEY_NONE	symdiff
 #Description: symmetrical difference set operation on word sets, words in two separate line blocks
-	filter_cmd __PROGHOME__/set_op.pl --word --symdiff
+	filter_cmd /usr/local/share/eda/set_op.pl --word --symdiff
 .
 KEY_NONE	union
 #Description: union set operation on word sets, words in two separate line blocks
-	filter_cmd __PROGHOME__/set_op.pl --word --union
+	filter_cmd /usr/local/share/eda/set_op.pl --word --union
 .
 KEY_NONE	inter
 #Description: intersection set operation on word sets, words in two separate line blocks
-	filter_cmd __PROGHOME__/set_op.pl --word --inter
+	filter_cmd /usr/local/share/eda/set_op.pl --word --inter
 .
 KEY_NONE	:w
 #Description: alias for save

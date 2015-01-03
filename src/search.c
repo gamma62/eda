@@ -2,7 +2,7 @@
 * search.c
 * search and replace/change functions, filtering, line tag and word highlight, internal tool for search
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -155,7 +155,7 @@ internal_search (const char *pattern)
 	regmatch_t pmatch;
 	int ri, ri_lineno;
 	LINE *lp=NULL, *lx=NULL, *ri_lp=NULL;
-	char one_line[CMDLINESIZE];
+	char one_line[1024];
 
 	memset (errbuff, 0, ERRBUFF_SIZE);
 	ret = regcomp (&reg, pattern, REGCOMP_OPTION);
@@ -485,7 +485,7 @@ regexp_shorthands (const char *pattern, char *ext_pattern, int length)
 {
 	int i=0, j=0, opt=0;
 
-	for (i=0; pattern[i] != '\0' && j < length-1; i++) {
+	for (i=0; pattern[i] != '\0' && j < length-7; i++) {
 		if (opt) {
 			/* the previous character was backslash */
 			if (pattern[i] == 'd') {
@@ -494,7 +494,7 @@ regexp_shorthands (const char *pattern, char *ext_pattern, int length)
 				ext_pattern[j++] = '-';
 				ext_pattern[j++] = '9';
 				ext_pattern[j++] = ']';
-			} else if (pattern[i] == 'D') {
+			} else if (pattern[i] == 'D') { /* 6 chars, the max */
 				ext_pattern[j++] = '[';		/* [^[:digit:]] */
 				ext_pattern[j++] = '^';
 				ext_pattern[j++] = '0';
@@ -592,8 +592,8 @@ search (const char *expr)
 			reset_search();		/* drop search */
 		} else {
 			/* store the original expr */
-			strncpy (CURR_FILE.search_expr, expr, sizeof(CURR_FILE.search_expr));
-			CURR_FILE.search_expr[sizeof(CURR_FILE.search_expr)-1] = '\0';
+			strncpy (CURR_FILE.search_expr, expr, SEARCHSTR_SIZE);
+			CURR_FILE.search_expr[SEARCHSTR_SIZE-1] = '\0';
 		}
 	}
 
@@ -784,11 +784,11 @@ change (const char *argz)
 			reset_search();		/* drop search */
 		} else {
 			/* store the original expr */
-			strncpy (CURR_FILE.search_expr, expr, sizeof(CURR_FILE.search_expr));
-			CURR_FILE.search_expr[sizeof(CURR_FILE.search_expr)-1] = '\0';
+			strncpy (CURR_FILE.search_expr, expr, SEARCHSTR_SIZE);
+			CURR_FILE.search_expr[SEARCHSTR_SIZE-1] = '\0';
 			/* .replace_expr will be used in accum_replacement() */
-			strncpy (CURR_FILE.replace_expr, repl_expr_new, sizeof(CURR_FILE.replace_expr));
-			CURR_FILE.replace_expr[sizeof(CURR_FILE.replace_expr)-1] = '\0';
+			strncpy (CURR_FILE.replace_expr, repl_expr_new, SEARCHSTR_SIZE);
+			CURR_FILE.replace_expr[SEARCHSTR_SIZE-1] = '\0';
 			/**/
 			/* select text area */
 			CURR_FILE.fflag &= ~FSTAT_CMD;
@@ -904,13 +904,15 @@ repeat_change (int ch)
 	if (ret > 0) {
 		reset_search();
 		if (ret & 4) {
-			tracemsg ("change aborted due to malloc error, %d change done", chp->change_count);
-		} else if (ch == 0xff) {
-			tracemsg ("change: no match");
+			tracemsg ("change aborted due to malloc error");
 		} else {
-			tracemsg ("change count %d", chp->change_count);
+			if (ch == 0xff) {
+				tracemsg ("change: no match");
+			} else {
+				tracemsg ("change count %d", chp->change_count);
+			}
+			REPL_LOG(LOG_DEBUG, "(end) ch 0x%x: line %d change_count %d", ch, chp->lineno, chp->change_count);
 		}
-		REPL_LOG(LOG_DEBUG, "(end) ch 0x%x: line %d change_count %d", ch, chp->lineno, chp->change_count);
 		if (chp != NULL) {
 			FREE(chp->rep_buff);
 			chp->rep_buff = NULL;
@@ -1000,6 +1002,7 @@ accum_replacement (CHDATA *chp)
 	char *srcp;	/* source lx->buff ptr on matching expr */
 	int idx=0;	/* index on chp->rep_buff[] */
 	int nsub=0;	/* sub expression number */
+	int sub_expression_used = 0;
 	int jj=0;
 	int sublen=0;	/* matching subexpr length */
 	unsigned als=0;	/* allocation */
@@ -1016,7 +1019,9 @@ accum_replacement (CHDATA *chp)
 	 * --- thanks for this idea/feature to who made it ---
 	 */
 	for (rp = CURR_FILE.replace_expr; *rp != '\0'; rp++) {
-		nsub = -1;
+		srcp = NULL;
+		sublen = 0;
+		sub_expression_used = 0;
 		if (*rp == '\\') {
 			rp++;	/* extra incr, skip the backslash */
 			if (*rp >= '0' && *rp <= '9') {
@@ -1024,6 +1029,7 @@ accum_replacement (CHDATA *chp)
 				nsub = *rp - '0';
 				srcp = BEG_SRC(nsub);
 				sublen = PMLEN(nsub);
+				sub_expression_used = 1;
 			} else if (*rp == '&' || *rp == '\\') {
 				/* replace with literal */
 				chp->rep_buff[idx++] = *rp;
@@ -1037,14 +1043,14 @@ accum_replacement (CHDATA *chp)
 				}
 			}
 		} else if (*rp == '&') {
-			nsub = 0;
 			srcp = BEG_SRC(nsub);
 			sublen = PMLEN(nsub);
+			sub_expression_used = 1;
 		} else {
 			chp->rep_buff[idx++] = *rp;
 		}
 
-		if (nsub >= 0 && srcp != NULL) {
+		if (sub_expression_used && srcp != NULL && sublen > 0) {
 			/*
 			 * realloc for chp->rep_buff with REP_ASIZE(idx+sublen)
 			 */

@@ -2,7 +2,7 @@
 * cmdlib.c
 * advanced editing commands and later extensions, various parsers, directory list, macros and tools, VCS diff support
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -41,7 +41,7 @@
 extern CONFIG cnf;
 extern const char long_version_string[];
 
-#define ONE_SIZE (2*CMDLINESIZE+80)
+#define ONE_SIZE  1024
 
 typedef struct lsdir_item_tag {
 	int _type[2];		/* lstat type and stat type */
@@ -67,12 +67,13 @@ nop (void)
 }
 
 /*
-** version - show the long version string as a message
+** version - show the version string
 */
 int
 version (void)
 {
 	tracemsg ("%s", long_version_string);
+
 	return (0);
 }
 
@@ -222,7 +223,7 @@ ringlist_parser (const char *dataline)
 		}
 	} else if (bmx != -1) {
 		PD_LOG(LOG_DEBUG, "try bookmark %d", bmx);
-		ret = jump2_bookmark(bmx,1);	/* forced jump */
+		ret = jump2_bookmark(bmx,1);	/* silent mode, jump_without_preview */
 	}
 
 	return (ret);
@@ -259,6 +260,7 @@ dirlist_parser (const char *dataline)
 	}
 	if (strncmp(dataline, "$ lsdir", 7) == 0) {
 		/* header */
+		PD_LOG(LOG_DEBUG, "dataline is the header, nothing todo");
 		return (NULL);
 	}
 
@@ -358,6 +360,7 @@ one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
 				snprintf(item->one_line, ONE_SIZE, "d" MAGICFORMAT " %s/\n",
 					perm, nlink, uid, gid, size, tbuff, item->entry);
 			}
+			item->one_line[ONE_SIZE-1] = '\0';
 		} else if (S_ISREG(test->st_mode)) {
 			item->_type[1] = '-';
 			if (item->_type[0] == 'l') {
@@ -367,9 +370,11 @@ one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
 				snprintf(item->one_line, ONE_SIZE, "-" MAGICFORMAT " %s\n",
 					perm, nlink, uid, gid, size, tbuff, item->entry);
 			}
+			item->one_line[ONE_SIZE-1] = '\0';
 		} else {
 			snprintf(item->one_line, ONE_SIZE, "?" MAGICFORMAT " ???\n",
 				perm, nlink, uid, gid, size, tbuff);
+			item->one_line[ONE_SIZE-1] = '\0';
 			/* char special device or block device or whatever */
 			return 2;
 		}
@@ -388,6 +393,7 @@ one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
 			item->_type[1] = '-';
 			snprintf(item->one_line, ONE_SIZE, "%s\n", item->entry);
 		}
+		item->one_line[ONE_SIZE-1] = '\0';
 	}
 
 	return 0;
@@ -449,7 +455,7 @@ lsdir (const char *dirpath)
 		length = 8;
 		strncpy(one_line, "$ lsdir ", length+1);
 	}
-	snprintf(one_line+length, CMDLINESIZE-length-1, "%s\n", dirpath);
+	snprintf(one_line+length, ONE_SIZE-length-1, "%s\n", dirpath);
 	if ((lp = insert_line_before (CURR_FILE.bottom, one_line)) != NULL) {
 		CURR_FILE.num_lines++;
 	} else {
@@ -462,6 +468,7 @@ lsdir (const char *dirpath)
 		return 1;
 	}
 	strncpy(fullpath, dirpath, FNAMESIZE-1);
+	fullpath[FNAMESIZE-1] = '\0';
 
 	dir = opendir (dirpath);
 	if (dir == NULL) {
@@ -485,8 +492,10 @@ lsdir (const char *dirpath)
 
 		last_item = &items[item_count-1];
 		last_item->_type[0] = last_item->_type[1] = '\0';
-		strncpy(fullpath+length, de->d_name, FNAMESIZE-1);
-		strncpy(last_item->entry, de->d_name, FNAMESIZE-1);
+		strncpy(fullpath+length, de->d_name, FNAMESIZE);
+		fullpath[2*FNAMESIZE-1] = '\0';
+		strncpy(last_item->entry, de->d_name, FNAMESIZE); /* d_name must fit into entry */
+		last_item->entry[FNAMESIZE-1] = '\0';
 
 		if (lstat(fullpath, &test)) {
 			item_count--;
@@ -553,12 +562,15 @@ simple_parser (const char *dataline)
 	char patt1[TAGSTR_SIZE];
 	LINE *lx = NULL;
 	int linenum;
-	int ring_i = cnf.ring_curr;
+	int from_ring, from_lineno;
 
 	len = strlen(dataline);
-	if (len == 0 || len >= (int)sizeof(filename)) {
+	if (len == 0 || len >= FNAMESIZE) {
 		return (1);
 	}
+
+	from_ring = cnf.ring_curr;
+	from_lineno = cnf.fdata[cnf.ring_curr].lineno;
 
 	/* simple match */
 	strncpy(patt0, "^([^:]+):([0-9]+)", 100);
@@ -577,13 +589,13 @@ simple_parser (const char *dataline)
 	split = -1;
 	if (!regexp_match(dataline, patt0, 1, filename)) {
 		split = strlen(filename);
-		linenum = (int) strtol(&dataline[split+1], NULL, 10);
+		linenum = strtol(&dataline[split+1], NULL, 10);
 		if (cnf.bootup) {
 			PD_LOG(LOG_DEBUG, "split=%d --> [%s] :%d", split, filename, linenum);
 		}
 	} else if (!regexp_match(dataline, patt1, 1, filename)) {
 		split = strlen(filename);
-		linenum = (int) strtol(&dataline[split+1], NULL, 10);
+		linenum = strtol(&dataline[split+1], NULL, 10);
 		if (cnf.bootup) {
 			PD_LOG(LOG_DEBUG, "split=%d --> [%s] :%d", split, filename, linenum);
 		}
@@ -603,9 +615,7 @@ simple_parser (const char *dataline)
 				if (lx != NULL) {	/* maybe bottom */
 					if (cnf.bootup) {
 						/* the position in the "parser list" */
-						mhist_push (ring_i, cnf.fdata[ring_i].lineno);
-						/* save original position in target file */
-						mhist_push (cnf.ring_curr, cnf.fdata[cnf.ring_curr].lineno);
+						mhist_push (from_ring, from_lineno);
 					}
 					set_position (cnf.ring_curr, linenum, lx);
 					ret = 0;
@@ -629,7 +639,6 @@ diff_parser (const char *dataline)
 	int tgline = 0, tglen = 0;
 	char patt1[TAGSTR_SIZE];
 	char xmatch[TAGSTR_SIZE];
-	int ring_i = cnf.ring_curr;
 
 	len = strlen(dataline);
 	if (len == 0) {
@@ -669,7 +678,6 @@ diff_parser (const char *dataline)
 	}
 
 	if (ret==0) {
-		mhist_push (ring_i, cnf.fdata[ring_i].lineno);
 		update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
 	}
 	return (ret);
@@ -722,7 +730,7 @@ general_parser (void)
 					PD_LOG(LOG_ERR, "cannot handle filesystem item, name=%s mode=0x%x", fname, test.st_mode);
 				}
 			} else {
-					tracemsg("Cannot stat %s", fname);
+				tracemsg("Cannot stat %s", fname);
 				PD_LOG(LOG_ERR, "cannot stat %s (%s)", fname, strerror(errno));
 			}
 			FREE(fname); fname = NULL;
@@ -763,14 +771,14 @@ is_special (const char *special)
 		if ((stat(special, &test) == 0) && (CURR_FILE.stat.st_ino == test.st_ino)) {
 			/* give an equivalent name to the regular file */
 			slen = strlen(special);
-			if (slen > sizeof(CURR_FILE.fname)-1) {
+			if (slen > FNAMESIZE-1) {
 				tracemsg("filename is very long");
 				return (1);
 			}
 
 			/* change CURR_FILE.fname */
-			strncpy(CURR_FILE.fname, special, sizeof(CURR_FILE.fname));
-			CURR_FILE.fname[sizeof(CURR_FILE.fname)-1] = '\0';
+			strncpy(CURR_FILE.fname, special, FNAMESIZE);
+			CURR_FILE.fname[FNAMESIZE-1] = '\0';
 
 			/* update */
 			CURR_FILE.stat = test;
@@ -900,8 +908,8 @@ is_special (const char *special)
 			CURR_FILE.basename[0] = '\0';
 			CURR_FILE.dirname[0] = '\0';
 
-			strncpy (CURR_FILE.fname, tfname, sizeof(CURR_FILE.fname)-1);
-			CURR_FILE.fname[sizeof(CURR_FILE.fname)-1] = '\0';
+			strncpy (CURR_FILE.fname, tfname, FNAMESIZE);
+			CURR_FILE.fname[FNAMESIZE-1] = '\0';
 
 			memset (&cnf.fdata[ri].stat, 0, sizeof(struct stat));
 			cnf.fdata[ri].ftype = UNKNOWN_FILETYPE;
@@ -1213,8 +1221,8 @@ fsearch_args_macro (const char *fparams)
 		}
 	}
 	if (ix > 0 && fparams[ix] != '\0') {
-		tracemsg("parameter string very large");
-		PD_LOG(LOG_ERR, "parameter string very large, cannot generate search patterns");
+		tracemsg("parameter string very large, cannot create patterns");
+		PD_LOG(LOG_ERR, "parameter string very large, cannot create patterns");
 		return (1);
 	}
 	patterns[iy] = '\0';
@@ -1227,7 +1235,7 @@ fsearch_args_macro (const char *fparams)
 		ix = p - cnf.find_opts + 8;
 		iy = strlen(q);
 	} else {
-		tracemsg("cannot change find_opts setting, type and/or exec tokens missing");
+		tracemsg("cannot change find_opts setting, type and/or exec missing");
 		PD_LOG(LOG_ERR, "find_opts does not contain '-type f' and/or '-exec egrep' patterns");
 		return (1);
 	}
@@ -1245,7 +1253,7 @@ fsearch_args_macro (const char *fparams)
 		cnf.find_opts[ix+1+slen+1] = '\0';
 		strncat(cnf.find_opts+ix+1+slen+1, suffix, iy);
 	} else {
-		tracemsg("replacement very long");
+		tracemsg("replacement for find_opts very long");
 		PD_LOG(LOG_ERR, "replacement for find_opts very long");
 		return (1);
 	}
@@ -1265,7 +1273,8 @@ mouse_support (void)
 	int Xpid;
 
 	if (!cnf.bootup) {
-		Xpid = pidof("X");
+		if ((Xpid = pidof("X")) < 0)
+			Xpid = pidof("Xorg");
 		if ((Xpid > 0) && (cnf.gstat & GSTAT_MOUSE)) {
 			(void) mousemask(BUTTON1_CLICKED, NULL);
 		} else {
@@ -1278,13 +1287,14 @@ mouse_support (void)
 			(void) mousemask(0, NULL);
 			tracemsg ("mouse_support off");
 		} else {
-			Xpid = pidof("X");
+			if ((Xpid = pidof("X")) < 0)
+				Xpid = pidof("Xorg");
 			if (Xpid > 0) {
 				cnf.gstat |= (GSTAT_MOUSE);
 				(void) mousemask(BUTTON1_CLICKED, NULL);
-				tracemsg ("mouse_support on, repositioning by mouse click, selection requires shift key");
+				tracemsg ("mouse_support on, repositioning by mouse click, but selection requires shift key");
 			} else {
-				tracemsg ("mouse_support off, no pointing, selection as usual");
+				tracemsg ("mouse_support off, no pointing, selection works as usual");
 			}
 		}
 	}
@@ -1310,8 +1320,8 @@ locate_find_switch (void)
 }
 
 /*
-** recording_switch - switch macro recording on/off to the macro.log file in ~/.eda/ directory,
-**	each recording session overwrites this log file
+** recording_switch - switch macro recording on/off to the temporary logfile
+**	~/.eda/macro.log, each recording session will overwrite
 */
 int
 recording_switch (void)
@@ -1578,47 +1588,40 @@ ins_filename (void)
 }
 
 /*
-** xterm_title - replace title of x-terminal-emulator with passed parameters or
-**	use a default compilation of filename and path; like when autotitle is ON
+* xterm_title - replace title of x-terminal-emulator with passed parameters or
 */
 int
 xterm_title (const char *xtitle)
 {
-	char xtbuf[FNAMESIZE+10];
-	unsigned blen=0, wlen=0;
+	char xtbuf[100+10]; /* magic number! 100 */
+	int blen=0, wlen=0, slen=0;
 
+	/* internal function only with GSTAT_AUTOTITLE */
 	if (getenv("DISPLAY") == NULL) {
-		return (1);
+		cnf.gstat &= ~GSTAT_AUTOTITLE;
+		return (0);
 	}
 
-	memset(xtbuf, 0, sizeof(xtbuf));
+	if (xtitle[0] == '\0') {
+		return (0);
+	}
+
 	xtbuf[0] = 033;
 	xtbuf[1] = ']';
 	xtbuf[2] = '0';
 	xtbuf[3] = ';';
 	blen = 4;
 
-	if (xtitle[0] != '\0') {
-		strncpy (xtbuf+blen, xtitle, FNAMESIZE);
+	/* output string max 100... this limitation is ugly, but safe */
 
-	} else if (CURR_FILE.fflag & FSTAT_SPECW) {
-		snprintf(xtbuf+blen, FNAMESIZE, "eda");
-
-	} else if (CURR_FILE.dirname[0] == '\0') {
-		/* easy */
-		snprintf(xtbuf+blen, FNAMESIZE, "%s - eda", CURR_FILE.fname);
-
+	slen = strlen(xtitle);
+	if (slen < 100) {
+		strncpy (xtbuf+blen, xtitle, 100);
 	} else {
-		/* short.fn (short.dir) - eda */
-		if (strncmp(CURR_FILE.dirname, cnf._home, cnf.l1_home) == 0) {
-			/* path from HOME */
-			snprintf(xtbuf+blen, FNAMESIZE, "%s (~%s) - eda", 
-				CURR_FILE.basename, &CURR_FILE.dirname[cnf.l1_home]);
-		} else {
-			/* cannot abbrev */
-			snprintf(xtbuf+blen, FNAMESIZE, "%s (%s) - eda", 
-				CURR_FILE.basename, &CURR_FILE.dirname[0]);
-		}
+		xtbuf[blen++] = '.';
+		xtbuf[blen++] = '.';
+		xtbuf[blen++] = '.';
+		strncpy (xtbuf+blen, &xtitle[slen-97], 97);
 	}
 
 	blen = strlen(xtbuf);
@@ -1626,7 +1629,7 @@ xterm_title (const char *xtitle)
 	xtbuf[blen] = '\0';
 
 	if (fcntl(1, F_SETFL, O_NONBLOCK) == -1) {
-		PD_LOG(LOG_ERR, "fcntl failed: %s", strerror(errno));
+		PD_LOG(LOG_ERR, "fcntl F_SETFL failed: %s", strerror(errno));
 		return (-1);
 	}
 	wlen = write(1, (void *)xtbuf, blen);
@@ -1635,6 +1638,22 @@ xterm_title (const char *xtitle)
 	}
 
 	return (wlen != blen);
+}
+
+/*
+** rotate_palette - change color palette setting in cycle
+*/
+int
+rotate_palette (void)
+{
+	if (cnf.palette < PALETTE_MAX)
+		cnf.palette++;
+	else
+		cnf.palette = 0;
+
+	init_colors (cnf.palette);
+
+	return (0);
 }
 
 /*
@@ -1659,8 +1678,10 @@ bm_set (const char *args)
 		}
 	} else {
 		bm_i = atoi(&args[0]);
-		if (bm_i > 0 && bm_i < 10)
+		if (bm_i > 0 && bm_i < 10) {
+			/* messages in the setter */
 			set_bookmark (bm_i);
+		}
 	}
 
 	return (0);
@@ -1679,7 +1700,7 @@ bm_clear (const char *args)
 		return (0);
 
 	if (args[0] == '*') {
-		clear_all_bookmarks(-1);	/* clear fully all */
+		clear_bookmarks(-1);		/* all open files, all bookmarks */
 	} else {
 		bm_i = atoi(&args[0]);
 		if (bm_i > 0 && bm_i < 10)
@@ -1862,7 +1883,8 @@ set_diff_section (int *diff_type, int *ring_tg)
 	/* open target file of diff (or switch to)
 	*/
 	if (try_add_file(xmatch)) {
-		tracemsg("cannot open target file");
+		tracemsg("cannot load target file");
+		PD_LOG(LOG_DEBUG, "cannot load target file [%s], given up", xmatch);
 		return (4);
 	}
 	if (ris_ < cnf.ring_size) {
@@ -1955,7 +1977,8 @@ select_diff_section (int *diff_type, int *ring_tg)
 	/* open target file of diff (or switch to)
 	*/
 	if (try_add_file(xmatch)) {
-		tracemsg("cannot open target file");
+		tracemsg("cannot load target file");
+		PD_LOG(LOG_DEBUG, "cannot load target file [%s], given up", xmatch);
 		return (4);
 	}
 	if (ris_ < cnf.ring_size) {
@@ -2047,8 +2070,14 @@ process_diff (void)
 	char xmatch[TAGSTR_SIZE];
 	int iy, ix;
 
+	/* @@ -RANGE0 +RANGE1 @@ */
+	patt1 = "^@@ \\-[0-9,]+ \\+([0-9,]+) @@";
+
 	ret = set_diff_section (&diff_type, &ring_tg);
 	if (ret) {
+		PD_LOG(LOG_DEBUG, "inclomplete processing, given up");
+		if (ret == 4)
+			filter_more(patt1);
 		return (ret);
 	}
 	lx_ = CURR_LINE;
@@ -2059,8 +2088,6 @@ process_diff (void)
 	if (diff_type == 1) {	/* unified diff */
 		/* range: (number) | (begin,length) */
 
-		/* @@ -RANGE0 +RANGE1 @@ */
-		patt1 = "^@@ \\-[0-9,]+ \\+([0-9,]+) @@";
 		if (regcomp (&reg1, patt1, REGCOMP_OPTION)) {
 			return (1); /* internal regcomp failed */
 		}

@@ -2,7 +2,7 @@
 * keys.c
 * keypress raw processing engine, uses external config data
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -47,7 +47,7 @@ extern const int RES_KLEN;
 MEVENT pointer;
 
 /* local proto */
-static int process_esc_seq (char *str, NODE *tree);
+static int process_esc_seq (const char *str, NODE *tree);
 static int test_key_handler (NODE *seq_tree);
 
 /*
@@ -233,20 +233,19 @@ process_seqfile (int noconfig)
  * return: 0 if everything is ok
  */
 static int
-process_esc_seq (char *str, NODE *tree)
+process_esc_seq (const char *str, NODE *tree)
 {
-	char *p, *q;
+	const char *p;
+	char *q;
 	char key_name[30];
 	int key_val=0;
 	int leaves[20];
-	int lcount=0;
 	NODE *node, *ptr;
 	NODE **ptr2;
-	int i, j, ki;
+	unsigned lcount=0, i=0;
+	int j=0, ki=0;
 
-	/* get the pointers */
 	p = str;
-	node = tree;
 
 	/* drop comment line */
 	if (*p == '#' || *p == '\n' || *p == '\0') {
@@ -254,7 +253,7 @@ process_esc_seq (char *str, NODE *tree)
 	}
 
 	/* copy the first WORD to key_name[], pattern: [A-Z0-9_]+ */
-	for (i=0; i < 30; i++) {
+	for (i=0; i < sizeof(key_name); i++) {
 		if ((*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || (*p == '_')) {
 			key_name[i] = *p;
 		} else {
@@ -262,18 +261,15 @@ process_esc_seq (char *str, NODE *tree)
 		}
 		p++;
 	}
-	/* check: not longer then 30 chars.. */
-	if (i < 30) {
+	if (i < sizeof(key_name)) {
 		key_name[i] = '\0';
 	} else {
-		key_name[sizeof(key_name)-1] = '\0';
-		fprintf(stderr, "eda: process_esc_seq: key name %s... is longer then 30\n", key_name);
+		fprintf(stderr, "eda: process_esc_seq: key name should have less than %d characters [%s]\n", i, str);
 		return (-1);
 	}
 
 	/* validate key_name against valid names in keys[] to get key_val */
 	ki = index_key_string (key_name);
-	/* check: should be found.. */
 	if (ki >= KLEN) {
 		fprintf(stderr, "eda: process_esc_seq: key %s is unknown\n", key_name);
 		return (-2);
@@ -283,33 +279,30 @@ process_esc_seq (char *str, NODE *tree)
 	}
 	key_val = keys[ki].key_value;
 
-	/* the rest is the escape sequence */
-	/* fill hex chars into leaves[] and get lcount */
-	for (lcount=0;  lcount < 20 && *p != '\0'; lcount++) {
-		leaves[lcount] = (int)strtol(p, &q, 16);
+	/* the rest is the escape sequence, convert hex chars to numbers and add to leaves[] */
+	for (lcount=0;  lcount < (sizeof(leaves)/sizeof(int)) && *p != '\0'; lcount++) {
+		leaves[lcount] = strtol(p, &q, 16);
 		if (p == q) {
-			fprintf(stderr, "eda: process_esc_seq: seq has not-a-number value: [%s]\n", p);
+			fprintf(stderr, "eda: process_esc_seq: sequence should have only hexadecimal number values: [%s]\n", str);
 			return (-4);
 		}
 		p = q;	/* skip to next */
 	}
-	/* check: first leaf must be KEY_ESC.. */
 	if (leaves[0] != KEY_ESC) {
-		fprintf(stderr, "eda: process_esc_seq: first leaf must be 0x%x\n", KEY_ESC);
+		fprintf(stderr, "eda: process_esc_seq: first leaf must be %x\n", KEY_ESC);
 		return (-5);
 	}
-	/* check: lcount<20.. */
-	if (lcount >= 20) {
-		fprintf(stderr, "eda: process_esc_seq: lcount<20 failed (%d)\n", lcount);
+	if (lcount >= (sizeof(leaves)/sizeof(int))) {
+		fprintf(stderr, "eda: process_esc_seq: key should have less than %d values [%s]\n", lcount, str);
 		return (-6);
 	}
 
 	/*
-	* printf("%s is 0x%04x: sequence of %d items: ", key_name, key_val, lcount);
+	* fprintf(stderr, "%s is 0x%04x: sequence of %d items: ", key_name, key_val, lcount);
 	* for (i=0;  i < lcount; i++) {
-	* 	printf("%02x ", leaves[i]);
+	*	fprintf(stderr, "%02x ", leaves[i]);
 	* }
-	* printf("\n");
+	* fprintf(stderr, "\n");
 	*/
 
 	/* merge leaves[] to tree, node is the running pointer */
@@ -327,8 +320,8 @@ process_esc_seq (char *str, NODE *tree)
 		/* create 'branch' if necessary */
 		if (j == node->bcount) {
 
-			/* allocate space for bigger pointer array */
-			ptr2 = (NODE **) REALLOC(node->branch, sizeof(NODE **) * (node->bcount+1));
+			/* allocate space for bigger pointer array -- sizeof(NODE *) should be portable */
+			ptr2 = (NODE **) REALLOC(node->branch, sizeof(NODE *) * (node->bcount+1));
 			if (ptr2 == NULL) {
 				return (-7);
 			}

@@ -2,7 +2,7 @@
 * ring.c 
 * ring-list, bookmark handling, motion history functions
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -61,6 +61,9 @@ list_buffers (void)
 	/* cnf.ring_curr is set now -- CURR_FILE and CURR_LINE alive */
 	CURR_FILE.num_lines = 0;
 	CURR_FILE.fflag |= (FSTAT_SPECW);
+	if (origin != cnf.ring_curr) {
+		CURR_FILE.origin = origin;
+	}
 
 	/* fill with data from ring
 	 */
@@ -74,8 +77,8 @@ list_buffers (void)
 			/* base data
 			*/
 			if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-				snprintf(one_line, sizeof(one_line)-1, "r=%d %s %s%s%s #lines %d\n",
-					ri, cnf.fdata[ri].fname,
+				snprintf(one_line, sizeof(one_line)-1, "r=%d %s (origin:%d) %s%s%s #lines %d\n",
+					ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin,
 					(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
 					(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
 					(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "interactive " : "",
@@ -130,9 +133,6 @@ list_buffers (void)
 		CURR_FILE.num_lines = lno_read;
 		CURR_LINE = CURR_FILE.top->next;
 		CURR_FILE.lineno = 1;
-		if (origin != cnf.ring_curr) {
-			CURR_FILE.origin = origin;
-		}
 		update_focus(FOCUS_SET_INIT, cnf.ring_curr, 1, NULL);
 		go_home();
 		CURR_FILE.fflag &= ~FSTAT_CHANGE;
@@ -181,15 +181,16 @@ set_bookmark (int bm_i)
 			blen = strlen(bn);
 			csere(&sample, &slen, 0, slen, bn, blen);
 			csere(&sample, &slen, slen, 0, ": ", 2);
-			FREE(bn); bn = NULL;
 		}
+		FREE(bn); bn = NULL;
 		csere(&sample, &slen, slen, 0, CURR_LINE->buff, CURR_LINE->llen);
 		if (sample) {
 			if (slen>0 && sample[slen-1]=='\n') {
 				sample[--slen] = '\0';	/* remove trailing newline */
 			}
-			strip_blanks (0x7, sample, &slen);	/* strip and squeeze (tracemsg doesn't like tabs) */
-			strncpy(cnf.bookmark[bm_i].sample, sample, sizeof(cnf.bookmark[bm_i].sample)-1);
+			/* tracemsg doesn't handle TABs */
+			strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN|STRIP_BLANKS_SQUEEZE, sample, &slen);
+			strncpy(cnf.bookmark[bm_i].sample, sample, sizeof(cnf.bookmark[bm_i].sample));
 			cnf.bookmark[bm_i].sample[sizeof(cnf.bookmark[bm_i].sample)-1] = '\0';
 			FREE(sample); sample = NULL;
 		}
@@ -250,81 +251,96 @@ clr_opt_bookmark (void)
 	return;
 }
 
-/* internal function for jump to bookmark, interactive mode if !force
+/* internal function for jump to bookmark
 */
 int
-jump2_bookmark (int bm_i, int force)
+jump2_bookmark (int bm_i, int jump_without_preview)
 {
 	static int bm_flag = -1;
 	int ri=0;
 	int bm_bits=0, lineno=0;
 	LINE *lx = NULL;
 	int ret=1;
+	int show_preview = !jump_without_preview;
 
-	if (bm_i > 0 && bm_i < 10) {
-		ri = cnf.bookmark[bm_i].ring;
-		if (ri < 0 || ri >= RINGSIZE) {
-			if (!force) tracemsg("bookmark %d not set", bm_i);
-		} else if (cnf.fdata[ri].fflag & FSTAT_OPEN) {
-			bm_bits = (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
-			if (!force && bm_flag != bm_i) {
-				/* highlight first the sample text -- interactive mode
-				*/
-				tracemsg("bookmark %d: %s", bm_i, cnf.bookmark[bm_i].sample);
-				bm_flag = bm_i;
+	if (bm_i < 0 || bm_i >= 10) {
+		bm_flag = -1;
+		return (ret);
+	}
+
+	ri = cnf.bookmark[bm_i].ring;
+	if (ri < 0 || ri >= RINGSIZE) {
+		if (show_preview)
+			tracemsg("bookmark %d not set", bm_i);
+		bm_flag = -1;
+		return (ret);
+	}
+
+	if (!(cnf.fdata[ri].fflag & FSTAT_OPEN)) {
+		HIST_LOG(LOG_INFO, "bookmark %d, buffer already closed -- clearing", bm_i);
+		cnf.bookmark[bm_i].ring = -1;
+		cnf.bookmark[bm_i].sample[0] = '\0';
+		bm_flag = -1;
+		return (ret);
+	}
+
+	bm_bits = (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
+	if (show_preview && bm_flag != bm_i) {
+		/* highlight first the sample text -- interactive mode
+		*/
+		tracemsg("bookmark %d: %s", bm_i, cnf.bookmark[bm_i].sample);
+		bm_flag = bm_i;
+		ret = 0;
+	} else {
+		/* go to the reference (if not yet there)
+		*/
+		bm_flag = bm_i; /* jump_without_preview, force setting */
+		ret = 0;
+		if ((CURR_LINE->lflag & LSTAT_BM_BITS) != bm_bits) {
+			/* need to run down the list
+			*/
+			lx = cnf.fdata[ri].top->next;
+			lineno = 1;
+			while (TEXT_LINE(lx)) {
+				if ((lx->lflag & LSTAT_BM_BITS) == bm_bits)
+					break;
+				lx = lx->next;
+				lineno++;
+			}
+			if (TEXT_LINE(lx)) {
+				HIST_LOG(LOG_INFO, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
+				set_position (ri, lineno, lx);
 				ret = 0;
 			} else {
-				/* go to the reference (if not yet there)
-				*/
-				if ((CURR_LINE->lflag & LSTAT_BM_BITS) != bm_bits) {
-					lx = cnf.fdata[ri].top->next;
-					lineno = 1;
-					while (TEXT_LINE(lx)) {
-						if ((lx->lflag & LSTAT_BM_BITS) == bm_bits)
-							break;
-						lx = lx->next;
-						lineno++;
-					}
-					if (TEXT_LINE(lx)) {
-						HIST_LOG(LOG_INFO, "bookmark %d, reached, ring %d lineno %d",
-							bm_i, ri, lineno);
-						set_position (ri, lineno, lx);
-						ret = 0;
-					} else {
-						HIST_LOG(LOG_INFO, "bookmark %d, not found -- clearing", bm_i);
-						cnf.bookmark[bm_i].ring = -1;
-						cnf.bookmark[bm_i].sample[0] = '\0';
-					}
-				} else {
-					/* do not run if not necessary
-					 */
-					ret = 0;
-				}
-			}/* bm_flag */
-		}/* ri and OPEN */
-	}/* bm_i */
+				tracemsg("bookmark %d: line removed");
+				HIST_LOG(LOG_INFO, "bookmark %d, not found -- clearing", bm_i);
+				cnf.bookmark[bm_i].ring = -1;
+				cnf.bookmark[bm_i].sample[0] = '\0';
+				ret = 1;
+				bm_flag = -1;
+			}
+		}
+	}
 
-	if (ret)
-		bm_flag = -1;
 	return (ret);
 }
 
 /*
 * internal function for clear bookmarks and references;
-* if ring_i is (-1) then from _all_ files, otherwise only from the one
+* if ring_i is (-1) then from _all_ open files, otherwise only from the one
 */
 void
-clear_all_bookmarks (int ring_i)
+clear_bookmarks (int ring_i)
 {
 	int ri, bm_i;
 	LINE *lx = NULL;
 
-	/* clear all ref's from OPEN files
+	/* clear all referencies
 	*/
 	for (ri=0; ri < RINGSIZE; ri++) {
 		if (ring_i == -1 || ring_i == ri) {
 			/*
-			 * remove all reference(s) from file "cnf.fdata[ri]"
+			 * remove all reference(s) if file is open
 			 */
 			if (cnf.fdata[ri].fflag & FSTAT_OPEN) {
 				lx = cnf.fdata[ri].top->next;
@@ -349,7 +365,8 @@ clear_all_bookmarks (int ring_i)
 	return;
 }
 
-/* push current position to motion history chain
+/*
+* push current position to motion history chain
 */
 int
 mhist_push (int ring_i, int lineno)
@@ -360,17 +377,19 @@ mhist_push (int ring_i, int lineno)
 		return (1);
 	}
 
-	if (cnf.mhist_curr == NULL) {
+	if (cnf.mhistory == NULL) {
 		mhp->prev = NULL;
 	} else {
-		mhp->prev = cnf.mhist_curr;
+		mhp->prev = cnf.mhistory;
 	}
 	mhp->ring = ring_i;
 	mhp->lineno = lineno;
 
+	HIST_LOG(LOG_NOTICE, "success, ri %d lineno %d (new top %p pushdown %p)",
+		mhp->ring, mhp->lineno, mhp, cnf.mhistory);
+
 	/* current is the last node, the first to go back */
-	cnf.mhist_curr = mhp;
-	HIST_LOG(LOG_INFO, "mhist push: ri %d lineno %d", mhp->ring, mhp->lineno);
+	cnf.mhistory = mhp;
 
 	return (0);
 }
@@ -385,19 +404,25 @@ mhist_pop (void)
 	LINE *lp = NULL;
 	int ready = 0;
 
-	while (cnf.mhist_curr != NULL && ready==0) {
-		mhp = cnf.mhist_curr;
+	if (cnf.mhistory == NULL)
+		return (0);
+
+	while (cnf.mhistory != NULL && ready == 0) {
+		mhp = cnf.mhistory;
+
 		if ((mhp->ring >= 0) && (mhp->ring < RINGSIZE) &&
 		    (cnf.fdata[mhp->ring].fflag & FSTAT_OPEN))
 		{
 			lp = lll_goto_lineno (mhp->ring, mhp->lineno);
 			if (lp != NULL) {
-				HIST_LOG(LOG_INFO, "mhist pop: success, ri %d lineno %d", mhp->ring, mhp->lineno);
+				HIST_LOG(LOG_NOTICE, "success, ri:%d lineno:%d (unlink %p popup %p)",
+					mhp->ring, mhp->lineno, mhp, mhp->prev);
 				set_position (mhp->ring, mhp->lineno, lp);
 				ready = 1;
 			}
 		}
-		cnf.mhist_curr = mhp->prev;
+
+		cnf.mhistory = mhp->prev; /* finally, cnf.mhistory may become NULL */
 		FREE(mhp);
 		mhp = NULL;
 	}
@@ -409,18 +434,45 @@ mhist_pop (void)
 	return (0);
 }
 
-/* clear motion history
+/*
+* clear motion history
 */
 void
-mhist_clear (void)
+mhist_clear (int ring_i)
 {
+	MHIST *mhx = NULL;
 	MHIST *mhp = NULL;
 
-	while (cnf.mhist_curr != NULL) {
-		mhp = cnf.mhist_curr;
-		cnf.mhist_curr = mhp->prev;
-		FREE(mhp);
-		mhp = NULL;
+	while (cnf.mhistory != NULL) {
+		mhx = cnf.mhistory;
+		if (ring_i == -1 || mhx->ring == ring_i) {
+			HIST_LOG(LOG_NOTICE, "top %p is not ok, unlink -- new top %p", mhx, mhx->prev);
+			cnf.mhistory = mhx->prev;
+			FREE(mhx);
+			mhx = NULL;
+		} else {
+			HIST_LOG(LOG_NOTICE, "top %p is ok, break", mhx);
+			break;
+		}
+	}
+
+	/* finished if (ring_i == -1) */
+	if (cnf.mhistory == NULL) {
+		return;
+	}
+
+	mhp = cnf.mhistory;
+	while (mhp->prev != NULL) {
+		mhx = mhp->prev;
+		if (mhx->ring == ring_i) {
+			HIST_LOG(LOG_NOTICE, "%p -- prev %p is not ok, unlink", mhp, mhx);
+			mhp->prev = mhx->prev;
+			FREE(mhx);
+			mhx = NULL;
+		} else {
+			HIST_LOG(LOG_NOTICE, "%p -- prev %p is ok, skip", mhp, mhx);
+			mhp = mhx;
+		}
 	}
 
 	return;

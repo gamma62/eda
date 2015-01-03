@@ -2,7 +2,7 @@
 * tags.c 
 * support functions to use "tags" file from ctags, parse tags file, use saved information to jump to definition
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -52,7 +52,7 @@ static const char *tag_pattern_safe (const char *pattern);
 
 /*
 * add element after tp
-* return with the pointer (or NULL)
+* return with the new pointer next after tp, or NULL
 */
 static TAG *
 tag_add (TAG *tp)
@@ -154,7 +154,7 @@ get_tags_path_back (void)
 		if (cnf.tags_file[0] == '.' && cnf.tags_file[1] == '/') {
 			i = 2;
 		}
-		while (cnf.tags_file[i] != '\0' && k < (int)sizeof(cnf.tag_j2path)) {
+		while (cnf.tags_file[i] != '\0' && k < (int)sizeof(cnf.tag_j2path)-1) {
 			cnf.tag_j2path[k] = cnf.tags_file[i];
 			if (cnf.tags_file[i] == '/') {
 				j = k;
@@ -182,7 +182,7 @@ int
 tag_load_file (void)
 {
 	FILE *fp;
-	TAG *tp, *tp0;
+	TAG *tp = NULL;
 	char *buff = NULL;
 	char *pp=NULL;
 	unsigned tlen, i, x, j;		/* i:pos x:length j:pos */
@@ -191,23 +191,21 @@ tag_load_file (void)
 	unsigned als=0;
 
 	if (cnf.taglist != NULL) {
-		TAGS_LOG(LOG_DEBUG, "clean taglist: %p", cnf.taglist);
 		tag_rm_all();
 	}
-	tp = tp0 = NULL;
 
 	glob_name(cnf.tags_file, sizeof(cnf.tags_file));
 	if ((fp = fopen(cnf.tags_file,"r")) == NULL) {
-		tracemsg("can't open tags file [%s]", cnf.tags_file);
+		tracemsg("cannot open tags file [%s]", cnf.tags_file);
 		return (0);
 	}
 	get_tags_path_back();	/* experimental */
 
 	buff = MALLOC(TAGLINE_SIZE);
 	if (buff == NULL) {
-		fclose(fp);
-		TAGS_LOG(LOG_ERR, "not enough memory for tag_load_file");
-		return (1);
+		TAGS_LOG(LOG_ERR, "cannot allocate memory for reading tags file");
+		err2 = 1;
+		ret = 1;
 	}
 
 	while (ret==0 && err2==0)
@@ -226,16 +224,16 @@ tag_load_file (void)
 			continue;
 		}
 
-		tp0 = tp;
-		if ((tp = tag_add(tp0)) == NULL) {
-			if (tp0 != NULL) {
-				/* don't corrupt the chain! */
-				tp0->next = NULL;
-			}
+		/* get new pointer next after tp, or NULL */
+		tp = tag_add(tp);
+		if (tp == NULL) {
 			TAGS_LOG(LOG_ERR, "failed (malloc)");
 			ret=3;
+			err2++;
 			break;
 		}
+
+		/* save header once, later the tp pointers update the tail, where tp->next==NULL */
 		if (cnf.taglist == NULL) {
 			cnf.taglist = tp;
 		}
@@ -353,12 +351,11 @@ tag_load_file (void)
 	cnf.trace=0;	/* drop previous msgs */
 	if (ret || err2) {
 		tracemsg ("tags load failed at %d", comments+chunk);
-		TAGS_LOG(LOG_ERR, "chunk=%d ret=%d, format=%d malloc=%d tagtype=%d",
+		TAGS_LOG(LOG_ERR, "chunks=%d ret=%d, (errors: format=%d malloc=%d tagtype=%d)",
 			chunk+comments, ret, err1, err2, err3);
 	} else {
 		tracemsg ("%d symbols loaded: OK", chunk);
-		TAGS_LOG(LOG_DEBUG, "chunk=%d ret=%d, format=%d malloc=%d tagtype=%d",
-			chunk+comments, ret, err1, err2, err3);
+		TAGS_LOG(LOG_INFO, "chunks=%d comments=%d", chunk, comments);
 	}
 
 	FREE(buff);
@@ -438,6 +435,7 @@ tag_do (const char *arg_symbol, int flag)
 
 	if (cnf.taglist == NULL) {
 		tracemsg ("tags file [%s] not loaded", cnf.tags_file);
+		TAGS_LOG(LOG_WARNING, "tags file [%s] not loaded", cnf.tags_file);
 	} else {
 		if (arg_symbol[0] == '\0') {
 			get_symbol = select_word(CURR_LINE, CURR_FILE.lncol);
@@ -498,12 +496,18 @@ tag_items (const char *symbol, TAGTYPE type, int flag)
 	const char *jump_fname = "ah";
 	const char *jump_pattern = "oh";
 	int jump_lineno = 0;
-	static int saved_count = -1;
+	static int saved_count = -100;
 	static char saved_symbol[TAGSTR_SIZE] = "";
+
+	if (saved_count == -100) {
+		/* runtime init */
+		memset(saved_symbol, 0, sizeof(saved_symbol));
+		saved_count = -1;
+	}
 
 	if (flag & JUMP_TO) {
 		if ((saved_count == -1) || (strncmp(saved_symbol, symbol, sizeof(saved_symbol)-1) != 0)) {
-			saved_symbol[0] = '\0';
+			memset(saved_symbol, 0, sizeof(saved_symbol));
 			strncat(saved_symbol, symbol, sizeof(saved_symbol)-1);
 			saved_count = 0;
 		}
@@ -541,13 +545,12 @@ tag_items (const char *symbol, TAGTYPE type, int flag)
 				if (tp->type == TAG_DEFINE) {
 					if (show_define(tp->fname, tp->lineno)) {
 						/* failed */
-						tracemsg ("%s %s %d", tp->symbol, tp->fname, tp->lineno);
+						tracemsg ("?not found: [%s] %s :%d", tp->symbol, tp->fname, tp->lineno);
 					}
 					count++;
-				} else if (tp->type != TAG_UNDEF) {
-					tracemsg ("(type:%c) %s %s %s", tp->type, tp->symbol, tp->fname, tp->pattern);
-					count++;
 				} else {
+					if (tp->type != TAG_UNDEF)
+						count++;
 					tracemsg ("(type:%c) %s %s %s", tp->type, tp->symbol, tp->fname, tp->pattern);
 				}
 			}
@@ -583,14 +586,15 @@ static int
 tag_jump2_pattern (const char *fname, const char *pattern, int lineno)
 {
 	int ret=1;
-	int ring_i;
+	int from_ring, from_lineno;
 	LINE *lx = NULL;
 	const char *expr;
 	int lineno2;
 	const char *fnp=NULL;
 	int rest = 0;
 
-	ring_i = cnf.ring_curr;
+	from_ring = cnf.ring_curr;
+	from_lineno = cnf.fdata[cnf.ring_curr].lineno;
 
 	if (fname[0] == '/') {
 		fnp = fname;
@@ -633,11 +637,11 @@ tag_jump2_pattern (const char *fname, const char *pattern, int lineno)
 
 	if (ret == 0 && lx != NULL) {
 		if (cnf.bootup) {
-			mhist_push (ring_i, cnf.fdata[ring_i].lineno);
+			mhist_push (from_ring, from_lineno);
 		}
 		set_position (cnf.ring_curr, lineno, lx);
 	} else {
-		cnf.ring_curr = ring_i;
+		cnf.ring_curr = from_ring;
 	}
 
 	return (ret);
@@ -658,7 +662,7 @@ tag_pattern_safe (const char *pattern)
 		option |= 0x1;
 		i++;
 	}
-	for (; pattern[i] != '\0' && j<TAGSTR_SIZE; i++) {
+	for (; pattern[i] != '\0' && j<TAGSTR_SIZE-2; i++) {
 		if (pattern[i] == ';' && pattern[i+1] == '"')
 			break;
 		if (pattern[i] == '*' || pattern[i] == '[' || pattern[i] == ']') {

@@ -1,6 +1,6 @@
 /* function prototypes
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -103,7 +103,8 @@ extern int ins_varname (void);				/* public */
 extern int ins_bname (void);				/* public */
 extern int view_bname (void);				/* public */
 extern int ins_filename (void);				/* public */
-extern int xterm_title (const char *xtitle);		/* public */
+extern int xterm_title (const char *xtitle);
+extern int rotate_palette (void);			/* public */
 extern int bm_set (const char *args);			/* public */
 extern int bm_clear (const char *args);			/* public */
 extern int bm_jump1 (void);				/* public, macro */
@@ -119,6 +120,7 @@ extern int process_diff (void);				/* public */
 
 /* disp.c */
 extern void upd_statusline (void);
+extern void upd_termtitle (void);
 extern void upd_cmdline (void);
 extern void upd_text_area (int focus_line_only);
 extern int get_pos (LINE *lp, int lncol);
@@ -129,11 +131,13 @@ extern int last_screen_row (void);
 extern void update_curpos (int ri);
 extern void update_focus (MOTION_TYPE motion_type, int ri, int value, int *data_ptr);
 extern void upd_trace (void);
-extern void init_colors (void);
+extern void init_colors (int palette);
 
 /* ed.c */
 extern void editor (void);
 extern void app_resize (void);
+extern int run_macro_command (int mi, char *cmdline_buffer);
+extern int run_command (int ti, const char *cmdline_buffer);
 extern int force_redraw (void);				/* public */
 extern int index_func_fullname (const char *fullname);
 extern int index_key_string (const char *key_string);
@@ -161,6 +165,7 @@ extern LINE *append_line (LINE *lp, const char *extbuff);
 extern LINE *insert_line_before (LINE *lp, const char *extbuff);
 extern int check_files (void);
 extern int restat_file (int ring_i);
+extern TEST_ACCESS_TYPE testaccess (struct stat *test);
 extern int read_lines (FILE *fp, LINE **linep, int *lineno);
 extern int read_file (const char *fname, const struct stat *test);
 extern int query_scratch_fname (const char *fname);
@@ -250,11 +255,12 @@ extern int list_buffers (void);				/* public */
 extern void set_bookmark (int bm_i);
 extern void clr_bookmark (int bm_i);
 extern void clr_opt_bookmark (void);
-extern int jump2_bookmark (int bm_i, int force);
-extern void clear_all_bookmarks (int ring_i);
+extern int jump2_bookmark (int bm_i, int jump_without_preview);
+extern void show_bookmarks (void);
+extern void clear_bookmarks (int ring_i);
 extern int mhist_push (int ring_i, int lineno);
 extern int mhist_pop (void);				/* public */
-extern void mhist_clear (void);
+extern void mhist_clear (int ring_i);
 
 /* search.c */
 extern int filter_regex (int action, int fmask, const char *expr);
@@ -309,14 +315,23 @@ extern int tag_jump_back (void);
 
 /* util.c */
 extern char *get_last_word (const char *dataline, int len);
+
 extern int get_rest_of_line (char **, int *, const char *, int, int);
 extern int get_fname (char *path, unsigned maxsize, char **choices);
 extern int glob_name (char *fname, unsigned maxsize);
-extern int strip_blanks (int op, char *str, int *length);
+#define STRIP_BLANKS_FROM_END    0x01
+#define STRIP_BLANKS_FROM_BEGIN  0x02
+#define STRIP_BLANKS_SQUEEZE     0x04
+extern int strip_blanks (int operation, char *str, int *length);
 extern int count_prefix_blanks (const char *buff, int llen);
 extern int yesno (const char *str);
 extern int fname_ext (const char *cfname);
-extern int slash_index (const char *name, int size, int from, int reverse, int get_first);
+#define SLASH_INDEX_REVERSE   1
+#define SLASH_INDEX_FWD       0
+#define SLASH_INDEX_GET_FIRST 1
+#define SLASH_INDEX_GET_LAST  0
+extern int slash_index (const char *string, int strsize, int from, int direction, int first_last);
+extern int parse_token (const char *inputstr, const char *delim, int *index_rest);
 extern void mybasename (char *outpath, const char *inpath, int outbuffsize);
 extern void mydirname (char *outpath, const char *inpath, int outbuffsize);
 extern char *canonicalpath (const char *path);

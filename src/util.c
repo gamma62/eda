@@ -2,7 +2,7 @@
 * util.c
 * various general tools, globbing, file/dir name manipulation
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -25,10 +25,10 @@
 
 #include <config.h>
 #include <string.h>
+#include <syslog.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <sys/types.h>		/* getpid */
 #include <unistd.h>
 #include <glob.h>		/* glob, globfree */
 #include <fcntl.h>
@@ -131,19 +131,19 @@ get_fname (char *path, unsigned maxsize, char **choices)
 {
 	char prop[CMDLINESIZE];
 	glob_t globbuf;
-	int r=0, i=0, j=0, len=0, new=0;
+	int r=0, i=0, j=0, len=0, new=0, s=0;
 	unsigned request=0, als=0;
 	char *qq;
+
+	if (path == NULL || maxsize <= 1) {
+		return -1;
+	}
 
 	*choices = NULL;
 	globbuf.gl_offs = 0;
 	prop[0] = '\0';
 	strncat(prop, path, sizeof(prop)-2);
 	strncat(prop, "*", 2);
-
-	if (path == NULL || maxsize <= 1) {
-		return -1;
-	}
 
 	/* file or dir */
 	r = glob(prop, GLOB_ERR | GLOB_TILDE_CHECK | GLOB_MARK, NULL, &globbuf);
@@ -173,22 +173,33 @@ get_fname (char *path, unsigned maxsize, char **choices)
 			}
 			path[new] = '\0';
 
-			/* return choices */
+			/* return choices, but limit number of bytes, 500? */
 			request = 1;
-			for (i=0; i<r; i++) {
-				request += strlen(globbuf.gl_pathv[i]) + 1;
+			i = 0;
+			while (i<r) {
+				s = strlen(globbuf.gl_pathv[i]);
+				if (request+s+1 < 500) {
+					request += s+1;
+					i++;
+				} else {
+					r = i;
+					break;
+				}
 			}
+
 			als = ALLOCSIZE(request+2);
-			if ((qq = (char *) MALLOC(als)) != NULL) {
+			qq = (char *) MALLOC(als);
+			if (qq != NULL) {
 				*choices = qq;	/* save for return, to be freed by caller */
 				qq[0]='\0';
 				for (i=0; i<r; i++) {
 					strncat(qq, globbuf.gl_pathv[i], request);
 					strncat(qq, " ", 2);
 				}
+			} else {
+				r = -r;
+				/* beep(); beep(); */
 			}
-
-			/* beep(); */
 		}
 
 	/* failed... */
@@ -269,10 +280,10 @@ glob_name (char *fname, unsigned maxsize)
 
 /*
  * strip blanks (space, tab) from strings:
- * op bits: 1 from end, 2 from begin, 4 squeeze blanks to space
+ * operation bits: strip from end, strip from begin, squeeze internal blanks to space
  */
 int
-strip_blanks (int op, char *str, int *length)
+strip_blanks (int operation, char *str, int *length)
 {
 	int ret=0;
 	int i,j;
@@ -281,7 +292,7 @@ strip_blanks (int op, char *str, int *length)
 		return -1;
 	}
 
-	if (op & 0x1) {
+	if (operation & STRIP_BLANKS_FROM_END) {
 		i = *length;
 		/* strip blanks, end */
 		while (i > 0 && (str[i-1]==' ' || str[i-1]=='\t')) {
@@ -289,7 +300,7 @@ strip_blanks (int op, char *str, int *length)
 		}
 		*length = i;
 	}
-	if (op & 0x2) {
+	if (operation & STRIP_BLANKS_FROM_BEGIN) {
 		i = 0;
 		/* strip blanks, begin */
 		while (i < *length && (str[i]==' ' || str[i]=='\t')) {
@@ -302,7 +313,7 @@ strip_blanks (int op, char *str, int *length)
 			*length -= i;
 		}
 	}
-	if (op & 0x4) {
+	if (operation & STRIP_BLANKS_SQUEEZE) {
 		/* squeeze internal blanks */
 		for (i=0; i < *length; i++) {
 			if (str[i]=='\t')
@@ -324,9 +335,6 @@ strip_blanks (int op, char *str, int *length)
 		}
 		str[j] = '\0';
 		*length = j;
-	}
-	if ((op & ~0x7) || (op == 0)) {
-		ret = 1;
 	}
 
 	return (ret);
@@ -442,25 +450,25 @@ fname_ext (const char *cfname)
  * helper function to get index of slash, reverse or direct, first or last
  */
 int
-slash_index (const char *name, int size, int from, int reverse, int get_first)
+slash_index (const char *string, int strsize, int from, int reverse, int get_first)
 {
 	int i=0, idx=0;
 
-	if (from > size || from < 0)
+	if (from > strsize || from < 0)
 		return (-1);
 
 	if (reverse) {
-		idx = size+1;
+		idx = strsize+1;
 		for (i = from; i >= 0; i--) {
-			if (name[i] == '/') {
+			if (string[i] == '/') {
 				idx = i;
 				if (get_first) break;
 			}
 		}
 	} else {
 		idx = -1;
-		for (i = from; name[i] != '\0' && i < size; i++) {
-			if (name[i] == '/') {
+		for (i = from; string[i] != '\0' && i < strsize; i++) {
+			if (string[i] == '/') {
 				idx = i;
 				if (get_first) break;
 			}
@@ -471,6 +479,57 @@ slash_index (const char *name, int size, int from, int reverse, int get_first)
 }
 
 /*
+ * helper function to get token in given string by delimiter(s),
+ * return length of token, but
+ * 	length can be 0 or strlen of input if no delimiters found
+ * index_rest is the next index after delimiters, and maybe -1
+ */
+int
+parse_token (const char *inputstr, const char *delim, int *index_rest)
+{
+	int length=0;
+	int i=0, j=0, k=0;
+
+	*index_rest = -1;
+
+	for (i=0; inputstr[i] != '\0'; i++) {
+		for (j=0; delim[j] != '\0'; j++) {
+			if (inputstr[i] == delim[j]) {
+				*index_rest = i;
+				break; /* one delimiter found */
+			}
+		}
+		if (delim[j] != '\0') {
+			break;
+		}
+	}
+	length = i;
+
+	if (delim[j] != '\0') {
+		/* squeeze delimiters */
+		for (k=length; inputstr[k] != '\0'; k++) {
+			for (j=0; delim[j] != '\0'; j++) {
+				if (inputstr[k] == delim[j]) {
+					*index_rest = k;
+					break; /* another delimiter found */
+				}
+			}
+			if (delim[j] == '\0') {
+				/* not a delimiter */
+				break;
+			}
+		}
+		if (inputstr[k] == '\0') {
+			*index_rest = -1;
+		} else {
+			*index_rest = k;
+		}
+	}
+
+	return (length);
+}
+
+/*
  * return the base part of filename path (word after last slash)
  */
 void
@@ -478,7 +537,9 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
 {
 	int ilen=0, last=0;
 
-	if (inpath == NULL || inpath[0] == '\0' || outbuffsize < 1) {
+	if (outbuffsize < 1) {
+		return;
+	} else if (inpath == NULL || inpath[0] == '\0') {
 		outpath[0] = '\0';
 	} else {
 		ilen = strlen(inpath);
@@ -486,7 +547,7 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
 		while (ilen > 1 && inpath[ilen-1] == '/') {
 			ilen--;
 		}
-		last = slash_index (inpath, ilen, 0, 0, 0);
+		last = slash_index (inpath, ilen, 0, SLASH_INDEX_FWD, SLASH_INDEX_GET_LAST);
 		if (last == -1) {
 			strncpy(outpath, &inpath[0], ilen);
 			outpath[ilen] = '\0';
@@ -509,7 +570,9 @@ mydirname (char *outpath, const char *inpath, int outbuffsize)
 {
 	int ilen=0, last=0;
 
-	if (inpath == NULL || inpath[0] == '\0' || outbuffsize < 1) {
+	if (outbuffsize < 2) {
+		return;
+	} else if (inpath == NULL || inpath[0] == '\0') {
 		outpath[0] = '.';
 		outpath[1] = '\0';
 	} else {
@@ -518,7 +581,7 @@ mydirname (char *outpath, const char *inpath, int outbuffsize)
 		while (ilen > 1 && inpath[ilen-1] == '/') {
 			ilen--;
 		}
-		last = slash_index (inpath, ilen, 0, 0, 0);
+		last = slash_index (inpath, ilen, 0, SLASH_INDEX_FWD, SLASH_INDEX_GET_LAST);
 		if (last == -1) {
 			outpath[0] = '.';
 			outpath[1] = '\0';
@@ -570,7 +633,7 @@ canonicalpath (const char *path)
 		} else if (dir[runner] == '/' && dir[runner+1] == '/') {
 			(void) csere (&dir, &size, runner, 1, "", 0);
 		} else {
-			runner = slash_index (dir, size, runner+1, 0, 1);
+			runner = slash_index (dir, size, runner+1, SLASH_INDEX_FWD, SLASH_INDEX_GET_FIRST);
 			if (runner < 0) {
 				break;
 			}
@@ -588,8 +651,8 @@ canonicalpath (const char *path)
 				dir = NULL;
 				break; /* invalid path */
 			}
-			prev = slash_index (dir, size, runner-1, 1, 1);
-			if (prev > size) {
+			prev = slash_index (dir, size, runner-1, SLASH_INDEX_REVERSE, SLASH_INDEX_GET_FIRST);
+			if (prev == -1 || prev > size) {
 				FREE(dir);
 				dir = NULL;
 				break; /* invalid path */
@@ -601,7 +664,7 @@ canonicalpath (const char *path)
 			}
 			runner = prev;
 		} else {
-			runner = slash_index (dir, size, runner+1, 0, 1);
+			runner = slash_index (dir, size, runner+1, SLASH_INDEX_FWD, SLASH_INDEX_GET_FIRST);
 			if (runner < 0) break;
 		}
 	}
@@ -703,7 +766,7 @@ pidof (const char *progname)
 		strncat(fullname, "/cmdline", 10);
 
 		fd = open(fullname, O_RDONLY | O_NONBLOCK);
-		if (fd > 0) {
+		if (fd != -1) {
 			in = read(fd, entry, blksize);
 			if (in > 0) {
 				entry[in] = '\0';

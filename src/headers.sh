@@ -3,7 +3,7 @@
 #	keys.h and rkeys.h	from curses_ext.h
 #	edakeys			from curses_ext.h and command.h
 #
-# Copyright 2003-2011 Attila Gy. Molnar
+# Copyright 2003-2014 Attila Gy. Molnar
 #
 # This file is part of eda project.
 #

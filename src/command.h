@@ -1,7 +1,7 @@
 /* 
 * command.h
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -196,7 +196,7 @@ TABLE table[] = {
 	{ "",		KEY_C_G, -1,		PN(ins_filename),	0x00},
 	{ "",		KEY_C_X, -1,		PN(cp_text2cmd),	0x00},
 	{ "wcase",	KEY_C_F5, 2,		PN(word_case),		0x02},
-	{ "xtitle",	-1, 6,			PN(xterm_title),	0x11},
+	{ "palette",	KEY_C_F3, 3,		PN(rotate_palette),	0x00},
 	{ "mouse",	KEY_NONE, 5,		PN(mouse_support),	0x00},
 
 	/* debug or development tools */

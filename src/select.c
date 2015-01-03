@@ -2,7 +2,7 @@
 * select.c
 * select/unselect lines, cp/rm/mv lines, indent/unindent tools, block based join/split/cut functions
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -681,9 +681,14 @@ wr_select (int fd, int with_shadow)
 				}
 				length = strlen(mid_buff);
 				out = write (fd, mid_buff, length);
+				if (out != length) {
+					SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
+						fd, out, length, strerror(errno));
+					break;
+				}
 				count++;
 			}
-			/* out */
+			/* line buffer, important */
 			out = write (fd, lp_src->buff, lp_src->llen);
 			if (out != lp_src->llen) {
 				SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
@@ -1216,11 +1221,11 @@ join_block (const char *separator)
 	if (separator[0] == '\0') {
 		strncpy (expr_tmp, "^$", 20);
 	} else if (separator[0] == '^') {
-		strncpy (&expr_tmp[0], separator, sizeof(expr_tmp)-1);
+		strncpy (expr_tmp, separator, sizeof(expr_tmp));
 		expr_tmp[sizeof(expr_tmp)-1] = '\0';
 	} else {
 		expr_tmp[0] = '^';
-		strncpy (&expr_tmp[1], separator, sizeof(expr_tmp)-2);
+		strncpy (expr_tmp+1, separator, sizeof(expr_tmp)-1);
 		expr_tmp[sizeof(expr_tmp)-1] = '\0';
 	}
 	regexp_shorthands (expr_tmp, expr_new, sizeof(expr_new));

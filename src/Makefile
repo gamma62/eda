@@ -31,7 +31,7 @@ PROGHOME = $(PREFIX)/share/eda
 MANROOT = $(PREFIX)/share/man
 DOCLINK = $(PREFIX)/share/doc/eda
 ARCH = $(shell uname -m)
-REV = 1368
+REV = $(shell cat ../REV || echo 1397)
 
 CC = gcc
 HARDENING = -g -O2 -fPIE -fstack-protector-all --param=ssp-buffer-size=4 \
@@ -56,16 +56,13 @@ all: eda
 eda: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -lncurses
 
-.depend::
+.depend:
 	$(CC) $(CFLAGS) -MM *.c > $@
 
 clean:
 	-rm -f *.o *.i eda *~
 
 # ------------------------------------
-
-macro::
-	@sed edamacro -e 's|__PROGHOME__|'$(PROGHOME)'|g' > edamacro~
 
 main.o: main.c $(SRCS) $(HDRS)
 	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c -o $@ $<

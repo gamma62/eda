@@ -2,7 +2,7 @@
 * ed.c
 * editor and main event handler, command parser and run, external macro run, command table tools
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -46,10 +46,8 @@ MACROS *macros;
 int MLEN;
 
 /* local proto */
-static int run_macro_command (int mi, char *cmdline_buffer);
-static int run_command (int ti, const char *cmdline_buffer);
 static void event_handler (void);
-static int parse_cmdline (char *ibuff, int ilen);
+static int parse_cmdline (char *ibuff, int ilen, char *args);
 
 /*
 * editor
@@ -80,7 +78,7 @@ editor (void)
 	cnf.wtext = newwin (cnf.maxy - 2, cnf.maxx, 1, 0);
 	cnf.wbase = newwin (1, cnf.maxx, cnf.maxy - 1, 0);
 
-	init_colors ();
+	init_colors (cnf.palette);
 
 	/* keys */
 	keypad (cnf.wtext, TRUE);
@@ -91,7 +89,7 @@ editor (void)
 	wtimeout (cnf.wbase, CUST_WTIMEOUT);
 	/*
 	 * do not use signal handler on SIGWINCH because this inhibits KEY_RESIZE
-	 * and cannot delay the action; workaround malloc problems in library
+	 * and cannot delay the action; the library does malloc operations
 	 */
 
 	/* ready */
@@ -114,11 +112,22 @@ editor (void)
 void
 app_resize (void)
 {
+	/* get max values of stdscr */
 	getmaxyx (stdscr, cnf.maxy, cnf.maxx);
+	if (cnf.maxy < 1 || cnf.maxx < 1) {
+		return;
+	}
 
-	setbegyx (cnf.wstatus, 0, 0);
-	setbegyx (cnf.wtext, 1, 0);
-	setbegyx (cnf.wbase, cnf.maxy - 1, 0);
+	/* reset begin screen values */
+	if ((cnf.wstatus == NULL) || (cnf.wtext == NULL) || (cnf.wbase == NULL)) {
+		return;
+	}
+	(cnf.wstatus)->_begy = 0;
+	(cnf.wstatus)->_begx = 0;
+	(cnf.wtext)->_begy = 1;
+	(cnf.wtext)->_begx = 0;
+	(cnf.wbase)->_begy = cnf.maxy - 1;
+	(cnf.wbase)->_begx = 0;
 
 	wresize (cnf.wstatus, 1, cnf.maxx);
 	wresize (cnf.wtext, cnf.maxy - 2, cnf.maxx);
@@ -138,8 +147,8 @@ app_resize (void)
 	}
 }
 
-static int
-run_macro_command (int mi, char *cmdline_buffer)
+int
+run_macro_command (int mi, char *args_inbuff)
 {
 	int ii=0, ix=0, iy=0, jj=0, kk=0, xx=0, args_cnt=0, exec=0;
 	char dup_buffer[CMDLINESIZE];
@@ -148,12 +157,12 @@ run_macro_command (int mi, char *cmdline_buffer)
 	char args_ready[CMDLINESIZE];
 
 	if ( !(macros[mi].mflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
-		strncpy(dup_buffer, cmdline_buffer, CMDLINESIZE);
+		strncpy(dup_buffer, args_inbuff, CMDLINESIZE);
 		dup_buffer[CMDLINESIZE-1] = '\0';
 		args_cnt = parse_args (dup_buffer, args);
 
-		CMD_LOG(LOG_DEBUG, "macro: run mi=%d name=[%s] args=[%s] cnt=%d",
-			mi, macros[mi].name, cmdline_buffer, args_cnt);
+		CMD_LOG(LOG_DEBUG, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
+			mi, macros[mi].name, macros[mi].fkey, args_inbuff, args_cnt);
 
 		cnf.gstat |= GSTAT_SILENT;
 		for (ii=0; ii < macros[mi].items; ii++) {
@@ -176,9 +185,9 @@ run_macro_command (int mi, char *cmdline_buffer)
 								args_ready[kk++] = args[iy-1][xx];
 							}
 						} else if (iy == 0) {
-							// copy cmdline_buffer
-							for (xx=0; cmdline_buffer[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
-								args_ready[kk++] = cmdline_buffer[xx];
+							// copy whole args_inbuff
+							for (xx=0; args_inbuff[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
+								args_ready[kk++] = args_inbuff[xx];
 							}
 						} else {
 							// fail, copy args literally
@@ -209,8 +218,8 @@ run_macro_command (int mi, char *cmdline_buffer)
 				exec = ((FUNCP0) table[ix].funcptr)();
 			}
 			if (exec) {
-				CMD_LOG(LOG_WARNING, "macro: last (ti=%d) [%s] returned: %d",
-					ix, table[ix].fullname, exec);
+				CMD_LOG(LOG_WARNING, "macro: (mi=%d name=[%s] key=0x%02x) last command (ti=%d) [%s] returned: %d",
+					mi, macros[mi].name, macros[mi].fkey, ix, table[ix].fullname, exec);
 				break;	/* stop macro */
 			}
 		}/* macros[mi].maclist[] */
@@ -223,17 +232,21 @@ run_macro_command (int mi, char *cmdline_buffer)
 	return (exec);
 }
 
-static int
-run_command (int ti, const char *cmdline_buffer)
+int
+run_command (int ti, const char *args_inbuff)
 {
 	int exec = 0;
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
+
+		CMD_LOG(LOG_DEBUG, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
+			ti, table[ti].name, table[ti].fkey, args_inbuff);
+
 		if (table[ti].tflag & TSTAT_ARGS) {
-			REC_LOG(LOG_DEBUG, "command %d [%s] [%s]", ti, table[ti].fullname, cmdline_buffer);
+			REC_LOG(LOG_DEBUG, "command %d [%s] [%s]", ti, table[ti].fullname, args_inbuff);
 			if (cnf.gstat & GSTAT_RECORD)
-				record(table[ti].fullname, cmdline_buffer);
-			exec = (table[ti].funcptr)(cmdline_buffer);
+				record(table[ti].fullname, args_inbuff);
+			exec = (table[ti].funcptr)(args_inbuff);
 		} else {
 			REC_LOG(LOG_DEBUG, "command %d [%s]", ti, table[ti].fullname);
 			if (cnf.gstat & GSTAT_RECORD)
@@ -259,23 +272,29 @@ event_handler (void)
 	int ti = -1, mi = -1;
 	unsigned delay_cnt_4stat = 0;
 	int clear_trace_next_time = 0;
+	char args_buff[CMDLINESIZE];
 
 	wclear (cnf.wstatus);
 	wclear (cnf.wbase);
 	wclear (cnf.wtext);
 
 	clhistory_push("not used", 8);
-	load_clhistory ();
+	if (!cnf.noconfig) {
+		load_clhistory ();
+	}
 	reset_cmdline();
+	memset(args_buff, 0, CMDLINESIZE);
 
 	/* optional automacro run */
-	if (cnf.ring_size > 0 && cnf.automacro[0] != '\0') {
+	if (cnf.ring_size > 0 && cnf.automacro[0] != '\0' && (cnf.noconfig == 0)) {
 		int autolength;
 		autolength = strlen(cnf.automacro);
-		ti = parse_cmdline (cnf.automacro, autolength);
+		ti = parse_cmdline (cnf.automacro, autolength, args_buff);
 		if (ti >= TLEN && ti < TLEN+MLEN) {
 			mi = ti - TLEN;
-			run_macro_command (mi, cnf.automacro);
+			run_macro_command (mi, args_buff);
+		} else {
+			CMD_LOG(LOG_WARNING, "macro [%s] does not exist", cnf.automacro);
 		}
 	}
 	while (cnf.ring_size > 0)
@@ -313,29 +332,33 @@ event_handler (void)
 			MAIN_LOG(LOG_ERR, "line %d: final zero missing! -- fixing", CURR_FILE.lineno);
 			CURR_LINE->buff[CURR_LINE->llen] = '\0';
 		}
+		if (TEXTROWS < TRACESIZE+1) {
+			MAIN_LOG(LOG_ERR, "text window has very few lines (%d)", TEXTROWS);
+		}
 
 		/*
 		 * regular screen update (REFRESH_EVENT used to force update)
 		 */
 		if (ch != ERR) {
 			upd_statusline ();
+			upd_termtitle ();
 			if (cnf.trace > 0) {
-				MAIN_LOG(LOG_DEBUG, "full update with trace in this cycle");
-				if (CURR_FILE.focus < cnf.trace)
-					CURR_FILE.focus = cnf.trace;
+				UPD_LOG(LOG_DEBUG, "full update with trace in this cycle");
+				if (CURR_FILE.focus < cnf.trace+1)
+					CURR_FILE.focus = cnf.trace+1;
 				upd_text_area (0);
 				upd_trace ();
 				clear_trace_next_time = 1;
 			} else if (clear_trace_next_time) {
-				MAIN_LOG(LOG_DEBUG, "full update now, trace in previous cycle");
+				UPD_LOG(LOG_DEBUG, "full update now, trace in previous cycle");
 				upd_text_area (0);
 				clear_trace_next_time = 0;
 			} else {
 				if (!(cnf.gstat & GSTAT_UPDNONE)) {
 					if (cnf.gstat & GSTAT_UPDFOCUS) {
-						MAIN_LOG(LOG_DEBUG, "update focus line only");
+						UPD_LOG(LOG_DEBUG, "update focus line only");
 					} else {
-						MAIN_LOG(LOG_DEBUG, "update full page");
+						UPD_LOG(LOG_DEBUG, "update full page");
 					}
 					upd_text_area (cnf.gstat & GSTAT_UPDFOCUS);
 				}
@@ -423,21 +446,19 @@ event_handler (void)
 				cmdline_to_clhistory (cnf.cmdline_buff, cnf.cmdline_len);
 
 				if (cnf.cmdline_len > 0) {
-					/* parse command line and exec command if found
-					* and buffer is not read/only
-					*/
-					ti = parse_cmdline (cnf.cmdline_buff, cnf.cmdline_len);
+					ti = parse_cmdline (cnf.cmdline_buff, cnf.cmdline_len, args_buff);
 					if (ti >= TLEN && ti < TLEN+MLEN) {
 						mi = ti - TLEN;
-						run_macro_command (mi, cnf.cmdline_buff);
+						run_macro_command (mi, args_buff);
 					} else if (ti >= 0 && ti < TLEN) {
-						run_command (ti, cnf.cmdline_buff);
+						run_command (ti, args_buff);
 					} else {
-						tracemsg("unknown command");
+						/* warning */
+						tracemsg("unknown command [%s]", cnf.cmdline_buff);
 					}
 				}
 
-				/* reset reused workbench after parse and run */
+				/* reset workbench after parse and run */
 				reset_cmdline();
 				/* do the history cleanup now */
 				if (cnf.clhist_size > CLHISTSIZE + 50) {
@@ -459,14 +480,16 @@ event_handler (void)
 			/* the common key-handlings (ret 0/4) */
 			ret = ed_common (ch);		/* 0/4 */
 
-			/* warning, if the key was not handled */
+			/* warning */
 			if (ret == 0) {
-				tracemsg("unhandled key 0x%02X", ch);
+				tracemsg("unknown key 0x%02X", ch);
 			}
 		}
 
 	} /* while */
-	save_clhistory ();
+	if (!cnf.noconfig) {
+		save_clhistory ();
+	}
 
 	clhistory_cleanup(0);
 	FREE(cnf.clhistory);
@@ -474,134 +497,98 @@ event_handler (void)
 
 } /* event_handler() */
 
-#define EXTSEP(sep)	((sep)==' ' || (sep)=='\t' || (sep)=='/' || (sep)=='\'' || (sep)=='\"')
-
 /*
-* cmdline parser
-* cmd[\x20\x09/'"!]+args
-* cmd is mandatory, args is optional,
-* argument separators: space, tab, '/', '\'', '\"'
-* return: ti (table index) and the arguments in ibuff[]
-* ibuff[] is maybe empty string but never NULL
+* parse the input buffer, separate command name and search in table[] and macros[]
+* return: index to command, mi+TLEN or ti or failure, MLEN+TLEN
+* ibuff[] -- zero inserted after possible command name
+* args[] -- copy of arguments
 */
 static int
-parse_cmdline (char *ibuff, int ilen)
+parse_cmdline (char *ibuff, int ilen, char *args)
 {
-	char *cmd, *args, delim[3], ext;
-	int i, j, ti = (-1), clen = 0;
+	int xi = (-1); /* index of command or macro */
+	int clen = 0; /* length of command word in ibuff[] */
+	int abeg = 0; /* begin of arguments in ibuff[] */
+	int i=0;
 
-	/* separate command and args list */
-	delim[0] = ibuff[0];
-	delim[1] = '\0';
-	cmd = NULL;
-	args = NULL;
-	clen = 0;
-
-	if (delim[0] == ':' && ibuff[1] < 'A') {
+	if (ibuff[0] == ':' && ibuff[1] >= '0' && ibuff[1] <= '9') {
 		/* 0x3a goto_line() */
-		cmd = delim;
-		args = ibuff+1;	/* good for both ":12" and ": 12" */
-		clen = 1;
-	} else if (delim[0] == '|' && ibuff[1] == '|') {
+		clen = 1; /* only ":12" -- allow vi like macros to live */
+		abeg = 1;
+	} else if (ibuff[0] == '|' && ibuff[1] == '|') {
 		/* 0x7c filter_shadow_cmd() */
-		delim[1] = ibuff[1];
-		delim[2] = '\0';
-		cmd = delim;
-		args = ibuff+2;	/* good for both "||a2ps -1 -f8" and "|| a2ps -1 -f8" */
-		clen = 2;
-	} else if (delim[0] == '|') {
+		clen = 2; /* good for both "||a2ps -1 -f8" and "|| a2ps -1 -f8" */
+		abeg = 2;
+	} else if (ibuff[0] == '|') {
 		/* 0x7c filter_cmd() */
-		cmd = delim;
-		args = ibuff+1;	/* good for both "|sort" and "| wc -l" */
-		clen = 1;
-	} else if (delim[0] == '/') {
+		clen = 1; /* good for both "|sort" and "| wc -l" */
+		abeg = 0;
+	} else if (ibuff[0] == '/') {
 		/* 0x2f search() */
-		/* '/' is the command and (maybe) the first argument also */
-		cmd = delim;
-		args = ibuff;	/* reuse ibuff as args list */
-		clen = 1;
+		clen = 1; /* command and the first argument also, do not skip! */
+		abeg = 0;
 	} else {
-		/* strip_blanks(3,...) already done
-		* we need whitechar(s) after the command,
-		* the rest of characters will construct the args list
-		*/
-		cmd = ibuff;
-		args = ibuff;
-		/* command in cmd[]: close with '\0' */
 		for (i=0; i<ilen; i++) {
-			if (EXTSEP(ibuff[i]))
+			if (ibuff[i] ==' ' || ibuff[i] =='\t')
 				break;
 		}
 		clen = i;
-		ext = ibuff[i];
-		ibuff[i++] = '\0';
-		/* args list in args[]: start after whitechar(s) or no args */
-		args = &ibuff[i];
-		if (i<ilen && (EXTSEP(ext))) {
-			/* shift out bytes and restore ext */
-			for (j=ilen-1; j>=i; j--) {
-				ibuff[j+1] = ibuff[j];
-			}
-			ibuff[++ilen] = '\0';
-			ibuff[i] = ext;
-		}
-		for (; i<ilen && (ibuff[i]==' ' || ibuff[i]=='\t'); i++, args++)
-			;
-		if (i>=ilen || *args == '\0')
-			args = NULL;
-	}
-
-	/* search down command name in macros[].name and table[].name, ...
-	* not a HASH function "name -> index" but simple and pretty good
-	*/
-	for (ti=0; ti < MLEN; ti++)
-	{
-		if (macros[ti].name[0] != '\0') {
-			for (i=0; i < clen; i++) {
-				if (macros[ti].name[i] != cmd[i])
-					break;
-			}
-			if (macros[ti].name[i] == '\0' && cmd[i] == '\0')
+		for (i=clen; i<ilen; i++) {
+			if (ibuff[i] !=' ' && ibuff[i] !='\t')
 				break;
 		}
+		abeg = i;
 	}
-	if (ti < MLEN) {
-		ti += TLEN;
+	//CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg);
+
+	/* search down command name in macros[].name and table[].name
+	*/
+	for (xi=0; xi < MLEN; xi++)
+	{
+		if (macros[xi].name[0] != '\0') {
+			//CMD_LOG(LOG_DEBUG, "try macro [%s]", macros[xi].name);
+			for (i=0; i < clen; i++) {
+				if (macros[xi].name[i] != ibuff[i])
+					break;
+			}
+			if (i == clen && macros[xi].name[i] == '\0')
+				break; /* match: xi is the macro index */
+		}
+	}
+	if (xi < MLEN) {
+		xi += TLEN; /* match, shift up */
 	} else {
-		for (ti=0; ti < TLEN; ti++)
+		for (xi=0; xi < TLEN; xi++)
 		{
-			if (table[ti].minlen >= 1 && table[ti].minlen <= clen) {
+			if (table[xi].minlen >= 1 && table[xi].minlen <= clen) {
 				for (i=0; i < clen; i++) {
-					if (table[ti].name[i] != cmd[i])
+					if (table[xi].name[i] != ibuff[i])
 						break;
 				}
-				if (i == clen)	/* match: ti is the index */
+				if (i == clen)	/* match: xi is the table index */
 					break;
 			}
 		}
-		if (ti == TLEN) {
-			ti += MLEN;
+		if (xi == TLEN) {
+			xi += MLEN; /* no match, shift up */
 		}
 	}
 
-	/* arguments */
-	if (ti == TLEN+MLEN) {
-		ibuff[0] = '\0';
-	} else if (args == NULL) {
-		ibuff[0] = '\0';
+	if (xi == TLEN+MLEN) {
+		/* not found */
+		args[0] = '\0';
+		ibuff[clen] = '\0';
 	} else {
-		CMD_LOG(LOG_INFO, "parser: cmd [%s] args [%s]", cmd, args);
-		/* copy args list back */
-		if (args > ibuff) {
-			for (i=0; i<ilen && args[i]!='\0'; i++) {
-				ibuff[i] = args[i];
-			}
-			ibuff[i] = '\0';
+		/* prepare the argument list */
+		for (i=abeg; i<ilen; i++) {
+			args[i-abeg] = ibuff[i];
 		}
-		/* else: args reused ibuff */
+		args[i-abeg] = '\0';
+		ibuff[clen] = '\0';
+		CMD_LOG(LOG_DEBUG, "command [%s] arguments [%s]", ibuff, args);
 	}
 
-	return (ti);
+	return (xi);
 } /* parse_cmdline() */
 
 /*

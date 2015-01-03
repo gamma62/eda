@@ -1,7 +1,7 @@
 /*
 * main.h
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -33,7 +33,7 @@
 #define REALLOC		realloc
 #define FREE(p)		free((p))
 
-#define FNAMESIZE	256		/* size for filename (with path); multiple of 16 also */
+#define FNAMESIZE	256		/* size for filename (like d_name in dirent structure) */
 #define RINGSIZE	37		/* file ring (array dimension) for buffers */
 #define CLHISTSIZE	200		/* command line history depth */
 #define CMDLINESIZE	256		/* max command line length, max screen row length, max regexp length; multiple of 16 */
@@ -46,6 +46,7 @@
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
 #define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement */
+#define PALETTE_MAX	2
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
 #define LINESIZE_MIN	0x001f		/* (2^5-1) incr/decr step for realloc() ==31 */
@@ -56,7 +57,7 @@
 /* 0xff space reserved after allocation */
 #define REP_ASIZE(len)	((size_t) (((len) | 0x1f) + 0xff + 1))
 
-#define MAIN_LOG(prio, fmt, args...)	if (cnf.log[0]>0 && cnf.log[0]>=prio) syslog(prio, "MAIN:%s: " fmt, __FUNCTION__, ##args)
+#define MAIN_LOG(prio, fmt, args...)	if (cnf.log[0]>0 && cnf.log[0]>=prio) syslog(prio, "MAIN: " fmt, ##args)
 #define FH_LOG(prio, fmt, args...)	if (cnf.log[1]>0 && cnf.log[1]>=prio) syslog(prio, "FH:%s: " fmt, __FUNCTION__, ##args)
 #define CMD_LOG(prio, fmt, args...)	if (cnf.log[2]>0 && cnf.log[2]>=prio) syslog(prio, "CMD:%s: " fmt, __FUNCTION__, ##args)
 #define HIST_LOG(prio, fmt, args...)	if (cnf.log[3]>0 && cnf.log[3]>=prio) syslog(prio, "HIST:%s: " fmt, __FUNCTION__, ##args)
@@ -67,6 +68,7 @@
 #define PIPE_LOG(prio, fmt, args...)	if (cnf.log[8]>0 && cnf.log[8]>=prio) syslog(prio, "PIPE:%s: " fmt, __FUNCTION__, ##args)
 #define PD_LOG(prio, fmt, args...)	if (cnf.log[9]>0 && cnf.log[9]>=prio) syslog(prio, "PD:%s: " fmt, __FUNCTION__, ##args)
 #define REC_LOG(prio, fmt, args...)	if (cnf.log[10]>0 && cnf.log[10]>=prio) syslog(prio, "REC: " fmt, ##args)
+#define UPD_LOG(prio, fmt, args...)	if (cnf.log[11]>0 && cnf.log[11]>=prio) syslog(prio, "UPD: " fmt, ##args)
 
 /* for wgetch() and timers */
 #define CUST_ESCDELAY	20		/* to set global variable ESCDELAY: expire time (original 1000ms) */
@@ -215,11 +217,12 @@
 /* options for pipe i/o processing
 */
 /* common */
-#define OPT_IN_OUT		0x0010	/* input line(s) for bg process (default: SELECTION only) */
+#define OPT_IN_OUT		0x0010	/* feed some input line(s) for bg process (default: SELECTION only) */
 #define OPT_IN_OUT_FOCUS	0x0011	/* single line only (focus) */
 #define OPT_IN_OUT_VIS_ALL	0x0012	/* all visible lines */
 #define OPT_IN_OUT_REAL_ALL	0x0014	/* really all lines */
 #define OPT_IN_OUT_SH_MARK	0x0020	/* flag, lines with shadow markers */
+#define OPT_IN_OUT_MASK		0x003f
 #define OPT_REDIR_ERR		0x0040	/* stderr redirected to stdout */
 #define OPT_COMMON_MASK		0x00ff
 /* base */
@@ -344,6 +347,11 @@ struct config_tag
 	WINDOW *wtext;		/* middle of the screen, text area */
 	WINDOW *wbase;		/* the last line of the screen, the command line */
 
+	uid_t uid, euid;		/* user */
+	gid_t gid, egid, groups[50];	/* group */
+	pid_t pid, ppid, sid, pgid;	/* process */
+	time_t starttime;
+
 	int gstat;		/* GSTAT_ */
 	int pref;		/* prefix length */
 	int indentsize;		/* 1 (tab), or 4 (sp) */
@@ -351,8 +359,9 @@ struct config_tag
 	int trace;		/* rows in trace/message */
 	char tracerow[TRACESIZE][CMDLINESIZE];
 
-	int palette;		/* color setting package */
+	int palette;		/* color setting, 0...PALETTE_MAX */
 	int bootup;
+	int noconfig;
 	int lsdir_opts;		/* options for directory listing */
 
 	/* file ring */
@@ -371,8 +380,8 @@ struct config_tag
 	int cmdline_len;
 	CMDLINE *clhistory;	/* command line history */
 	int clhist_size;
+	int reset_clhistory;	/* request, to do this later */
 
-	char disp_opts[SHORTNAME];
 	char find_path[SHORTNAME];
 	char find_opts[FNAMESIZE];
 	char tags_file[SHORTNAME];
@@ -400,7 +409,7 @@ struct config_tag
 	int tag_j2len;
 	TAG *taglist;		/* 'tags' info tree */
 
-	MHIST *mhist_curr;	/* push/pop list */
+	MHIST *mhistory;	/* push/pop list */
 
 	char automacro[CMDLINESIZE];	/* testing */
 
@@ -488,7 +497,7 @@ struct motion_history_tag
 
 /* motion types (ops) for focus change
 */
-typedef enum motiontype_enum
+typedef enum motion_type_enum
 {
 	FOCUS_ON_FIRST_LINE,
 	FOCUS_ON_LAST_LINE,
@@ -509,5 +518,13 @@ typedef enum motiontype_enum
 
 	NOTHING_TODO
 } MOTION_TYPE;
+
+typedef enum test_access_type_enum
+{
+	TEST_ACCESS_RW_OK = 6,
+	TEST_ACCESS_R_OK  = 4,
+	TEST_ACCESS_W_OK  = 2,
+	TEST_ACCESS_NONE  = 0
+} TEST_ACCESS_TYPE;
 
 #endif

@@ -3,7 +3,7 @@
 * tools for resource handling, load and set resources, key trees, macros, projects
 * and the "cmds" table
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -51,104 +51,102 @@ extern MACROS *macros;
 extern int MLEN;
 
 /* local proto */
-static void set_usage (int what);
+static void set_usage (int show_what);
 static int change_fkey_in_table (char *args);
+#define SHOW_CURRENT_VALUES 1
+#define SHOW_USAGE 0
 
 /*
 * the usage for set()
 */
 static void
-set_usage (int what)
+set_usage (int show_what)
 {
-	if (cnf.bootup) {
-		if (what == 1) {
-			tracemsg ("prefix %d shadow %d smartind %d move-reset %d case-sensitive %d",
-				(cnf.gstat & GSTAT_PREFIX) ? 1 : 0,
-				(cnf.gstat & GSTAT_SHADOW) ? 1 : 0,
-				(cnf.gstat & GSTAT_SMARTIND) ? 1 : 0,
-				(cnf.gstat & GSTAT_MOVES) ? 1 : 0,
-				(cnf.gstat & GSTAT_CASES) ? 1 : 0);
-			tracemsg ("autotitle %d backup_nokeep %d close_over %d save_inode %d",
-				(cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0,
-				(cnf.gstat & GSTAT_NOKEEP) ? 1 : 0,
-				(cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0,
-				(cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
-			tracemsg ("indent %s %d  tabsize %d",
-				(cnf.gstat & GSTAT_INDENT) ? "tab" : "space",
-				cnf.indentsize,
-				cnf.tabsize);
-			tracemsg ("disp opts [%s]  tags_file [%s]",
-				cnf.disp_opts, cnf.tags_file);
-			tracemsg ("find path %s find_opts [%s]",
-				cnf.find_path, cnf.find_opts);
-			tracemsg ("make path %s make_opts [%s]",
-				cnf.make_path, cnf.make_opts);
-			tracemsg ("sh path %s diff path [%s]",
-				cnf.sh_path, cnf.diff_path);
-		} else {
-			tracemsg ("set {prefix | shadow | smartindent | move-reset | case-sensitive} {on|off}");
-			tracemsg ("set {tabsize COUNT} | {indent {tab|space} COUNT}");
-			tracemsg ("set {autotitle | backup_nokeep | close_over | save_inode} {yes|no}");
-			tracemsg ("set {disp_opts OPTIONS}");
-			tracemsg ("set {find_opts OPTIONS}");
-			tracemsg ("set {tags_file FILE}");
-			tracemsg ("set {make_opts OPTS}");
-		}
+	if (show_what == SHOW_CURRENT_VALUES) {
+		tracemsg ("prefix %d shadow %d smartind %d move_reset %d case_sensitive %d",
+			(cnf.gstat & GSTAT_PREFIX) ? 1 : 0,
+			(cnf.gstat & GSTAT_SHADOW) ? 1 : 0,
+			(cnf.gstat & GSTAT_SMARTIND) ? 1 : 0,
+			(cnf.gstat & GSTAT_MOVES) ? 1 : 0,
+			(cnf.gstat & GSTAT_CASES) ? 1 : 0);
+		tracemsg ("autotitle %d backup_nokeep %d close_over %d save_inode %d",
+			(cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0,
+			(cnf.gstat & GSTAT_NOKEEP) ? 1 : 0,
+			(cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0,
+			(cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
+		tracemsg ("indent %s %d  tabsize %d",
+			(cnf.gstat & GSTAT_INDENT) ? "tab" : "space",
+			cnf.indentsize,
+			cnf.tabsize);
+		tracemsg ("find path [%s]  find opts [%s]",
+			cnf.find_path, cnf.find_opts);
+		tracemsg ("make path %s make opts [%s]",
+			cnf.make_path, cnf.make_opts);
+		tracemsg ("sh path %s diff path [%s]",
+			cnf.sh_path, cnf.diff_path);
+		tracemsg ("tags file [%s]",
+			cnf.tags_file);
+		tracemsg ("...see other settings in rcfile");
+	} else if (show_what == SHOW_USAGE) {
+		tracemsg ("set {prefix | shadow | smartindent | move_reset | case_sensitive} {on|off}");
+		tracemsg ("set {tabsize COUNT} | {indent {tab|space} COUNT}");
+		tracemsg ("set {autotitle | backup_nokeep | close_over | save_inode} {yes|no}");
+		tracemsg ("set {find_opts OPTIONS}");
+		tracemsg ("set {make_opts OPTS}");
+		tracemsg ("set {tags_file FILE}");
+		tracemsg ("...other settings in rcfile");
 	}
 }
 
-/******************************************************************************/
-#define SET_CHECK(dest)		\
-				r = strtok (NULL, "\x09"); \
-				if (r != NULL) { \
-					slen = strlen(r); \
-					if (slen < sizeof(dest)) { \
-						strncpy((dest), r, sizeof(dest)); \
-						(dest)[sizeof(dest)-1] = '\0'; \
-					} else { \
-						if (cnf.bootup) tracemsg ("name very long [%s]", r); \
-						ret = 2; \
-					} \
-				} else if (!cnf.bootup) { \
-					(dest)[0] = '\0'; \
-				} \
-				if (cnf.bootup) tracemsg ("[%s]", (dest));
+/******************************************************************************
+rc_c_local_macros() {
+*/
 
-/******************************************************************************/
-#define SET_CHECK_X(dest)	\
-				r = strtok (NULL, "\x09"); \
-				if (r != NULL) { \
-					slen = strlen(r); \
-					if (slen < sizeof(dest)) { \
-						if (access(r, R_OK | X_OK) == 0) { \
-							strncpy((dest), r, sizeof(dest)); \
-							(dest)[sizeof(dest)-1] = '\0'; \
-						} else { \
-							if (cnf.bootup) tracemsg ("invalid path [%s]", r); \
-							ret = 2; \
-						} \
-					} else { \
-						if (cnf.bootup) tracemsg ("name very long [%s]", r); \
-						ret = 2; \
-					} \
-				} \
-				if (cnf.bootup) tracemsg ("[%s]", (dest));
+#define SET_CHECK(dest) \
+	if (sublen > 0) { \
+		if (sublen < (int)sizeof(dest)) { \
+			strncpy((dest), subtoken, sizeof(dest)); \
+			(dest)[sizeof(dest)-1] = '\0'; \
+		} else { \
+			if (cnf.bootup) tracemsg ("name very long [%s]", subtoken); \
+			ret = 2; \
+		} \
+	} \
+	if (cnf.bootup) tracemsg ("[%s]", (dest));
 
-/******************************************************************************/
-#define SET_CHECK_B(mask)	\
-				r = strtok (NULL, "\x09 "); \
-				if (r != NULL) { \
-					y = yesno(r); \
-					if (y == 1) { \
-						cnf.gstat |= (mask); \
-					} else if (y == 0) { \
-						cnf.gstat &= ~(mask); \
-					} else { \
-						ret = 1; \
-					} \
-				}
+#define SET_CHECK_X(dest, testlen, testpath) \
+	if ((testlen) > 0) { \
+		if ((testlen) < (int)sizeof(dest)) { \
+			if (access((testpath), R_OK | X_OK) == 0) { \
+				strncpy((dest), (testpath), sizeof(dest)); \
+				(dest)[sizeof(dest)-1] = '\0'; \
+			} else { \
+				if (!cnf.bootup) perror("miert"); \
+				if (cnf.bootup) tracemsg ("invalid path [%s]", (testpath)); \
+				ret = 3; \
+			} \
+		} else { \
+			if (cnf.bootup) tracemsg ("name very long [%s]", (testpath)); \
+			ret = 2; \
+		} \
+	} \
+	if (cnf.bootup) tracemsg ("[%s]", (dest));
 
-/******************************************************************************/
+#define SET_CHECK_B(mask) \
+	if (sublen > 0) { \
+		y = yesno(subtoken); \
+		if (y == 1) { \
+			cnf.gstat |= (mask); \
+		} else if (y == 0) { \
+			cnf.gstat &= ~(mask); \
+		} else { \
+			ret = 4; \
+		} \
+	}
+
+/*
+}
+******************************************************************************/
 
 /*
 ** set - set resource values or print as notification, usage: "set [resource [value(s)]]",
@@ -157,119 +155,116 @@ set_usage (int what)
 int
 set (const char *argz)
 {
-	unsigned slen=0;
-	int y=0, x=0;
-	int ret=0;
-	char *s=NULL, *r=NULL, args[FNAMESIZE];
-	int ri;
+	char args[FNAMESIZE];
+	char *token=NULL, *subtoken=NULL, *subsubtoken=NULL;
+	int slen=0, restidx=-1, sublen=-1, subsublen=-1;
+	int x=0, y=0, ri=0, ret=0;
 
-	strncpy(args, argz, sizeof(args)-1);
-	args[sizeof(args)-1] = '\0';
-	s = strtok (args, "\x09 ");
-	r = NULL;
+	memset(args, 0, sizeof(args));
+	strncpy(args, argz, sizeof(args)-2); /* reserve two zero bytes, we may overwrite one */
 
-	/* we test the minimal length, be carefully with NULL */
-	if (s != NULL) {
-		slen = strlen(s);
-	}
+	slen = parse_token(args, "\x09 ", &restidx);
 
 	/* special case separately: empty line */
-	if (s == NULL) {
-		set_usage(1);
+	if (slen == 0) {
+		if (cnf.bootup) set_usage(SHOW_CURRENT_VALUES);
 		return (0);
 	}
-	else if (s[0] == '?' || s[0] == 'h') {
-		set_usage(0);
-		return (0);
+
+	args[slen] = '\0';
+	token = &args[0];
+	if (restidx > 0) {
+		subtoken = &args[restidx];
+		sublen = parse_token(subtoken, "\x09 ", &restidx);
+		subtoken[sublen] = '\0'; /* restore delimiter if required */
+		if (restidx > 0) {
+			subsubtoken = &subtoken[restidx];
+			subsublen = strlen(subsubtoken);
+		}
 	}
-	else if (slen < 3 || s[0] == '#') {
+
+	if (token[0] == '?' || token[0] == 'h') {
+		if (cnf.bootup) set_usage(SHOW_USAGE);
+		return (0);
+	} else if (slen < 3 || token[0] == '#') {
 		return (0);
 	}
 
 	/*
-	 * test each setting one by one
-	 * (slen >= 3) now
-	 *
+	 * test each setting one by one, (slen >= 3) now
 	 */
-	if (strncmp(s, "prefix", 6)==0) {
+	if (strncmp(token, "prefix", 6)==0) {
 		SET_CHECK_B( GSTAT_PREFIX );
 		if (ret==0) {
 			cnf.pref = (y==1) ? PREFIXSIZE : 0;
 		}
 		if (cnf.bootup) tracemsg ("prefix %d", (cnf.gstat & GSTAT_PREFIX) ? 1 : 0);
 
-	} else if (strncmp(s, "shadow", 6)==0) {
+	} else if (strncmp(token, "shadow", 6)==0) {
 		SET_CHECK_B( GSTAT_SHADOW );
 		if (cnf.bootup) tracemsg ("shadow %d", (cnf.gstat & GSTAT_SHADOW) ? 1 : 0);
 
-	} else if (strncmp(s, "smartindent", 5)==0) {
+	} else if (strncmp(token, "smartindent", 5)==0) {
 		SET_CHECK_B( GSTAT_SMARTIND );
 		if (cnf.bootup) tracemsg ("smartind %d", (cnf.gstat & GSTAT_SMARTIND) ? 1 : 0);
 
-	} else if (strncmp(s, "move-reset", 10)==0) {
+	} else if (strncmp(token, "move_reset", 10)==0) {
 		SET_CHECK_B( GSTAT_MOVES );
-		if (cnf.bootup) tracemsg ("move-reset %d", (cnf.gstat & GSTAT_MOVES) ? 1 : 0);
+		if (cnf.bootup) tracemsg ("move_reset %d", (cnf.gstat & GSTAT_MOVES) ? 1 : 0);
 
-	} else if (strncmp(s, "case-sensitive", 4)==0) {
+	} else if (strncmp(token, "case_sensitive", 4)==0) {
 		SET_CHECK_B( GSTAT_CASES );
-		if (cnf.bootup) tracemsg ("case-sensitive %d", (cnf.gstat & GSTAT_CASES) ? 1 : 0);
+		if (cnf.bootup) tracemsg ("case_sensitive %d", (cnf.gstat & GSTAT_CASES) ? 1 : 0);
 
-	} else if (strncmp(s, "autotitle", 4)==0) {
+	} else if (strncmp(token, "autotitle", 4)==0) {
 		SET_CHECK_B( GSTAT_AUTOTITLE );
 		if (cnf.bootup) tracemsg ("autotitle %d", (cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0);
 
-	} else if (strncmp(s, "backup_nokeep", 13)==0) {
+	} else if (strncmp(token, "backup_nokeep", 13)==0) {
 		SET_CHECK_B( GSTAT_NOKEEP );
 		if (cnf.bootup) tracemsg ("backup_nokeep %d", (cnf.gstat & GSTAT_NOKEEP) ? 1 : 0);
 
-	} else if (strncmp(s, "close_over", 10)==0) {
+	} else if (strncmp(token, "close_over", 10)==0) {
 		SET_CHECK_B( GSTAT_CLOSE_OVER );
 		if (cnf.bootup) tracemsg ("close_over %d", (cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0);
 
-	} else if (strncmp(s, "save_inode", 10)==0) {
+	} else if (strncmp(token, "save_inode", 10)==0) {
 		SET_CHECK_B( GSTAT_SAVE_INODE );
 		if (cnf.bootup) tracemsg ("save_inode %d", (cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
 
-	} else if (strncmp(s, "tabsize", 4)==0) {
+	} else if (strncmp(token, "tabsize", 4)==0) {
 		/* decimal */
-		x = cnf.tabsize;
-		r = strtok (NULL, "\x09 ");
-		if (r != NULL) {
-			cnf.tabsize = (int) strtol(r, NULL, 10);
-			if (cnf.tabsize < 2 || cnf.tabsize > 16)
+		if (sublen > 0) {
+			x = strtol(subtoken, NULL, 10);
+			if (x < 2 || x > 16) {
+				ret = 1;
+			} else if (cnf.tabsize != x) {
+				if (cnf.bootup) {
+					/* update! */
+					for (ri=0; ri<RINGSIZE; ri++) {
+						if (cnf.fdata[ri].fflag & FSTAT_OPEN)
+							update_curpos(ri);
+					}
+				}
 				cnf.tabsize = x;
-		} else {
-			ret = 1;
+			}
 		}
 		if (cnf.bootup) tracemsg ("tabsize %d", cnf.tabsize);
-		if (x != cnf.tabsize) {
-			/* update! */
-			for (ri=0; ri<RINGSIZE; ri++) {
-				if (cnf.fdata[ri].fflag & FSTAT_OPEN)
-					update_curpos(ri);
-			}
-		}
 
-	} else if (strncmp(s, "indent", 6)==0) {
-		r = strtok (NULL, "\x09 ");
-		if (r != NULL) {
-			slen = strlen(r);
+	} else if (strncmp(token, "indent", 6)==0) {
+		if (sublen > 0) {
+			ret = 1;
 			x = 0;
-			if (slen > 0) {
-				if (strncmp(r, "tab", 3)==0) {
-					cnf.gstat |= GSTAT_INDENT;
-					x = 1;
-				} else if (strncmp(r, "space", 5)==0) {
-					cnf.gstat &= ~GSTAT_INDENT;
-					x = 2;
-				}
+			if (strncmp(subtoken, "tab", 3)==0) {
+				cnf.gstat |= GSTAT_INDENT;
+				x = 1;
+			} else if (strncmp(subtoken, "space", 5)==0) {
+				cnf.gstat &= ~GSTAT_INDENT;
+				x = 2;
 			}
 			if (x) {
-				r = strtok (NULL, "\x09 ");
-				if (r == NULL) {
-					ret = 1;
-				} else {
-					x = (int) strtol(r, NULL, 10);	/* decimal */
+				if (subsublen > 0) {
+					x = strtol(subsubtoken, NULL, 10);
 					if (x > 7) {
 						cnf.indentsize = 8;
 					} else if (x < 2) {
@@ -277,108 +272,113 @@ set (const char *argz)
 					} else {
 						cnf.indentsize = x;
 					}
+					ret = 0;
 				}
-			} else {
-				ret = 1;
 			}
-		} else {
-			ret = 1;
 		}
 		if (cnf.bootup) tracemsg ("indent %s %d", ((cnf.gstat & GSTAT_INDENT) ? "tab" : "space"), cnf.indentsize);
 
-	/* intentinally 4, to accept "set disp %f%l %r%x" from commandline */
-	} else if (strncmp(s, "disp_opts", 4)==0) {
-		SET_CHECK( cnf.disp_opts );
-
-	} else if (strncmp(s, "find_opts", 9)==0) {
-		SET_CHECK( cnf.find_opts );
-	} else if (!cnf.bootup && strncmp(s, "find_path", 9)==0) {
-		SET_CHECK_X( cnf.find_path );
-
-	} else if (strncmp(s, "tags_file", 4)==0) {
+	} else if (strncmp(token, "tags_file", 4)==0) {
 		SET_CHECK( cnf.tags_file );
 
-	} else if (strncmp(s, "make_opts", 9)==0) {
-		SET_CHECK( cnf.make_opts );
-	} else if (!cnf.bootup && strncmp(s, "make_path", 9)==0) {
-		SET_CHECK_X( cnf.make_path );
+	} else if (strncmp(token, "find_opts", 9)==0) {
+		if (sublen > 0) {
+			subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
+			sublen = strlen(subtoken);
+			SET_CHECK( cnf.find_opts );
+		}
+	} else if (!cnf.bootup && strncmp(token, "find_path", 9)==0) {
+		SET_CHECK_X( cnf.find_path, sublen, subtoken );
 
-	} else if (!cnf.bootup && strncmp(s, "sh_path", 9)==0) {
-		SET_CHECK_X( cnf.sh_path );
-	} else if (!cnf.bootup && strncmp(s, "diff_path", 9)==0) {
-		SET_CHECK_X( cnf.diff_path );
-	} else if (!cnf.bootup && strncmp(s, "ssh_path", 9)==0) {
-		SET_CHECK_X( cnf.ssh_path );
+	} else if (strncmp(token, "make_opts", 9)==0) {
+		if (sublen > 0) {
+			subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
+			sublen = strlen(subtoken);
+			SET_CHECK( cnf.make_opts );
+		}
+	} else if (!cnf.bootup && strncmp(token, "make_path", 9)==0) {
+		SET_CHECK_X( cnf.make_path, sublen, subtoken );
+
+	} else if (!cnf.bootup && strncmp(token, "sh_path", 9)==0) {
+		SET_CHECK_X( cnf.sh_path, sublen, subtoken );
+	} else if (!cnf.bootup && strncmp(token, "diff_path", 9)==0) {
+		SET_CHECK_X( cnf.diff_path, sublen, subtoken );
+	} else if (!cnf.bootup && strncmp(token, "ssh_path", 9)==0) {
+		SET_CHECK_X( cnf.ssh_path, sublen, subtoken );
 
 	/* vcs tool settings */
-	} else if (!cnf.bootup && strncmp(s, "vcstool", 7)==0) {
-		r = strtok (NULL, "\x09 ");
-		if (r != NULL) {
-			slen = strlen(r);
-			x = 10;
-			if (slen > 0) {
-				for(x=0; x < 10; x++) {
-					slen = strlen(cnf.vcs_tool[x]);
-					if (slen==0 || !strncmp(r, cnf.vcs_tool[x], slen))
-						break;
+	} else if (!cnf.bootup && strncmp(token, "vcstool", 7)==0) {
+		if (sublen > 0) {
+			ret = 1;
+			for(x=0; x < 10; x++) {
+				y = strlen(cnf.vcs_tool[x]);
+				if (y==0 || !strncmp(subtoken, cnf.vcs_tool[x], y)) {
+					break;
 				}
 			}
-			if (x < 10) {
-				slen = sizeof(cnf.vcs_tool[x]);
-				strncpy(cnf.vcs_tool[x], r, slen-1);
-				cnf.vcs_tool[x][slen-1] = '\0';
-				SET_CHECK_X( cnf.vcs_path[x] );
+			if (x < 10 && subsublen > 0) {
+				y = sizeof(cnf.vcs_tool[x]);
+				strncpy(cnf.vcs_tool[x], subtoken, y-1);
+				cnf.vcs_tool[x][y-1] = '\0';
+				ret = 0;
+				SET_CHECK_X( cnf.vcs_path[x], subsublen, subsubtoken );
 				if (ret != 0) {
 					cnf.vcs_tool[x][0] = '\0';
 					cnf.vcs_path[x][0] = '\0';
 				}
-			} else {
-				ret = 1;
+			}
+		}
+	}
+
+	/* terminal color settings */
+	else if (strncmp(token, "palette", 7)==0) {
+		if (sublen > 0) {
+			x = strtol(subtoken, NULL, 0);
+			if (x >= 0 && x <= PALETTE_MAX) {
+				if (cnf.bootup && cnf.palette != x) {
+					init_colors (x);
+				}
+				cnf.palette = x;
 			}
 		} else {
 			ret = 1;
 		}
 	}
 
-	else if (strncmp(s, "log", 3)==0) {
+	/* syslog log levels by module */
+	else if (strncmp(token, "log", 3)==0) {
 		int size2=0;
-		r = strtok (NULL, "\x09 ");
-		if (r != NULL) {
-			size2 = sizeof(cnf.log) / sizeof(cnf.log[0]);
+		char mystring[100];
+		size2 = sizeof(cnf.log) / sizeof(cnf.log[0]);
+		if (sublen > 0) {
+			subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
+			sublen = strlen(subtoken);
 			for(x=0; x < size2; x++) {
 				cnf.log[x] = 0;
 			}
-			for(x=0; x < size2 && r[x] != '\0'; x++) {
-				if ((r[x] >= '0') && (r[x] <= '7')) {
-					cnf.log[x] = (r[x] - '0');
-				} else {
-					cnf.log[x] = 0;
+			for(x=0,y=0; subtoken[x] != '\0' && y < size2; x++) {
+				/* skip not-a-number */
+				if ((subtoken[x] >= '0') && (subtoken[x] <= '7')) {
+					cnf.log[y] = (subtoken[x] - '0');
+					y++;
 				}
 			}
-			ret = 0;
-		} else {
-			ret = 1;
+		}
+		if (cnf.bootup && size2 > 11) {
+			snprintf(mystring, sizeof(mystring),
+			"MAIN%d FH%d CMD%d HIST%d REPL%d TAGS%d SELE%d FILT%d PIPE%d PD%d REC%d UPD%d",
+				cnf.log[0],cnf.log[1],cnf.log[2],cnf.log[3],cnf.log[4],cnf.log[5],
+				cnf.log[6],cnf.log[7],cnf.log[8],cnf.log[9],cnf.log[10],cnf.log[11]);
+			tracemsg ("log [%s]", mystring);
 		}
 	}
 
-	else if (!cnf.bootup && strncmp(s, "palette", 7)==0) {
-		r = strtok (NULL, "\x09 ");
-		if (r != NULL) {
-			cnf.palette = (int) strtol(r, NULL, 0);
-			if (cnf.palette > 1 || cnf.palette < 0)
-				cnf.palette = 0;
-		} else {
-			ret = 1;
-		}
-	}
 	else {
-		set_usage(0);	/* only after bootup */
+		if (cnf.bootup)
+			set_usage(SHOW_USAGE);
 	}
 
-	if (cnf.bootup)
-		return (0);
-	else
-		return (ret);
+	return (ret);
 }/* set */
 
 /*
@@ -406,25 +406,27 @@ process_rcfile (int noconfig)
 		rcline = 0;
 		if ((fp = fopen(rcfile[j], "r")) != NULL)
 		{
-			/* fprintf(stderr, "eda: processing rcfile [%s]\n", rcfile[j]); */
 			while (ret==0) {
 				if (fgets (str, CMDLINESIZE, fp) == NULL) {
 					if (ferror(fp))
-						ret = 8;	/* do not complain */
+						ret = 8;
 					break;
 				}
 				++rcline;
 				len = strlen(str);
 				if (len > 0 && str[len-1] == '\n')
 					str[--len] = '\0';
-				strip_blanks (0x03, str, &len);
+				strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 				/**/
-				ret = set (str);	/* do not complain */
+				if ((ret = set (str)) != 0) {
+					fprintf(stderr, "eda: resource failure %s:%d\n", rcfile[j], rcline);
+					ret = 0;
+				}
 			}
 			fclose(fp);
 		}
 		if (ret) {
-			fprintf(stderr, "eda: processing [%s] failed, line=%d\n", rcfile[j], rcline);
+			fprintf(stderr, "eda: processing [%s] failed (%d), line=%d\n", rcfile[j], ret, rcline);
 			break;
 		}
 		if (rcline > 0) {
@@ -442,29 +444,36 @@ process_rcfile (int noconfig)
 static int
 change_fkey_in_table (char *args)
 {
-	int slen=0, ti, ki;
-	char *s_func, *s_key;
+	int ti=0, ki=0;
+	char *s_func=NULL, *s_key=NULL;
+	int slen=0, restidx=-1, sublen=-1;
 	int ret = 1;
 
-	s_func = strtok (args, "\x09= ");
-	s_key = NULL;
-	/* we test the minimal length, be carefully with NULL */
-	if (s_func == NULL) {
+	slen = parse_token(args, "\x09= ", &restidx);
+
+	/* special case separately: empty line */
+	if (slen == 0) {
 		return (0);
 	}
 
-	slen = strlen(s_func);
+	args[slen] = '\0';
+	s_func = &args[0];
+	if (restidx > 0) {
+		s_key = &args[restidx];
+		sublen = parse_token(s_key, "\x09 ", &restidx);
+		s_key[sublen] = '\0';
+	}
+
 	if (slen < 3 || s_func[0] == '#') {
 		/* comment lines covered also */
 		return (0);
 	}
-
-	s_key = strtok (NULL, "\x09 ");
-	if (s_key == NULL) {
-		return (1);	/* function name w/o key name */
+	if (sublen < 1) {
+		/* function name w/o key name */
+		return (1);
 	}
 
-	/* find the right indeces ti and ki */
+	/* find ti and ki */
 	ret=1;
 	ti = index_func_fullname(s_func);
 	if (ti < TLEN) {
@@ -511,25 +520,24 @@ process_keyfile (int noconfig)
 		kline = 0;
 		if ((fp = fopen(keyfile[j], "r")) != NULL)
 		{
-			/* fprintf(stderr, "eda: processing keyfile [%s]\n", keyfile[j]); */
 			while (ret==0) {
 				if (fgets (str, CMDLINESIZE, fp) == NULL) {
 					if (ferror(fp))
-						ret = 8; /* do not complain */
+						ret = 8;
 					break;
 				}
 				++kline;
 				len = strlen(str);
 				if (len > 0 && str[len-1] == '\n')
 					str[--len] = '\0';
-				strip_blanks (0x03, str, &len);
+				strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 				/**/
-				ret = change_fkey_in_table (str);	/* strict */
+				ret = change_fkey_in_table (str);
 			}
 			fclose(fp);
 		}
 		if (ret) {
-			fprintf(stderr, "eda: processing [%s] failed, line=%d\n", keyfile[j], kline);
+			fprintf(stderr, "eda: processing [%s] failed (%d), line=%d\n", keyfile[j], ret, kline);
 			break;
 		}
 		if (kline > 0) {
@@ -587,7 +595,6 @@ process_macrofile (int noconfig)
 		mline = 0;
 		if ((fp = fopen(macfile[j], "r")) != NULL)
 		{
-			/* fprintf(stderr, "eda: processing macfile [%s]\n", macfile[j]); */
 			while (ret==0)
 			{
 				if (fgets (inputline, CMDLINESIZE, fp) == NULL) {
@@ -600,7 +607,7 @@ process_macrofile (int noconfig)
 				len = strlen(inputline);
 				if (len > 0 && inputline[len-1] == '\n')
 					inputline[--len] = '\0';
-				strip_blanks (0x01, inputline, &len);
+				strip_blanks (STRIP_BLANKS_FROM_END, inputline, &len);
 
 				if (len < 1 || inputline[0] == '#' || len < 5)
 					continue;
@@ -685,13 +692,13 @@ process_macrofile (int noconfig)
 			fclose(fp);
 		}
 		if (ret) {
-			fprintf(stderr, "eda: processing [%s] failed, line=%d", macfile[j], mline);
+			fprintf(stderr, "eda: processing [%s] failed (%d), line=%d", macfile[j], ret, mline);
 			if (ret==161) {
-				fprintf(stderr, " : string for key name very long, max %d\n", (int)sizeof(name));
+				fprintf(stderr, " : string for key name very long, max %u\n", sizeof(name));
 			} else if (ret==163) {
 				fprintf(stderr, " : key name not found\n");
 			} else if (ret==164) {
-				fprintf(stderr, " : string for function name very long, max %d\n", (int)sizeof(name));
+				fprintf(stderr, " : string for function name very long, max %u\n", sizeof(name));
 			} else if (ret==166) {
 				fprintf(stderr, " : function name not found\n");
 			} else if (ret==167) {
@@ -743,7 +750,7 @@ process_project (int noconfig)
 	char str[CMDLINESIZE];
 	char *ptr;
 	int section = 0;	/* 1 for project config, 2 for project files */
-	unsigned length[3];	/* prefix patterns */
+	int length[3];		/* prefix patterns */
 
 	if (noconfig) {
 		return 0;
@@ -767,7 +774,6 @@ process_project (int noconfig)
 	{
 		if (fgets (str, CMDLINESIZE, fp) == NULL) {
 			if (ferror(fp)) {
-				fprintf(stderr, "read error [%s]\n", strerror(errno));
 				ret = 8;
 			}
 			break;
@@ -776,23 +782,28 @@ process_project (int noconfig)
 		len = strlen(str);
 		if (len > 0 && str[len-1] == '\n')
 			str[--len] = '\0';
-		strip_blanks (0x03, str, &len);
+		strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 
 		if (section == 0) {
-			if (strncmp(str, PROJECT_HEADER, length[0]) == 0) {
+			if ((len >= length[0]) && (strncmp(str, PROJECT_HEADER, length[0]) == 0)) {
 				section = 1;
 				continue;
 			}
 		} else if (section == 1) {
-			if (strncmp(str, PROJECT_FILES, length[1]) == 0) {
+			if ((len >= length[1]) && (strncmp(str, PROJECT_FILES, length[1]) == 0)) {
 				section = 2;
 				continue;
-			} else if (strncmp(str, PROJECT_CHDIR, length[2]) == 0) {
+			} else if ((len > length[0]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
 				ptr = str+length[2];
 				len -= length[2];
-				strip_blanks (0x02, ptr, &len);
-				if (len < 1 || chdir(ptr)) {
-					fprintf(stderr, "chdir %s failed [%s]\n", ptr, strerror(errno));
+				if (len > 1)
+					strip_blanks (STRIP_BLANKS_FROM_BEGIN, ptr, &len);
+				if (len > 1) {
+					if (chdir(ptr)) {
+						ret = 2;
+						break;
+					}
+				} else {
 					ret = 1;
 					break;
 				}
@@ -810,18 +821,16 @@ process_project (int noconfig)
 
 		if (section == 1) {
 			ret = set (str);
-			if (ret)
-				fprintf(stderr, "%s set failed\n", str);
+			if (ret) ret += 100;
 		} else if (section == 2) {
 			ret = simple_parser(str);
-			if (ret)
-				fprintf(stderr, "%s open failed\n", str);
+			if (ret) ret += 200;
 		}
 	}
 	fclose(fp);
 
 	if (ret) {
-		fprintf(stderr, "eda: processing [%s] failed, line=%d\n", projfile, pline);
+		fprintf(stderr, "eda: processing [%s] failed (ret=%d), line=%d\n", projfile, ret, pline);
 	}
 	return (ret);
 }/* process_project */

@@ -2,7 +2,7 @@
 * fh.c
 * file handling, from basic open/save functions upto change watch, smart reload, pipe support
 *
-* Copyright 2003-2011 Attila Gy. Molnar
+* Copyright 2003-2014 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -45,6 +45,61 @@ static int check_dirname (const char *gname);
 static int getxline_filter(char *getbuff);
 static int parse_diff_header (const char *ptr, int ra[5]);
 static int backup_file (const char *fname, char *backup_name);
+
+void
+work_uptime (const char *headline)
+{
+	time_t now=0;
+	struct tm *tm_p;
+	long gone=0;
+	int uptime=0, wmin=0, whours=0, upmin=0, uphours=0, updays=0, slen=0; 
+	char *iobuffer=NULL, mystring[500];
+
+	now = time(NULL);
+	tm_p = localtime(&now);
+	gone = now - cnf.starttime;
+	gone /= 60; wmin = (int) (gone%60);
+	gone /= 60; whours = (int) gone;
+
+	iobuffer = read_file_line ("/proc/uptime", 1);
+	if (iobuffer != NULL) {
+		uptime = atoi(iobuffer);
+		if (uptime < 0 || uptime > 3600*100)
+			uptime=0;
+		uptime /= 60; upmin = (int) (uptime%60);
+		uptime /= 60; uphours = (int) (uptime%24);
+		uptime /= 24; updays = (int) uptime;
+		FREE(iobuffer); iobuffer = NULL;
+	}
+
+	memset(mystring, 0, 500);
+	if (headline != NULL) {
+		snprintf(mystring+slen, 50, "%s", headline);
+		slen = strlen(mystring);
+	}
+	strftime(mystring+slen, 20, "  ( %H:%M:%S", tm_p);
+	slen = strlen(mystring);
+
+	snprintf(mystring+slen, 20, "  work %02d:%02d  up ", whours, wmin);
+	slen = strlen(mystring);
+
+	if (updays > 1) {
+		snprintf(mystring+slen, 50, "%d days, ", updays);
+	} else if (updays > 0) {
+		snprintf(mystring+slen, 50, "%d day, ", updays);
+	}
+	slen = strlen(mystring);
+	if (uphours > 1) {
+		snprintf(mystring+slen, 50, "%d hours, ", uphours);
+	} else if (uphours > 0) {
+		snprintf(mystring+slen, 50, "%d hour, ", uphours);
+	}
+	slen = strlen(mystring);
+	snprintf(mystring+slen, 50, "%d min )", upmin);
+
+	tracemsg(mystring);
+	return;
+}
 
 /*
 * user interface functions call tracemsg() if error occured
@@ -194,11 +249,15 @@ try_add_file (const char *testfname)
 	struct stat test;
 
 	len = strlen(testfname);
+	if (len < 2)
+		return (1);
+
 	if (len>2 && testfname[0] == '.' && testfname[1] == '/') {
 		split += 2;	/* cut useless prefix */
 	}
 
-	while (split<len && len>0) {
+	while (split>=0 && split<len) {
+		FH_LOG(LOG_DEBUG, "try [%s] from %d -- [%s]", testfname, split, &testfname[split]);
 		if (stat(&testfname[split], &test) == 0) {
 			if (S_ISREG(test.st_mode)) {
 				break;
@@ -206,18 +265,20 @@ try_add_file (const char *testfname)
 		}
 
 		/* skip next subdir and slash(es) */
-		split = slash_index (testfname, len, split+1, 0, 1);
-		while (split<len && len>0 && testfname[split] == '/') {
+		split = slash_index (testfname, len, split+1, SLASH_INDEX_FWD, SLASH_INDEX_GET_FIRST);
+		if (split == -1)
+			break;
+		while (split<len && testfname[split] == '/') {
 			split++;
 		}
 	}
 
-	if (split == len) {
+	if (split == len || split == -1) {
 		return (1);
 	}
 	FH_LOG(LOG_DEBUG, "file [%s] len=%d --> split=%d success [%s]", testfname, len, split, &testfname[split]);
 
-	return (add_file( &testfname[split] ));
+	return (add_file( &testfname[split]));
 }
 
 /*
@@ -244,7 +305,7 @@ add_file (const char *fname)
 	if (ret == 0) {
 		/* test: regular file ? */
 		if (S_ISREG(test.st_mode)) {
-			ri = query_inode ((long)test.st_ino);
+			ri = query_inode (test.st_ino);
 			if (ri != -1) {
 				/* inode found in the ring, switch to buffer */
 				if (strncmp(gname, cnf.fdata[ri].fname, sizeof(gname))) {
@@ -287,9 +348,9 @@ quit_file (void)
 {
 	int ret=0;
 
-	/* don't drop if changed, except scratch/special buffer */
-	if ( (CURR_FILE.fflag & FSTAT_CHANGE) &&
-	!(CURR_FILE.fflag & FSTAT_SPECW) && !(CURR_FILE.fflag & FSTAT_SCRATCH) ) {
+	/* don't drop if changed, except scratch/special/read-only buffer */
+	if ((CURR_FILE.fflag & FSTAT_CHANGE) &&
+	    (CURR_FILE.fflag & (FSTAT_SCRATCH | FSTAT_SPECW | FSTAT_RO)) == 0) {
 		tracemsg ("file changed, use save or qquit.");
 		/* select cmdline */
 		CURR_FILE.fflag |= FSTAT_CMD;
@@ -493,15 +554,15 @@ int
 restat_file (int ring_i)
 {
 	struct stat test;
-	FILE *fp=NULL;
+	TEST_ACCESS_TYPE access = TEST_ACCESS_NONE;
 	int ret=0;
 
 	if (ring_i>=0 && ring_i<RINGSIZE &&
 		(cnf.fdata[ring_i].fflag & FSTAT_OPEN) &&
 		!(cnf.fdata[ring_i].fflag & FSTAT_SCRATCH))
 	{
-		if ((ret = stat(cnf.fdata[ring_i].fname, &test)) == 0) {
-
+		ret = stat(cnf.fdata[ring_i].fname, &test);
+		if (ret == 0) {
 			if (cnf.fdata[ring_i].stat.st_ino != test.st_ino) {
 				tracemsg("file %s on disk has new inode", cnf.fdata[ring_i].fname);
 				; /* query_inode() requires up-to-date inode values, update it */
@@ -517,34 +578,34 @@ restat_file (int ring_i)
 				ret = 2;
 			}
 
-			/* additionally, check R/W status */
-			if (cnf.fdata[ring_i].stat.st_mtime != test.st_mtime ||
-			    cnf.fdata[ring_i].stat.st_ctime != test.st_ctime)
-			{
-				if ((fp = fopen(cnf.fdata[ring_i].fname,"r+")) == NULL) {
-					if (!(cnf.fdata[ring_i].fflag & FSTAT_RO)) {
-						cnf.fdata[ring_i].fflag |= FSTAT_RO;
-						ret |= 4;
-					}
-					if ((fp = fopen(cnf.fdata[ring_i].fname,"r")) == NULL) {
-						if (!(cnf.fdata[ring_i].fflag & FSTAT_SCRATCH)) {
-							cnf.fdata[ring_i].fflag |= FSTAT_SCRATCH;
-							ret |= 8;
-						}
-					}
-				} else {
-					if ((cnf.fdata[ring_i].fflag & FSTAT_RO)) {
-						cnf.fdata[ring_i].fflag &= ~FSTAT_RO;
-						ret |= 16;
-					}
+			/* additionally, check R/W status
+			*/
+			access = testaccess(&test);
+			if (access == TEST_ACCESS_RW_OK) {
+				if ((cnf.fdata[ring_i].fflag & FSTAT_RO)) {
+					cnf.fdata[ring_i].fflag &= ~FSTAT_RO;
+					ret |= 16;
 				}
-				if (fp != NULL) {
-					fclose(fp);
+				cnf.fdata[ring_i].fflag &= ~FSTAT_SCRATCH;
+			} else if (access == TEST_ACCESS_R_OK) {
+				if (!(cnf.fdata[ring_i].fflag & FSTAT_RO)) {
+					cnf.fdata[ring_i].fflag |= FSTAT_RO;
+					ret |= 4;
+				}
+				cnf.fdata[ring_i].fflag &= ~FSTAT_SCRATCH;
+			} else {
+				if (!(cnf.fdata[ring_i].fflag & FSTAT_RO)) {
+					cnf.fdata[ring_i].fflag |= FSTAT_RO;
+					ret |= 4;
+				}
+				if (!(cnf.fdata[ring_i].fflag & FSTAT_SCRATCH)) {
+					cnf.fdata[ring_i].fflag |= FSTAT_SCRATCH;
+					ret |= 8;
 				}
 			}
+
 			/* do not update cnf.fdata[ring_i].stat, FSTAT_EXTCH disappears
 			*/
-
 		} else {
 			tracemsg ("cannot stat %s file!", cnf.fdata[ring_i].fname);
 			cnf.fdata[ring_i].fflag |= FSTAT_SCRATCH;
@@ -553,6 +614,64 @@ restat_file (int ring_i)
 	}
 
 	return (ret);
+}
+
+/* check rw or r/o permission of stat'd file, comparing with euid/egid and supplementary groups
+*/
+TEST_ACCESS_TYPE
+testaccess (struct stat *test)
+{
+	int groupsize=0;
+	int check_group=0;
+	int i=0;
+	TEST_ACCESS_TYPE access = TEST_ACCESS_NONE;
+
+	if ((S_ISREG(test->st_mode)) == 0) {
+		/* not a regular file */
+		return access;
+	}
+
+	groupsize = (sizeof(cnf.groups) / sizeof(cnf.groups[0]));
+
+	if (test->st_uid == cnf.euid) {
+		if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IRUSR | S_IWUSR)) {
+			access = TEST_ACCESS_RW_OK;
+		} else if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IRUSR)) {
+			access = TEST_ACCESS_R_OK;
+		} else if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IWUSR)) {
+			access = TEST_ACCESS_W_OK;
+		}
+		return access;
+	}
+
+	if (test->st_gid == cnf.egid) {
+		check_group = cnf.egid;
+	}
+	for (i=0; i<groupsize && cnf.groups[i]>0; i++) {
+		if (test->st_gid == cnf.groups[i]) {
+			check_group = cnf.groups[i];
+			break;
+		}
+	}
+	if (check_group) {
+		if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IRGRP | S_IWGRP)) {
+			access = TEST_ACCESS_RW_OK;
+		} else if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IRGRP)) {
+			access = TEST_ACCESS_R_OK;
+		} else if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IWGRP)) {
+			access = TEST_ACCESS_W_OK;
+		}
+		return access;
+	}
+
+	if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IROTH | S_IWOTH)) {
+		access = TEST_ACCESS_RW_OK;
+	} else if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IROTH)) {
+		access = TEST_ACCESS_R_OK;
+	} else if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IWOTH)) {
+		access = TEST_ACCESS_W_OK;
+	}
+	return access;
 }
 
 /* getxline_filter - fix inline CR, let pass CR/LF through and drop control chars
@@ -605,7 +724,8 @@ read_lines (FILE *fp, LINE **linep, int *lineno)
 {
 	char *s=NULL, *getbuff=NULL;
 	LINE *lp=NULL, *lx=NULL;
-	int lno, ret=0, changed=0;
+	int lno=0, fixcount=0;
+	int ret=0, changed=0;
 
 	if ((getbuff = (char *) MALLOC(LINESIZE_INIT)) == NULL) {
 		return (2);
@@ -638,6 +758,7 @@ read_lines (FILE *fp, LINE **linep, int *lineno)
 		if (changed) {
 			lp->lflag |= LSTAT_CHANGE;
 			// .fflag |= FSTAT_CHANGE;
+			fixcount++;
 		}
 
 		/* increment line number counter */
@@ -646,11 +767,19 @@ read_lines (FILE *fp, LINE **linep, int *lineno)
 
 	FREE(getbuff); getbuff = NULL;
 
+	/* give back the updated pointer */
+	*linep = lp;
+	*lineno = lno;
+
 	if (ret == 0) {
-		*linep = lp;	/* give back the updated pointer */
-		*lineno = lno;
+		if (fixcount) {
+			FH_LOG(LOG_NOTICE, "done, success, lines=%d, line fixes %d", lno, fixcount);
+		} else {
+			FH_LOG(LOG_DEBUG, "done, success, lines=%d, no line fixes", lno);
+		}
+	} else {
+		FH_LOG(LOG_ERR, "done, failure (%d), lines=%d, line fixes %d", ret, lno, fixcount);
 	}
-	FH_LOG(LOG_DEBUG, "done, ret=%d, lp=%p lines=%d", ret, lp, lno);
 
 	return (ret);
 }
@@ -729,7 +858,7 @@ query_scratch_fname (const char *fname)
 	for (ri=0; ri<RINGSIZE; ri++) {
 		if ((cnf.fdata[ri].fflag & FSTAT_OPEN) &&
 		    (cnf.fdata[ri].fflag & FSTAT_SCRATCH) &&
-		    (strncmp(cnf.fdata[ri].fname, fname, sizeof(cnf.fdata[ri].fname)-1) == 0)) {
+		    (strncmp(cnf.fdata[ri].fname, fname, FNAMESIZE) == 0)) {
 			ret = ri;
 			break;
 		}
@@ -765,8 +894,8 @@ scratch_buffer (const char *fname)
 		return 1;
 	}
 
-	strncpy (cnf.fdata[ring_i].fname, fname, sizeof(cnf.fdata[ring_i].fname)-1);
-	cnf.fdata[ring_i].fname[sizeof(cnf.fdata[ring_i].fname)-1] = '\0';
+	strncpy (cnf.fdata[ring_i].fname, fname, FNAMESIZE);
+	cnf.fdata[ring_i].fname[FNAMESIZE-1] = '\0';
 	memset (&cnf.fdata[ring_i].stat, 0, sizeof(struct stat));
 	if (fname[0] == '*') {
 		cnf.fdata[ring_i].ftype = fname_ext(cnf.fdata[ring_i].fname);
@@ -825,8 +954,8 @@ scratch_buffer (const char *fname)
 		CURR_FILE.fflag |= FSTAT_CMD | FSTAT_OPEN | FSTAT_FMASK;
 	}
 
-	FH_LOG(LOG_NOTICE, "ret=%d, ri=%d (origin=%d) [%s] (top=%p bottom=%p)",
-		ret, ring_i, origin, fname, CURR_FILE.top, CURR_FILE.bottom);
+	FH_LOG(LOG_NOTICE, "ret=%d, ri=%d (origin=%d) [%s] (top %d bottom %d)",
+		ret, ring_i, origin, fname, (CURR_FILE.top != NULL), (CURR_FILE.bottom != NULL));
 	return ret;
 }
 
@@ -837,6 +966,7 @@ int
 reload_file (void)
 {
 	FILE *fp = NULL;
+	struct stat test;
 	int lno, ret = -1;
 	int keep_lineno;
 	LINE *lp = NULL;
@@ -857,8 +987,9 @@ reload_file (void)
 	}
 	if (ret==0) {
 		clean_buffer ();
-		fstat(fileno(fp), &CURR_FILE.stat);
-
+		if (fstat(fileno(fp), &test) == 0) {
+			CURR_FILE.stat = test;
+		}
 		lp = CURR_FILE.top;
 		lno = 0;
 		ret = read_lines (fp, &lp, &lno);
@@ -882,7 +1013,7 @@ reload_file (void)
 	if (lp != NULL) {
 		set_position (cnf.ring_curr, keep_lineno, lp);
 	}
-	tracemsg ("file reload: %s", (ret==0) ? "success" : "failed");
+	tracemsg ("file reload: success");
 
 	return (ret);
 }
@@ -932,6 +1063,7 @@ reload_bydiff (void)
 	int ni=0;
 	LINE *lp=NULL;
 	FILE *fp=NULL;
+	struct stat test;
 	int original_lineno = CURR_FILE.lineno;
 	int range[5];
 	int action='.', target=0, cnt_to=0, source=0, cnt_from=0;
@@ -951,7 +1083,9 @@ reload_bydiff (void)
 		CURR_FILE.fflag |= FSTAT_RO;
 	}
 	if (ret==0) {
-		fstat(fileno(fp), &CURR_FILE.stat);
+		if (fstat(fileno(fp), &test) == 0) {
+			CURR_FILE.stat = test;
+		}
 		fclose(fp);
 	} else {
 		tracemsg ("Cannot reload file [%s]: %s.", CURR_FILE.fname, strerror(errno));
@@ -1175,8 +1309,9 @@ clean_buffer (void)
 	if (CURR_FILE.fflag & FSTAT_TAG5) {
 		regfree(&CURR_FILE.highlight_reg);
 	}
-	/* remove bookmarks */
-	clear_all_bookmarks(cnf.ring_curr);
+	/* remove bookmarks, etc */
+	clear_bookmarks(cnf.ring_curr);
+	mhist_clear(cnf.ring_curr);
 
 	FH_LOG(LOG_DEBUG, "ri=%d [%s] ret=%d", cnf.ring_curr, CURR_FILE.fname, ret);
 
@@ -1234,15 +1369,16 @@ drop_file (void)
 		cnf.fdata[ring_i].basename[0] = '\0';
 		cnf.fdata[ring_i].dirname[0] = '\0';
 
-		/* buffer already dropped, update bookmarks, etc */
-		clear_all_bookmarks(ring_i);
+		/* buffer already dropped, clear invalid things */
+		clear_bookmarks(ring_i);
+		mhist_clear(ring_i);
 
 		/* change the ring size */
 		--cnf.ring_size;
 	} else {
-		FH_LOG(LOG_CRIT, "assert, invalid ring index, ri=%d size=%d fflag=0x%x",
-			ring_i, cnf.ring_size, cnf.fdata[ring_i].fflag);
-		cnf.fdata[ring_i].fflag = 0;		/* force drop */
+		FH_LOG(LOG_CRIT, "assert, invalid ring index, ri=%d size=%d, or buffer already closed",
+			ring_i, cnf.ring_size);
+		ret = 1;
 	}
 
 	if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
@@ -1305,6 +1441,7 @@ save_file (const char *newfname)
 {
 	/* tracemsg at this level */
 	FILE *fp = NULL;
+	struct stat test;
 	LINE *lp = NULL;
 	char gname[FNAMESIZE];
 	int ret = 0;
@@ -1322,7 +1459,8 @@ save_file (const char *newfname)
 			return (0);
 		} else {
 			if (!(CURR_FILE.fflag & FSTAT_CHANGE)) {
-				tracemsg ("not changed, not saved.");
+				//tracemsg ("not changed, not saved.");
+				work_uptime("no change, no save");
 				return (0);
 			}
 		}
@@ -1330,7 +1468,7 @@ save_file (const char *newfname)
 		/* if there is bg proc running... */
 		stop_bg_process();	/* save_file() */
 
-		strncpy(gname, newfname, sizeof(gname)-1);
+		strncpy(gname, newfname, sizeof(gname));
 		gname[sizeof(gname)-1] = '\0';
 		glob_name(gname, sizeof(gname));
 		fname_p = gname;
@@ -1380,7 +1518,9 @@ save_file (const char *newfname)
 		lp = lp->next;
 	}
 	if (!ret) {
-		fstat(fileno(fp), &CURR_FILE.stat);
+		if (fstat(fileno(fp), &test) == 0) {
+			CURR_FILE.stat = test;
+		}
 	}
 	fclose(fp);
 
@@ -1392,8 +1532,8 @@ save_file (const char *newfname)
 		CURR_FILE.fflag &= ~(FSTAT_CHANGE | FSTAT_CHMASK);
 		CURR_FILE.fflag &= ~(FSTAT_SCRATCH | FSTAT_SPECW | FSTAT_RO | FSTAT_EXTCH);
 		if (save_as) {
-			strncpy (CURR_FILE.fname, fname_p, sizeof(CURR_FILE.fname)-1);
-			CURR_FILE.fname[sizeof(CURR_FILE.fname)-1] = '\0';
+			strncpy (CURR_FILE.fname, fname_p, FNAMESIZE);
+			CURR_FILE.fname[FNAMESIZE-1] = '\0';
 			CURR_FILE.ftype = fname_ext(CURR_FILE.fname);
 			mybasename(CURR_FILE.basename, CURR_FILE.fname, FNAMESIZE);
 			fullpath = canonicalpath(CURR_FILE.fname);
@@ -1563,9 +1703,14 @@ write_out_all_visible (int fd, int ring_i, int with_shadow)
 					}
 					length = strlen(mid_buff);
 					out = write (fd, mid_buff, length);
+					if (out != length) {
+						FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
+							fd, out, length, strerror(errno));
+						break;
+					}
 					count++;
 				}
-				/* out */
+				/* line buffer, important */
 				out = write (fd, lp->buff, lp->llen);
 				if (out != lp->llen) {
 					FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
