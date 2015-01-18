@@ -2,7 +2,7 @@
 * tags.c 
 * support functions to use "tags" file from ctags, parse tags file, use saved information to jump to definition
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -408,13 +408,16 @@ tag_jump_to (const char *arg_symbol)
 	return (ret!=1);
 } /* tag_jump_to */
 
-/* come back from the last tag jump (obsolete)
+/*
+** tag_jump_back - come back from the last tag jump
 */
 int
 tag_jump_back (void)
 {
+	int jump;
 	/* return to the start position of tag_jump2_pattern() */
-	return (mhist_pop());
+	jump = mhist_pop();
+	return (jump);
 } /* tag_jump_back */
 
 /*

@@ -2,7 +2,7 @@
 * filter.c
 * base and advanced functions for filtered view and edit (like a builtin egrep)
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -261,7 +261,7 @@ filter_base (int action, const char *expr)
 			CURR_FILE.lineno -= cnt;
 		}
 	}
-	update_focus(FOCUS_PULL_MIDDLE, cnf.ring_curr, 0, NULL);
+	update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 
 	/* calculate lncol after skip down */
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
@@ -547,7 +547,7 @@ block_name (int ri)
 {
 	char *symbol=NULL;
 	LINE *lx=NULL, *lp_end=NULL, *lp=NULL;
-	int lineno=0, focus=0, lncol=0;
+	int lineno=0, lncol=0;
 	int fmask=0, mask_active=0;
 
 	symbol = (char *) MALLOC(TAGSTR_SIZE);
@@ -583,7 +583,6 @@ block_name (int ri)
 	}
 
 	if (!TEXT_LINE(lx)) {
-		//block end not found
 		FILT_LOG(LOG_DEBUG, "block end not found");
 		return (symbol);
 	}
@@ -597,19 +596,17 @@ block_name (int ri)
 	/* try to find block begin... */
 	if (mask_active)
 		CURR_FILE.fflag &= ~fmask;
-	lx = tomatch_eng (lp_end, &lineno, &focus, &lncol);
+	lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	if (mask_active)
 		CURR_FILE.fflag |= fmask;
 
 	if (!TEXT_LINE(lx) || lineno > CURR_FILE.lineno+1) {
-		//block begin not found
-		FILT_LOG(LOG_DEBUG, "block begin not found (tomatch)");
+		FILT_LOG(LOG_DEBUG, "block begin not found");
 		return (symbol);
 	}
 	if (lx->buff[0] == OPEN_CURBRAC) {
 		lx = lx->prev;
 		if (!TEXT_LINE(lx)) {
-			//block header not found
 			FILT_LOG(LOG_DEBUG, "block header missing");
 			return (symbol);
 		}
@@ -625,20 +622,20 @@ block_name (int ri)
 			FILT_LOG(LOG_DEBUG, "C typedef ... [%s]", symbol);
 		} else {
 			if (!regexp_match(&lx->buff[0], C_STRUCTURE_PATTERN, 2, symbol)) {
-				; //ok, match
+				; /* ok, match */
 				FILT_LOG(LOG_DEBUG, "C structure ... [%s]", symbol);
 			} else {
 				lp = TEXT_LINE(lx->prev) ? lx->prev : NULL;
 				if (lx->llen > 3 && lx->buff[0] != ' ' && lx->buff[0] != '\t' &&
 				!regexp_match(&lx->buff[0], C_HEADER_PATTERN, 1, symbol))
 				{
-					; //ok, match
+					; /* ok, match */
 					FILT_LOG(LOG_DEBUG, "C header ... [%s]", symbol);
 				}
 				else if (lp && lp->llen > 3 && lp->buff[0] != ' ' && lp->buff[0] != '\t' &&
 				!regexp_match(&lp->buff[0], C_HEADER_PATTERN, 1, symbol))
 				{
-					; //ok, match
+					; /* ok, match */
 					FILT_LOG(LOG_DEBUG, "C header (prev) ... [%s]", symbol);
 				}
 			}
@@ -682,10 +679,8 @@ filter_tmp_all (void)
 			next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
 			CURR_FILE.lineno += cnt;
 			CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-			update_focus(CENTER_FOCUS_ON_BIG_LEAP, cnf.ring_curr, cnt, NULL);
-		} else {
-			update_focus(FOCUS_PULL_MIDDLE, cnf.ring_curr, 0, NULL);
 		}
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 	}
 
 	return (0);
@@ -710,8 +705,7 @@ filter_expand_up (void)
 	CURR_FILE.lineno--;
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 
-	update_focus(KEEP_FOCUS_UPPER_3RD, cnf.ring_curr, 0, NULL);
-	//update_focus(FOCUS_AVOID_BORDER, 0, -1, &CURR_FILE.focus);
+	update_focus(FOCUS_AWAY_TOP, cnf.ring_curr);
 
 	return (0);
 } /* filter_expand_up */
@@ -735,8 +729,7 @@ filter_expand_down (void)
 	CURR_FILE.lineno++;
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 
-	update_focus(KEEP_FOCUS_LOWER_3RD, cnf.ring_curr, 0, NULL);
-	//update_focus(FOCUS_AVOID_BORDER, 0, +1, &CURR_FILE.focus);
+	update_focus(FOCUS_AWAY_BOTTOM, cnf.ring_curr);
 
 	return (0);
 } /* filter_expand_down */
@@ -756,12 +749,14 @@ filter_restrict (void)
 	/* set hide bit */
 	CURR_LINE->lflag |= LMASK(cnf.ring_curr);
 
-	/* skip to next */
+	/* skip to next, always */
 	next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
 	CURR_FILE.lineno += cnt;
+
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 
-	update_focus(KEEP_FOCUS_CENTERED, cnf.ring_curr, 0, NULL);
+	if (CURR_FILE.focus < TEXTROWS/2)
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 
 	return (0);
 } /* filter_restrict */
@@ -786,10 +781,8 @@ incr_filter_level (void)
 			next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
 			CURR_FILE.lineno += cnt;
 			CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-			update_focus(CENTER_FOCUS_ON_BIG_LEAP, cnf.ring_curr, cnt, NULL);
-		} else {
-			update_focus(FOCUS_PULL_MIDDLE, cnf.ring_curr, 0, NULL);
 		}
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 	}
 
 	return (0);
@@ -853,10 +846,8 @@ decr_filter_level (void)
 			next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
 			CURR_FILE.lineno += cnt;
 			CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-			update_focus(CENTER_FOCUS_ON_BIG_LEAP, cnf.ring_curr, cnt, NULL);
-		} else {
-			update_focus(FOCUS_PULL_MIDDLE, cnf.ring_curr, 0, NULL);
 		}
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 	}
 
 	return (0);
@@ -910,7 +901,7 @@ int
 tomatch (void)
 {
 	LINE *lp=NULL;
-	int lineno=0, focus=0, lncol=0;
+	int lineno=0, lncol=0;
 	int o_lineno=0, o_lnoff=0, o_focus=0;
 
 	lp = CURR_LINE;
@@ -919,15 +910,14 @@ tomatch (void)
 	}
 
 	lineno = o_lineno = CURR_FILE.lineno;
-	focus = o_focus = CURR_FILE.focus;
+	o_focus = CURR_FILE.focus;
 	lncol = CURR_FILE.lncol;
 	o_lnoff = CURR_FILE.lnoff;
 
-	lp = tomatch_eng (lp, &lineno, &focus, &lncol);
+	lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_SET_FOCUS);
 	if (lp != NULL) {
 		CURR_LINE = lp;
 		CURR_FILE.lineno = lineno;
-		update_focus(FOCUS_AFTER_PRESET, cnf.ring_curr, focus, NULL);
 		CURR_FILE.lncol = lncol;
 		update_curpos(cnf.ring_curr);
 		if (o_lineno == CURR_FILE.lineno && o_lnoff == CURR_FILE.lnoff && o_focus == CURR_FILE.focus)
@@ -939,19 +929,19 @@ tomatch (void)
 
 /*
 * tomatch_eng - (engine) go to the matching block character, skip char constants
-*	return the new line pointer (or NULL if anything failed) and set lineno, focus, lncol
+*	return the new line pointer (or NULL if anything failed) and set lineno, lncol
 */
 LINE *
-tomatch_eng (LINE *lp, int *io_lineno, int *io_focus, int *io_lncol)
+tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int set_focus)
 {
 	LINE *ret_lp=NULL;
-	int lineno, focus, lncol;
+	int lineno, restore_focus, lncol;
 	int fcnt, found;
 	char chcur, tofind, dir, delim, ch;
 
 	/* initializing */
 	lineno = *io_lineno;
-	focus = *io_focus;
+	restore_focus = CURR_FILE.focus;
 	lncol = *io_lncol;
 	fcnt = 0;
 	chcur = lp->buff[lncol];
@@ -1004,10 +994,13 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_focus, int *io_lncol)
 			if (found)
 				break;
 
-			/* skip one line */
+			/* skip to next line */
 			next_lp (cnf.ring_curr, &lp, &fcnt);
 			lineno += fcnt;
-			update_focus(PRESET_FOCUS_MOVE_INCR, 0, fcnt, &focus);
+			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1))
+				update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
+			else
+				update_focus(INCR_FOCUS, cnf.ring_curr);
 			lncol = 0;
 		}/*while*/
 
@@ -1039,10 +1032,13 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_focus, int *io_lncol)
 			if (found)
 				break;
 
-			/* skip one line */
+			/* skip to prev line */
 			prev_lp (cnf.ring_curr, &lp, &fcnt);
 			lineno -= fcnt;
-			update_focus(PRESET_FOCUS_MOVE_DECR, 0, fcnt, &focus);
+			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1))
+				update_focus(DECR_FOCUS_SHADOW, cnf.ring_curr);
+			else
+				update_focus(DECR_FOCUS, cnf.ring_curr);
 			lncol = lp->llen-1;
 		}/*while*/
 
@@ -1051,9 +1047,14 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_focus, int *io_lncol)
 	if (found) {
 		ret_lp = lp;
 		*io_lineno = lineno;
-		update_focus(FOCUS_AVOID_BORDER, 0, dir, &focus);
-		*io_focus = focus;
+		if (set_focus == TOMATCH_SET_FOCUS) {
+			update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
+		} else {
+			CURR_FILE.focus = restore_focus;
+		}
 		*io_lncol = lncol;
+	} else {
+		CURR_FILE.focus = restore_focus;
 	}
 
 	return (ret_lp);
@@ -1067,7 +1068,7 @@ int
 forcematch (void)
 {
 	LINE *lp=NULL;
-	int lineno=0, focus=0, lncol=0;
+	int lineno=0, lncol=0;
 	int fmask=0;
 	char mask_active=0;
 
@@ -1077,7 +1078,6 @@ forcematch (void)
 	}
 
 	lineno = CURR_FILE.lineno;
-	focus = CURR_FILE.focus;
 	lncol = CURR_FILE.lncol;
 	fmask = FMASK(CURR_FILE.flevel);
 	mask_active = (LMASK(cnf.ring_curr) != 0);
@@ -1086,7 +1086,7 @@ forcematch (void)
 		CURR_FILE.fflag &= ~fmask;
 	}
 
-	lp = tomatch_eng (lp, &lineno, &focus, &lncol);
+	lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	if (lp != NULL) {
 		/* unhide */
 		lp->lflag &= ~fmask;
@@ -1095,8 +1095,7 @@ forcematch (void)
 		CURR_FILE.lineno = lineno;
 		CURR_FILE.lncol = lncol;
 		update_curpos(cnf.ring_curr);
-		/* focus is unusable, move to center */
-		update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+		update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 	}
 
 	if (mask_active) {
@@ -1113,7 +1112,7 @@ int
 fold_block (void)
 {
 	LINE *lp=NULL;
-	int lineno=0, focus=0, lncol=0;
+	int lineno=0, lncol=0;
 	int fmask=0;
 	char mask_active=0, do_unhide=0;
 
@@ -1122,7 +1121,6 @@ fold_block (void)
 		return (0);
 	}
 	lineno = CURR_FILE.lineno;
-	focus = CURR_FILE.focus;
 	lncol = CURR_FILE.lncol;
 	fmask = FMASK(CURR_FILE.flevel);
 	mask_active = (LMASK(cnf.ring_curr) != 0);
@@ -1131,7 +1129,7 @@ fold_block (void)
 		CURR_FILE.fflag &= ~fmask;
 	}
 
-	lp = tomatch_eng (lp, &lineno, &focus, &lncol);
+	lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	if (lp != NULL) {
 
 		/* hide or unhide other lines back towards current */
@@ -1191,7 +1189,7 @@ fold_thisfunc (void)
 	LINE *lp_end=NULL;
 	LINE *lp_head=NULL;
 	LINE *lx=NULL;
-	int lineno=0, focus=0, lncol=0;
+	int lineno=0, lncol=0;
 	int fmask=0;
 	int mask_active=0, do_unhide=0;
 	int hidden_to_end=0, hidden_to_head=0;
@@ -1225,7 +1223,7 @@ fold_thisfunc (void)
 		CURR_FILE.fflag &= ~fmask;
 	}
 
-	lx = tomatch_eng (lp_end, &lineno, &focus, &lncol);
+	lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	if (!TEXT_LINE(lx)) {
 		FILT_LOG(LOG_DEBUG, "block begin not found (tomatch)");
 		if (mask_active) {

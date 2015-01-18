@@ -2,7 +2,7 @@
 * fh.c
 * file handling, from basic open/save functions upto change watch, smart reload, pipe support
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -40,13 +40,14 @@
 extern CONFIG cnf;
 
 /* local proto */
+static void work_uptime (const char *headline);
 static int next_ri (void);
 static int check_dirname (const char *gname);
 static int getxline_filter(char *getbuff);
 static int parse_diff_header (const char *ptr, int ra[5]);
 static int backup_file (const char *fname, char *backup_name);
 
-void
+static void
 work_uptime (const char *headline)
 {
 	time_t now=0;
@@ -631,6 +632,10 @@ testaccess (struct stat *test)
 		return access;
 	}
 
+	if (cnf.euid == 0) {
+		return TEST_ACCESS_RW_OK;
+	}
+
 	groupsize = (sizeof(cnf.groups) / sizeof(cnf.groups[0]));
 
 	if (test->st_uid == cnf.euid) {
@@ -757,7 +762,7 @@ read_lines (FILE *fp, LINE **linep, int *lineno)
 		lp = lx;
 		if (changed) {
 			lp->lflag |= LSTAT_CHANGE;
-			// .fflag |= FSTAT_CHANGE;
+			/* .fflag |= FSTAT_CHANGE; */
 			fixcount++;
 		}
 
@@ -1066,7 +1071,7 @@ reload_bydiff (void)
 	struct stat test;
 	int original_lineno = CURR_FILE.lineno;
 	int range[5];
-	int action='.', target=0, cnt_to=0, source=0, cnt_from=0;
+	int action='.', target=0, cnt_to=0, cnt_from=0;
 	int actions_counter=0;
 
 	if (!(CURR_FILE.fflag & FSTAT_OPEN) || (CURR_FILE.fflag & FSTAT_SPECW)) {
@@ -1120,16 +1125,16 @@ reload_bydiff (void)
 			continue;
 		rb[ni] = '\0';
 
+		PD_LOG(LOG_DEBUG, ">>> rb [%s] ni %d", rb, ni);
 		if (action == '.') {
 			actions_counter++;
 			if (ni >= 3 && !parse_diff_header (rb, range)) {
 				action = range[2];
 				target = range[3];
 				cnt_to = range[4] - range[3] + 1;
-				source = range[0];
 				cnt_from = range[1] - range[0] + 1;
-				PD_LOG(LOG_DEBUG, "dot, action %c target %d (cnt_to %d) source %d (cnt_from %d)",
-					action, target, cnt_to, source, cnt_from);
+				PD_LOG(LOG_INFO, "dot, action %c target %d (cnt %d) source %d (cnt %d)",
+					action, target, cnt_to, range[0], cnt_from);
 
 				lp = lll_goto_lineno (cnf.ring_curr, target);
 				if (lp == NULL) {
@@ -1218,8 +1223,6 @@ reload_bydiff (void)
 				; /*separator*/
 			} else {
 				PD_LOG(LOG_ERR, "invalid input, c (ni=%d, cnt to=%d from=%d)", ni, cnt_to, cnt_from);
-				if (ni > 0)
-					PD_LOG(LOG_ERR, "invalid input, [0x%x]", rb[0]);
 				ret = 4;
 			}
 			if (cnt_from == 0 && cnt_to == 0) {
@@ -1245,7 +1248,7 @@ reload_bydiff (void)
 			CURR_FILE.lineno = original_lineno;
 		}
 	}
-	update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 
 	/* selection handling */
 	if (cnf.select_ri == cnf.ring_curr) {
@@ -1261,6 +1264,13 @@ reload_bydiff (void)
 			tracemsg ("reload done");
 		} else {
 			tracemsg ("identical");
+		}
+		/* do clenaup, even identical lines may have lflag */
+		for (lp=CURR_FILE.top->next; TEXT_LINE(lp); lp=lp->next) {
+			if (lp->lflag & LSTAT_CHANGE) {
+				lp->lflag |= LSTAT_ALTER;
+				lp->lflag &= ~LSTAT_CHANGE;
+			}
 		}
 	} else {
 		FH_LOG(LOG_ERR, "failed, (ret=%d, actions=%d)",
@@ -1459,7 +1469,7 @@ save_file (const char *newfname)
 			return (0);
 		} else {
 			if (!(CURR_FILE.fflag & FSTAT_CHANGE)) {
-				//tracemsg ("not changed, not saved.");
+				/* tracemsg ("not changed, not saved."); */
 				work_uptime("no change, no save");
 				return (0);
 			}

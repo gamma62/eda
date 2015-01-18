@@ -2,7 +2,7 @@
 * select.c
 * select/unselect lines, cp/rm/mv lines, indent/unindent tools, block based join/split/cut functions
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -178,12 +178,12 @@ reset_select (void)
 }
 
 /*
-** select_all - select all visible lines in current buffer without changing filter bits,
+** select_all - select all visible lines in current buffer without changing filter bits
 */
 int
 select_all (void)
 {
-	int ret=1, count=0;
+	int ret=0, count=0;
 	LINE *lp=NULL;
 
 	reset_select();
@@ -200,7 +200,7 @@ select_all (void)
 			lp = lp->next;
 		}
 
-		ret = (count==0);
+		if (count==0) tracemsg ("file not empty but nothing selected");
 	}
 
 	return (ret);
@@ -766,7 +766,7 @@ over_select (void)
 	}
 
 	/* focus in target */
-	update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 
 	return (0);
 } /* over_select */

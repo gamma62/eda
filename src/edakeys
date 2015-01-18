@@ -127,7 +127,7 @@
 #bm_jump8		KEY_M_EIGHT
 #bm_jump9		KEY_M_NINE
 #show_commands		KEY_NONE
-#mhist_pop		KEY_C_T
+#tag_jump_back		KEY_C_T
 #stop_bg_process		KEY_NONE
 #prefix_macro		KEY_M_GRAVEACC
 #smartind_macro		KEY_M_MINUS
@@ -138,6 +138,7 @@
 #ins_filename		KEY_C_G
 #cp_text2cmd		KEY_C_X
 #word_case		KEY_C_F5
+#rotate_palette		KEY_C_F3
 #mouse_support		KEY_NONE
 #force_redraw		KEY_C_R
 #recording_switch		KEY_NONE

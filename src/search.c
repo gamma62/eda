@@ -2,7 +2,7 @@
 * search.c
 * search and replace/change functions, filtering, line tag and word highlight, internal tool for search
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -223,7 +223,7 @@ internal_search (const char *pattern)
 	*/
 	CURR_LINE = CURR_FILE.bottom->prev;
 	CURR_FILE.lineno = CURR_FILE.num_lines;
-	update_focus(FOCUS_ON_LAST_LINE, cnf.ring_curr, 0, NULL);
+	update_focus(FOCUS_ON_LASTBUT1_LINE, cnf.ring_curr);
 
 	return (ret);
 }
@@ -629,9 +629,10 @@ repeat_search (void)
 {
 	int ret = 1;
 	LINE *lx;
-	int lineno, cnt, focus, xcol;
+	int lineno, cnt, xcol;
 	regmatch_t pmatch;
 	char search_rflag=0;
+	int restore_focus = CURR_FILE.focus;
 
 	if ( !(CURR_FILE.fflag & FSTAT_TAG2)) {
 		return (0);
@@ -645,7 +646,6 @@ repeat_search (void)
 		lx = CURR_LINE;
 		lineno = CURR_FILE.lineno;
 	}
-	focus = CURR_FILE.focus;
 	xcol = CURR_FILE.lncol;		/* initial shift in the line */
 	if (!repeat_search_initial_call && (CURR_FILE.fflag & FSTAT_TAG4)) {
 		/* special skip before repeated search, zero length BoL or EoL anchor */
@@ -673,7 +673,10 @@ repeat_search (void)
 		next_lp (cnf.ring_curr, &lx, &cnt);
 		lineno += cnt;
 		xcol = 0;
-		update_focus(PRESET_FOCUS_MOVE_INCR, 0, cnt, &focus);
+		if ((cnf.gstat & GSTAT_SHADOW) && (cnt > 1))
+			update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
+		else
+			update_focus(INCR_FOCUS, cnf.ring_curr);
 	}
 
 	/* search finished */
@@ -681,7 +684,7 @@ repeat_search (void)
 		/* found */
 		CURR_LINE = lx;
 		CURR_FILE.lineno = lineno;
-		update_focus(FOCUS_OPT_PULL_MIDDLE, cnf.ring_curr, focus, NULL);
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 		CURR_FILE.lncol = xcol + pmatch.rm_eo;
 		update_curpos(cnf.ring_curr);
 		/* select text area */
@@ -690,6 +693,7 @@ repeat_search (void)
 		/* not found */
 		tracemsg ("search: no match");
 		reset_search();
+		CURR_FILE.focus = restore_focus;
 		ret = (repeat_search_initial_call) ? 1 : 0;	/* 'no match' is not an error */
 	}
 
@@ -821,6 +825,8 @@ repeat_change (int ch)
 	char *s;
 	unsigned als;
 	static CHDATA *chp = NULL;
+	int cnt=0;
+	int restore_focus = CURR_FILE.focus;
 
 	if (ch == 0xff) {
 		s = (char *) MALLOC(sizeof(CHDATA));
@@ -831,15 +837,14 @@ repeat_change (int ch)
 			chp = (CHDATA *)s;
 
 			chp->change_count = 0;
-			if (CURR_LINE->lflag & LSTAT_TOP) {
-				chp->lx = CURR_LINE->next;
-				chp->lineno = CURR_FILE.lineno+1;
-			} else {
-				chp->lx = CURR_LINE;
-				chp->lineno = CURR_FILE.lineno;
-			}
-			chp->focus = CURR_FILE.focus;
+			chp->lx = CURR_LINE;
+			chp->lineno = CURR_FILE.lineno;
 			chp->lncol = CURR_FILE.lncol;
+			if (CURR_LINE->lflag & LSTAT_TOP) {
+				next_lp (cnf.ring_curr, &(chp->lx), &cnt);
+				chp->lineno += cnt;
+				chp->lncol = 0;
+			}
 
 			/* initial allocation for rep_buff[]; macro will reserve enough space */
 			als = REP_ASIZE(0);
@@ -903,6 +908,7 @@ repeat_change (int ch)
 
 	if (ret > 0) {
 		reset_search();
+		CURR_FILE.focus = restore_focus;
 		if (ret & 4) {
 			tracemsg ("change aborted due to malloc error");
 		} else {
@@ -923,7 +929,7 @@ repeat_change (int ch)
 		/* found */
 		CURR_LINE = chp->lx;
 		CURR_FILE.lineno = chp->lineno;
-		update_focus(FOCUS_OPT_PULL_MIDDLE, cnf.ring_curr, chp->focus, NULL);
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 		CURR_FILE.lncol = chp->lncol + chp->pmatch[0].rm_eo;
 		update_curpos(cnf.ring_curr);
 		/* chp->lncol must be saved as is! */
@@ -971,14 +977,17 @@ search_for_replace (CHDATA *chp)
 		next_lp (cnf.ring_curr, &(chp->lx), &cnt);
 		chp->lineno += cnt;
 		chp->lncol = 0;		/* lncol for the next line */
-		update_focus(PRESET_FOCUS_MOVE_INCR, 0, cnt, &chp->focus);
+		if ((cnf.gstat & GSTAT_SHADOW) && (cnt > 1))
+			update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
+		else
+			update_focus(INCR_FOCUS, cnf.ring_curr);
 	}
 
 	/* finished */
 	if ((ret == 0) && TEXT_LINE(chp->lx)) {
-		return (0);
+		return (0); /* found */
 	} else {
-		return (1);
+		return (1); /* not found */
 	}
 } /* search_for_replace */
 

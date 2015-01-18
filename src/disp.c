@@ -2,7 +2,7 @@
 * disp.c
 * all the original character based display implementation
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -67,8 +67,7 @@ static void empty_line (int focus);
 /* local variables */
 static attr_t at[COLOR_COUNT];
 
-/*
-* update status line
+/* update status line
 */
 void
 upd_statusline (void)
@@ -160,8 +159,7 @@ upd_statusline (void)
 	return;
 }
 
-/*
-* update terminal title, depending on setting and window change
+/* update terminal title, depending on setting and window change
 */
 void
 upd_termtitle (void)
@@ -192,8 +190,7 @@ upd_termtitle (void)
 	return;
 }
 
-/*
-* update command line
+/* update command line
 */
 void
 upd_cmdline (void)
@@ -251,8 +248,7 @@ set_attr (color_attribute_type base, int lflag, int focus_flag)
 	return (at[idx]);
 }
 
-/*
-* update text area, around the focus line
+/* update text area, around the focus line
 */
 void
 upd_text_area (int focus_line_only)
@@ -424,8 +420,7 @@ map_match_to_out (const char *ibuff, int imatch_so, int imatch_eo,
 	return;
 }
 
-/*
-* text line output
+/* text line output formatter
 */
 static void
 text_line (LINE *lp, int lineno, int focus, int focus_flag)
@@ -617,10 +612,7 @@ get_col(LINE *lp, int curpos)
 	return (i-1);
 }
 
-/*
-* update_curpos - update curpos and lnoff in current file/line
-* ri: file ring index
-* this function is part of the uniform output rendering
+/* update curpos and lnoff in current file/line; uniform output rendering
 */
 void
 update_curpos (int ri)
@@ -641,8 +633,7 @@ update_curpos (int ri)
 	return;
 }
 
-/*
-* set_position_by_pointer - move the cursor to new position by pointer
+/* move the cursor to new position by pointer
 */
 int
 set_position_by_pointer (MEVENT pointer)
@@ -712,215 +703,79 @@ set_position_by_pointer (MEVENT pointer)
 	return 0;
 }
 
-/*
-* first_screen_row - returns first screen-row number
-*/
-int
-first_screen_row (void)
-{
-	LINE *lp = CURR_LINE;
-	int lineno = CURR_FILE.lineno;
-	int focus = CURR_FILE.focus;
-	int fcnt = 0;	/* file lines */
-
-	/* upto the first line on the screen
-	 */
-	while ((focus > 0) && UNLIKE_TOP(lp)) {
-		prev_lp (cnf.ring_curr, &lp, &fcnt);
-		lineno -= fcnt;
-		/* see PRESET_FOCUS_MOVE_DECR */
-		if (focus > 0) {
-			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1) && (focus > 1))
-				focus -= 2;
-			else
-				focus -= 1;
-		}
-	}
-
-	return (focus);
-}
-
-/*
-* last_screen_row - returns last screen-row number
-*/
-int
-last_screen_row (void)
-{
-	LINE *lp = CURR_LINE;
-	int lineno = CURR_FILE.lineno;
-	int focus = CURR_FILE.focus;
-	int fcnt = 0;	/* file lines */
-
-	/* upto the last line on the screen
-	 */
-	while ((focus < TEXTROWS-1) && UNLIKE_BOTTOM(lp)) {
-		next_lp (cnf.ring_curr, &lp, &fcnt);
-		lineno += fcnt;
-		/* see PRESET_FOCUS_MOVE_INCR */
-		if (focus < TEXTROWS-1) {
-			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1) && (focus < TEXTROWS-2))
-				focus += 2;
-			else
-				focus += 1;
-		}
-	}
-
-	return (focus);
-}
-
-/*
-* update_focus - update vertical focus position of indexed file
-* value: file ring index -- or something else
-* data_ptr: the focus preset
-* this function is part of the uniform output rendering
+/* update vertical focus position; uniform output rendering
 */
 void
-update_focus (MOTION_TYPE motion_type, int ri, int value, int *data_ptr)
+update_focus (MOTION_TYPE motion_type, int ri)
 {
-	int first, last;
-
 	switch(motion_type)
 	{
-	case FOCUS_ON_FIRST_LINE:
-		/* move focus to the first line of the file
-		*/
+	case FOCUS_ON_1ST_LINE:
+		cnf.fdata[ri].focus = 0;
+		break;
+
+	case FOCUS_ON_2ND_LINE:
 		cnf.fdata[ri].focus = 1;
 		break;
 
-	case FOCUS_ON_LAST_LINE:
-		/* move focus to the last line of the file
-		*/
+	case FOCUS_ON_LASTBUT1_LINE:
 		cnf.fdata[ri].focus = MIN(cnf.fdata[ri].num_lines, TEXTROWS-2);
 		break;
 
-	case INCR_FOCUS_ONCE:
-		/* direct skip, forward
-		*/
+	case FOCUS_ON_LAST_LINE:
+		cnf.fdata[ri].focus = TEXTROWS-1;
+		break;
+
+	case INCR_FOCUS:
 		if (cnf.fdata[ri].focus < TEXTROWS-1)
 			cnf.fdata[ri].focus++;
 		break;
 
-	case DECR_FOCUS_ONCE:
-		/* direct skip, backward
-		*/
+	case DECR_FOCUS:
 		if (cnf.fdata[ri].focus > 0)
 			cnf.fdata[ri].focus--;
 		break;
 
+	case INCR_FOCUS_SHADOW:
+		if (cnf.fdata[ri].focus < TEXTROWS-2)
+			cnf.fdata[ri].focus += 2;
+		else if (cnf.fdata[ri].focus < TEXTROWS-1)
+			cnf.fdata[ri].focus += 1;
+		break;
+
+	case DECR_FOCUS_SHADOW:
+		if (cnf.fdata[ri].focus > 1)
+			cnf.fdata[ri].focus -= 2;
+		else if (cnf.fdata[ri].focus > 0)
+			cnf.fdata[ri].focus -= 1;
+		break;
+
 	case CENTER_FOCUSLINE:
 		if (TEXTROWS > 0)
-			cnf.fdata[ri].focus = TEXTROWS/2;	/* screen's middle line */
-		else
-			cnf.fdata[ri].focus = TRACESIZE;	/* sane, if we have not yet TEXTROWS */
-		break;
-
-	case FOCUS_SET_INIT:
-	case FOCUS_AFTER_PRESET:
-		cnf.fdata[ri].focus = value;		/* new focus */
-		break;
-
-	case PRESET_FOCUS_MOVE_INCR:
-		/* move focus forward with two or one, if possible
-		* value: skipped lines count
-		* data_ptr: the focus preset
-		*/
-		if (*data_ptr < TEXTROWS-1) {
-			if ((cnf.gstat & GSTAT_SHADOW) && (value > 1) && (*data_ptr < TEXTROWS-2))
-				*data_ptr += 2;
-			else
-				*data_ptr += 1;
-		}
-		break;
-
-	case PRESET_FOCUS_MOVE_DECR:
-		/* move focus backward with two or one, if possible
-		* value: skipped lines count
-		* data_ptr: the focus preset
-		*/
-		if (*data_ptr > 0) {
-			if ((cnf.gstat & GSTAT_SHADOW) && (value > 1) && (*data_ptr > 1))
-				*data_ptr -= 2;
-			else
-				*data_ptr -= 1;
-		}
-		break;
-
-	case CENTER_FOCUS_ON_BIG_LEAP:
-		/* center if count of skipped lines is big
-		* value: the preset focus
-		*/
-		if (value > TEXTROWS/3)
 			cnf.fdata[ri].focus = TEXTROWS/2;
+		else
+			cnf.fdata[ri].focus = TRACESIZE;
 		break;
 
-	case KEEP_FOCUS_UPPER_3RD:
-		/* keep focus in the middle 3rd, away from top
-		*/
-		if (cnf.fdata[ri].focus < TEXTROWS/3)
-			cnf.fdata[ri].focus = TEXTROWS/3;
-		else if (cnf.fdata[ri].focus > TEXTROWS/3)
+	case FOCUS_AWAY_TOP:
+		if (cnf.fdata[ri].focus < TEXTROWS/5)
+			cnf.fdata[ri].focus = TEXTROWS/5;
+		else if (cnf.fdata[ri].focus > TEXTROWS/5)
 			cnf.fdata[ri].focus--;
 		break;
 
-	case KEEP_FOCUS_LOWER_3RD:
-		/* keep focus in the middle 3rd, away from bottom
-		*/
-		if (cnf.fdata[ri].focus > TEXTROWS*2/3)
-			cnf.fdata[ri].focus = TEXTROWS*2/3;
-		else if (cnf.fdata[ri].focus < TEXTROWS*2/3)
-			cnf.fdata[ri].focus++;
-		break;
-
-	case KEEP_FOCUS_CENTERED:
-		/* in upper half: move focus down,
-		*  in lower half: scroll window up
-		*/
-		if (cnf.fdata[ri].focus < TEXTROWS/2)
+	case FOCUS_AWAY_BOTTOM:
+		if (cnf.fdata[ri].focus > TEXTROWS*4/5)
+			cnf.fdata[ri].focus = TEXTROWS*4/5;
+		else if (cnf.fdata[ri].focus < TEXTROWS*4/5)
 			cnf.fdata[ri].focus++;
 		break;
 
 	case FOCUS_AVOID_BORDER:
-		/* avoid the borders, pull back focus to the limit (1/5 instead of 1/8)
-		* value: the direction of previous motion
-		* data_ptr: the focus preset
-		*/
-		if (value < 0 && *data_ptr < TEXTROWS/5) {
-			*data_ptr = TEXTROWS/5;
-		} else if (value > 0 && *data_ptr > TEXTROWS*4/5) {
-			*data_ptr = TEXTROWS*4/5;
-		}
-		break;
-
-	case FOCUS_OPT_PULL_MIDDLE:
-		/* if new focus differs : set and pull to middle
-		* value: the focus preset
-		*/
-		if (cnf.fdata[ri].focus == value) {
-			break;			/* leave */
-		}
-		cnf.fdata[ri].focus = value;		/* set it */
-		/* overflow */
-	case FOCUS_PULL_MIDDLE:
-		first = first_screen_row();
-		last = last_screen_row();
-		if (last - first < TEXTROWS/2) {
-			/* almost empty, centralise */
-			if (cnf.fdata[ri].focus < TEXTROWS/3) {
-				cnf.fdata[ri].focus = TEXTROWS/3;
-			} else if (cnf.fdata[ri].focus > TEXTROWS*2/3) {
-				cnf.fdata[ri].focus = TEXTROWS*2/3;
-			}
-		} else {
-			/* more lines, avoid the borders (1/5 instead of 1/8) */
-			if (cnf.fdata[ri].focus < TEXTROWS/5) {
-				cnf.fdata[ri].focus = TEXTROWS/5;
-			} else if (cnf.fdata[ri].focus > TEXTROWS*4/5) {
-				cnf.fdata[ri].focus = TEXTROWS*4/5;
-			}
-		}
-		break;
-
-	case NOTHING_TODO:
+		if (cnf.fdata[ri].focus < TEXTROWS/5)
+			cnf.fdata[ri].focus = TEXTROWS/5;
+		else if (cnf.fdata[ri].focus > TEXTROWS*4/5)
+			cnf.fdata[ri].focus = TEXTROWS*4/5;
 		break;
 
 	default:
@@ -928,8 +783,7 @@ update_focus (MOTION_TYPE motion_type, int ri, int value, int *data_ptr)
 	}
 } /* update_focus */
 
-/*
-* update trace message window
+/* update trace message window
 */
 void
 upd_trace (void)
@@ -963,9 +817,7 @@ upd_trace (void)
 	return;
 }
 
-/*
-* space padded or cutted line output (return str pointer)
-* center text
+/* space padded or cutted line output (return static string)
 */
 static const char *
 center_fname (const char *ibuff, const char *catbuff, int padsize)
@@ -1019,9 +871,6 @@ center_fname (const char *ibuff, const char *catbuff, int padsize)
 	return (obuff);
 }
 
-/*
-* shadow line
-*/
 static void
 shadow_line (int count, int focus)
 {
@@ -1042,9 +891,6 @@ shadow_line (int count, int focus)
 	return;
 }
 
-/*
-* empty line
-*/
 static void
 empty_line (int focus)
 {
@@ -1076,88 +922,60 @@ init_colors (int palette)
 		palette = 0;
 	}
 
-	if (palette == 1) {		/* light background (gnome-terminal) palette */
+	if (palette == 1) {		/* gnome-terminal tango or default palette */
 		tracemsg ("light background palette");
 
 		SETCOLOR(COLOR_NORMAL_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, WHITE, 0);
+		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, WHITE, A_BOLD);
 		SETCOLOR(COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); // removed BOLD
+		SETCOLOR(COLOR_SEARCH_TEXT, WHITE, RED, 0);
 
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, WHITE, CYAN, 0);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLACK, CYAN, 0); // BLU->BLACK
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE); // BLU->BLACK
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); // removed BOLD
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, CYAN, BLACK, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLUE, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, WHITE, RED, 0);
 
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, A_BOLD); // added BOLD
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, WHITE, GREEN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLUE, WHITE, A_REVERSE); //RED->BLUE, removed BOLD
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_BOLD|A_REVERSE);
 
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, CYAN, A_BOLD); // added BOLD
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, WHITE, CYAN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLUE, WHITE, A_REVERSE); //RED->BLUE, removed BOLD
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_BOLD|A_REVERSE);
 
 		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, YELLOW, BLUE, A_BOLD);
-		SETCOLOR(COLOR_CMDLINE_TEXT, YELLOW, BLUE, A_BOLD);
+		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
+		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
 		SETCOLOR(COLOR_SHADOW_TEXT, CYAN, WHITE, 0);
 
-	} else if (palette == 0) {	/* dark background (xterm) palette */
+	} else if (palette == 0) {	/* xterm, maybe gnome-terminal rxvt palette */
 		tracemsg ("dark background palette");
 
 		SETCOLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
-		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, BLACK, 0);
-		SETCOLOR(COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD); // added BOLD
+		SETCOLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
+		SETCOLOR(COLOR_HIGH_TEXT, WHITE, BLACK, 0);
 		SETCOLOR(COLOR_SEARCH_TEXT, RED, BLACK, 0);
 
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, YELLOW, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, 0); // removed BOLD
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_BOLD);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLACK, A_BOLD);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, WHITE, BLACK, A_BOLD);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_BOLD);
 
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_REVERSE);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
 
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_BOLD|A_REVERSE);
-
-		SETCOLOR(COLOR_TRACEMSG_TEXT, BLUE, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, YELLOW, BLUE, A_BOLD);
-		SETCOLOR(COLOR_CMDLINE_TEXT, YELLOW, BLUE, A_BOLD);
-		SETCOLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
-
-	} else if (palette == 2) {	/* experimental (console?) palette */
-		tracemsg ("experimental palette");
-
-		SETCOLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
-		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, BLACK, 0);
-		SETCOLOR(COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_SEARCH_TEXT, RED, BLACK, 0);
-
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, YELLOW, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, 0);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_REVERSE);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, CYAN, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, YELLOW, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, YELLOW, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
 
 		SETCOLOR(COLOR_TRACEMSG_TEXT, BLUE, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, YELLOW, BLUE, A_BOLD);
-		SETCOLOR(COLOR_CMDLINE_TEXT, YELLOW, BLUE, A_BOLD);
+		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
+		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
 		SETCOLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
 
 	}

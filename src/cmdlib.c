@@ -2,7 +2,7 @@
 * cmdlib.c
 * advanced editing commands and later extensions, various parsers, directory list, macros and tools, VCS diff support
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -116,7 +116,7 @@ delete_lines (const char *args)
 				CURR_FILE.fflag |= FSTAT_CHANGE;
 				CURR_FILE.lineno = 0;
 				go_home();
-				update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+				update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 			}
 			ret=0;
 
@@ -540,7 +540,7 @@ lsdir (const char *dirpath)
 		CURR_LINE = CURR_LINE->next;
 		CURR_FILE.lineno = 2;
 	}
-	update_focus(FOCUS_ON_FIRST_LINE, cnf.ring_curr, 0, NULL);
+	update_focus(FOCUS_ON_2ND_LINE, cnf.ring_curr);
 	CURR_FILE.fflag &= ~FSTAT_CMD; /* select text area */
 
 	return ret;
@@ -551,10 +551,10 @@ lsdir (const char *dirpath)
 * patterns (make, egrep, find outputs):
 *	[path/]<filename>SEP<lineno>SEP
 * SEP can be ':' or even '-'
-* returns 0 on success, 1-2-3 on trivial failures, -1 if filename open failed
+* returns 0 on success, 1 if lineno not found, 2 if file is scratch and -1 if filename open failed
 */
 int
-simple_parser (const char *dataline)
+simple_parser (const char *dataline, int jump_mode)
 {
 	int ret=0, len, split;
 	char filename[FNAMESIZE];
@@ -562,21 +562,18 @@ simple_parser (const char *dataline)
 	char patt1[TAGSTR_SIZE];
 	LINE *lx = NULL;
 	int linenum;
-	int from_ring, from_lineno;
 
 	len = strlen(dataline);
 	if (len == 0 || len >= FNAMESIZE) {
 		return (1);
 	}
 
-	from_ring = cnf.ring_curr;
-	from_lineno = cnf.fdata[cnf.ring_curr].lineno;
+	/* optional-path/filename:12345: ... */
+	/* optional-path/filename-12345- ... */
 
 	/* simple match */
 	strncpy(patt0, "^([^:]+):([0-9]+)", 100);
 	/* ungreedy match */
-	/* optional-path/filename:12345: ... */
-	/* optional-path/filename-12345- ... */
 	strncpy(patt1, "^(.+?)([:-])([0-9]+)\\2", 100);
 
 	if (len>2 && dataline[0] == '.' && dataline[1] == '/') {
@@ -601,29 +598,27 @@ simple_parser (const char *dataline)
 		}
 	}
 
-	if (split > 0) {
+	ret = -1;
+	if (split > 0 && filename[0] != '\0') {
 		if (linenum < 0)
 			linenum = 0;	/* fallback */
 
 		/* open file or switch to
 		 */
-		ret = -1;
-		if (filename[0] != '\0' && add_file(filename) == 0) {
-			ret = 3;
+		if (add_file(filename) == 0) {
+			ret = 2;
 			if (!(CURR_FILE.fflag & FSTAT_SCRATCH)) {
+				ret = 1;
+				if (jump_mode == SIMPLE_PARSER_WINKIN) {
+					mhist_push (cnf.ring_curr, CURR_FILE.lineno);
+				}
 				lx = lll_goto_lineno (cnf.ring_curr, linenum);
 				if (lx != NULL) {	/* maybe bottom */
-					if (cnf.bootup) {
-						/* the position in the "parser list" */
-						mhist_push (from_ring, from_lineno);
-					}
 					set_position (cnf.ring_curr, linenum, lx);
 					ret = 0;
 				}
 			}
 		}
-	} else {
-		ret = 1;
 	}
 
 	return (ret);
@@ -678,7 +673,7 @@ diff_parser (const char *dataline)
 	}
 
 	if (ret==0) {
-		update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+		update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 	}
 	return (ret);
 }
@@ -741,7 +736,7 @@ general_parser (void)
 	}
 	else if ((strncmp(CURR_FILE.fname, "*find*", 6) == 0) ||
 		(strncmp(CURR_FILE.fname, "*make*", 6) == 0)) {
-		simple_parser (dataline);
+		simple_parser (dataline, SIMPLE_PARSER_JUMP);
 	}
 	else if (strncmp(CURR_FILE.fname, "*diff*", 6) == 0) {
 		diff_parser (dataline);
@@ -1090,10 +1085,8 @@ incr_filter_cycle (void)
 		next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
 		CURR_FILE.lineno += cnt;
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-		update_focus(CENTER_FOCUS_ON_BIG_LEAP, cnf.ring_curr, cnt, NULL);
-	} else {
-		update_focus(FOCUS_PULL_MIDDLE, cnf.ring_curr, 0, NULL);
 	}
+	update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 
 	return (0);
 }
@@ -1512,7 +1505,7 @@ ins_bname (void)
 }
 
 /*
-** view_bname - view block/function name in notification
+** view_bname - view block/function name in notification, try even from make and find buffers
 */
 int
 view_bname (void)
@@ -1520,6 +1513,7 @@ view_bname (void)
 	char *bn = NULL;
 	char *dataline = NULL;
 	int orig_ri = cnf.ring_curr;
+	int jump = 0;
 
 	if (CURR_FILE.fflag & FSTAT_SPECW) {
 		/* special buffer */
@@ -1538,16 +1532,15 @@ view_bname (void)
 			}
 
 			/* open file and jump to */
-			if (simple_parser (dataline) == 0) {
+			jump = simple_parser (dataline, SIMPLE_PARSER_WINKIN);
+			if (jump == 0 || jump == 1) {
 				bn = block_name(cnf.ring_curr);
-				mhist_pop(); /* restore original position in target file */
-			} else {
-				tracemsg("unknown");
-				return (0);
+				mhist_pop(); /* restore original position in target */
 			}
 			FREE(dataline); dataline = NULL;
 			cnf.ring_curr = orig_ri;
 		} else {
+			/* not supported */
 			return (0);
 		}
 
@@ -1617,14 +1610,15 @@ xterm_title (const char *xtitle)
 	slen = strlen(xtitle);
 	if (slen < 100) {
 		strncpy (xtbuf+blen, xtitle, 100);
+		blen += 100;
 	} else {
 		xtbuf[blen++] = '.';
 		xtbuf[blen++] = '.';
 		xtbuf[blen++] = '.';
 		strncpy (xtbuf+blen, &xtitle[slen-97], 97);
+		blen += 97;
 	}
 
-	blen = strlen(xtbuf);
 	xtbuf[blen++] = 007;
 	xtbuf[blen] = '\0';
 
@@ -1894,7 +1888,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 	*ring_tg = cnf.ring_curr;	/* save target file ring index */
 	cnf.ring_curr = ri_;		/* back to diff file */
 
-	//PD_LOG(LOG_DEBUG, "(set, type %d) done, target fname %s", *diff_type, xmatch);
+	/* PD_LOG(LOG_DEBUG, "(type %d) done, target fname %s", *diff_type, xmatch); */
 	return (0);
 }
 
@@ -1988,7 +1982,7 @@ select_diff_section (int *diff_type, int *ring_tg)
 	*ring_tg = cnf.ring_curr;	/* save target file ring index */
 	cnf.ring_curr = ri_;		/* back to diff file */
 
-	//PD_LOG(LOG_DEBUG, "(select, type %d) target fname %s", *diff_type, xmatch);
+	/* PD_LOG(LOG_DEBUG, "(type %d) done, target fname %s", *diff_type, xmatch); */
 	return (0);
 }
 
@@ -2137,7 +2131,7 @@ process_diff (void)
 	/* call once for the target */
 	cnf.ring_curr = ring_tg;
 	filter_more("function");
-	update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 	cnf.ring_curr = ri_;
 
 	return (0);

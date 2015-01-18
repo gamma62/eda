@@ -2,7 +2,7 @@
 * cmd.c
 * basic editing command set, command history, event handler functios: ed_cmdline, ed_text, ed_common
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -159,20 +159,25 @@ clhistory_cleanup (int keep)
 	while (++item < keep && runner != NULL && runner->prev != NULL) {
 		runner = runner->prev;
 	}
-	HIST_LOG(LOG_DEBUG, "back %d items, prev %d, next %d",
-		item, (runner->prev != NULL), (runner->next != NULL));
 
 	while (runner != NULL) {
 		if (runner->prev == NULL) {
 			break;
 		} else {
+			/* unlink nodes from linked list, but only prev */
 			clhistory_unlink(runner->prev);
 		}
 	}
 
-	HIST_LOG(LOG_INFO, "done, (kept %d, prev %d, next %d), cnf.clhist_size %d",
-		cnf.clhist_size, (runner->prev != NULL), (runner->next != NULL), item);
-	return (runner==NULL);
+	if (runner != NULL) {
+		HIST_LOG(LOG_INFO, "done, (kept %d, prev %d, next %d), cnf.clhist_size %d",
+			item, (runner->prev != NULL), (runner->next != NULL), cnf.clhist_size);
+		return (0);
+	} else {
+		HIST_LOG(LOG_ERR, "failed, (kept %d but runner is NULL), cnf.clhist_size %d",
+			item, cnf.clhist_size);
+		return (1);
+	}
 }
 
 /* check current item with some olders, and remove duplicates
@@ -733,7 +738,8 @@ keypress_enter (void)
 		insert[sizeof(insert)-1] = '\0';
 
 		/* keep only the prompt */
-		PIPE_LOG(LOG_DEBUG, "(keep only the prompt) push %d bytes [%s]", push, insert);
+		PIPE_LOG(LOG_DEBUG, "(keep only the prompt) llen %d from offset %d [%s] -- push bytes [%s]",
+			CURR_LINE->llen, offset, CURR_LINE->buff+offset, insert);
 		CURR_FILE.lncol = offset;
 		deleol();
 
@@ -936,7 +942,7 @@ set_position (int ri, int lineno, LINE *lp)
 	CURR_FILE.lineno = lineno;
 	CURR_FILE.fflag &= ~FSTAT_CMD;
 	/* must work even if !cnf.bootup */
-	update_focus(CENTER_FOCUSLINE, ri, 0, NULL);
+	update_focus(CENTER_FOCUSLINE, ri);
 	go_home();
 	if (HIDDEN_LINE(cnf.ring_curr, CURR_LINE)) {
 		CURR_LINE->lflag &= ~LMASK(cnf.ring_curr);
@@ -1034,10 +1040,11 @@ go_up (void)
 					if (CURR_FILE.focus > 1)
 						cnf.gstat |= GSTAT_UPDFOCUS;
 					/* else: scroll window */
+					update_focus(DECR_FOCUS_SHADOW, cnf.ring_curr);
 				} else {
 					cnf.gstat |= GSTAT_UPDFOCUS;
+					update_focus(DECR_FOCUS, cnf.ring_curr);
 				}
-				update_focus(PRESET_FOCUS_MOVE_DECR, 0, fcnt, &CURR_FILE.focus);
 			}
 		}
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
@@ -1067,10 +1074,11 @@ go_down (void)
 					if (CURR_FILE.focus < TEXTROWS-2)
 						cnf.gstat |= GSTAT_UPDFOCUS;
 					/* else: scroll window */
+					update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
 				} else {
 					cnf.gstat |= GSTAT_UPDFOCUS;
+					update_focus(INCR_FOCUS, cnf.ring_curr);
 				}
-				update_focus(PRESET_FOCUS_MOVE_INCR, 0, fcnt, &CURR_FILE.focus);
 			}
 		}
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
@@ -1100,26 +1108,27 @@ go_first_screen_line (void)
 {
 	LINE *lp=CURR_LINE;
 	int fcnt=0;	/* file lines */
-	int focus;
 
 	/* switch to the text area */
 	CURR_FILE.fflag &= ~FSTAT_CMD;
 
 	/* upto the first line
 	 */
-	focus = CURR_FILE.focus;
-	while (focus > 0) {
+	while (CURR_FILE.focus > 0) {
 		prev_lp (cnf.ring_curr, &lp, &fcnt);
 		if (UNLIKE_TOP(lp)) {
 			CURR_LINE = lp;
 			CURR_FILE.lineno -= fcnt;
-			update_focus(PRESET_FOCUS_MOVE_DECR, 0, fcnt, &focus);
+			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1))
+				update_focus(DECR_FOCUS_SHADOW, cnf.ring_curr);
+			else
+				update_focus(DECR_FOCUS, cnf.ring_curr);
 		} else {
 			break;
 		}
 	}
-	/* set 0, even if it was larger */
-	update_focus(FOCUS_SET_INIT, cnf.ring_curr, 0, NULL);
+	/* set 1st, even if it was larger */
+	update_focus(FOCUS_ON_1ST_LINE, cnf.ring_curr);
 
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 	return (0);
@@ -1173,26 +1182,27 @@ go_last_screen_line (void)
 {
 	LINE *lp=CURR_LINE;
 	int fcnt=0;	/* file lines */
-	int focus;
 
 	/* switch to the text area */
 	CURR_FILE.fflag &= ~FSTAT_CMD;
 
 	/* upto the last line
 	 */
-	focus = CURR_FILE.focus;
-	while (focus < TEXTROWS-1) {
+	while (CURR_FILE.focus < TEXTROWS-1) {
 		next_lp (cnf.ring_curr, &lp, &fcnt);
 		if (UNLIKE_BOTTOM(lp)) {
 			CURR_LINE = lp;
 			CURR_FILE.lineno += fcnt;
-			update_focus(PRESET_FOCUS_MOVE_INCR, 0, fcnt, &focus);
+			if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1))
+				update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
+			else
+				update_focus(INCR_FOCUS, cnf.ring_curr);
 		} else {
 			break;
 		}
 	}
-	/* set TEXTROWS-1, even if it was lower */
-	update_focus(FOCUS_SET_INIT, cnf.ring_curr, TEXTROWS-1, NULL);
+	/* set last, even if it was lower */
+	update_focus(FOCUS_ON_LAST_LINE, cnf.ring_curr);
 
 	CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 	return (0);
@@ -1239,7 +1249,7 @@ go_top (void)
 		CURR_FILE.lineno = 0;
 	}
 	CURR_FILE.fflag &= ~FSTAT_CMD;
-	update_focus(FOCUS_SET_INIT, cnf.ring_curr, 0, NULL);
+	update_focus(FOCUS_ON_1ST_LINE, cnf.ring_curr);
 	return (0);
 }
 
@@ -1257,7 +1267,7 @@ go_bottom (void)
 		CURR_FILE.lineno = CURR_FILE.num_lines+1;
 	}
 	CURR_FILE.fflag &= ~FSTAT_CMD;
-	update_focus(FOCUS_SET_INIT, cnf.ring_curr, TEXTROWS-1, NULL);
+	update_focus(FOCUS_ON_LAST_LINE, cnf.ring_curr);
 	return (0);
 }
 
@@ -1325,7 +1335,7 @@ goto_pos (const char *args)
 int
 center_focusline (void)
 {
-	update_focus(CENTER_FOCUSLINE, cnf.ring_curr, 0, NULL);
+	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 	return (0);
 }
 
@@ -1371,7 +1381,7 @@ cp_text2cmd (void)
 
 	cnf.reset_clhistory = 1;
 
-	// keep clpos and cloff
+	/* keep clpos and cloff */
 	j = cnf.clpos;
 	for (i=0; i < CURR_LINE->llen-1; i++) {
 		if (j < CMDLINESIZE-1) {
@@ -1876,7 +1886,7 @@ duplicate (void)
 		CURR_LINE = lx;
 
 		/* skip focus (no shadow line) */
-		update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 
 		/* update */
 		CURR_FILE.lineno++;
@@ -1917,7 +1927,7 @@ split_line (void)
 		CURR_LINE = lx;
 
 		/* update */
-		update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 		CURR_FILE.lineno++;
 
 	/* append empty line if cursor is at end or over the end
@@ -1940,7 +1950,7 @@ split_line (void)
 		CURR_LINE = lx;
 
 		/* update */
-		update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 		CURR_FILE.lineno++;
 
 	/* cursor is at start of line (the line is not empty), insert line before
@@ -1954,7 +1964,7 @@ split_line (void)
 		/* CURR_LINE remains */
 
 		/* update */
-		update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 		CURR_FILE.lineno++;
 
 	/* real split */
@@ -1983,7 +1993,7 @@ split_line (void)
 		CURR_LINE = lx;
 
 		/* update */
-		update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+		update_focus(INCR_FOCUS, cnf.ring_curr);
 		CURR_FILE.lineno++;
 
 	}
@@ -2056,9 +2066,6 @@ ed_common (int ch)
 	int mi=0, ti=0;
 	char args_buff[CMDLINESIZE];
 
-	/* macros may need this space */
-	memset(args_buff, 0, sizeof(args_buff));
-
 	switch (ch)
 	{
 	case KEY_F12:	/* switch between command and text area */
@@ -2077,6 +2084,7 @@ ed_common (int ch)
 	default:
 		/* search down fkey in macros[].fkey and table[].fkey
 		*/
+		memset(args_buff, 0, sizeof(args_buff));
 
 		for (mi=0; mi < MLEN; mi++) {
 			if (macros[mi].fkey == ch) {

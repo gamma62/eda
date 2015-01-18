@@ -1,7 +1,7 @@
 /* 
 * command.h
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -152,7 +152,7 @@ TABLE table[] = {
 	{ "",		KEY_M_W, -1,		PN(find_window_switch),	0x00},
 	{ "fword",	KEY_NONE, 2,		PN(fw_option_switch),	0x00},
 	{ "fspath",	KEY_NONE, 3,		PN(fsearch_path_macro),	0x01},
-	{ "fseargs",	KEY_NONE, 3,		PN(fsearch_args_macro),	0x01},
+	{ "fseargs",	KEY_NONE, 4,		PN(fsearch_args_macro),	0x01},
 
 	/* using external filters */
 	{ "|",		-1, 1,			PN(filter_cmd),		0x01},
@@ -180,7 +180,7 @@ TABLE table[] = {
 	{ "b8",		KEY_M_EIGHT, 2,		PN(bm_jump8),		0x00},
 	{ "b9",		KEY_M_NINE, 2,		PN(bm_jump9),		0x00},
 	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
-	{ "mhpop",	KEY_C_T, 2,		PN(mhist_pop),		0x00},
+	{ "jback",	KEY_C_T, 2,		PN(tag_jump_back),	0x00},
 
 	/* only for macros and external processes */
 	{ "",		-1, -1,			PN(finish_in_fg),	0x00},

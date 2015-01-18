@@ -13,10 +13,10 @@ shadow		on
 smartindent	on
 move_reset	on
 case_sensitive	on
-autotitle	on
+autotitle	off
 
-# color palette: 0=bg:black, 1=bg:white
-palette		0
+# color palette: 0 dark (XTerm), 1 light (gnome-terminal)
+palette		1
 
 # unlink backup file (except the forced backup case)
 backup_nokeep	on
@@ -31,12 +31,6 @@ save_inode	yes
 #indent		space	4
 indent		tab	1
 tabsize		8
-
-# status line: left:index(%i),filter(%f),lines(%l) right:positions(%p),row/col(%r),hexa(%x)
-disp_opts	%i%f%l %r%x
-
-# flags for LOGs by components
-#log MAIN2 FH2 CMD2 HIST2 REPL2 TAGS2 SELE2 FILT2 PIPE2 PD2 REC0 UPD0
 
 # find options
 find_path	/usr/bin/find
@@ -61,9 +55,7 @@ diff_path	/usr/bin/diff
 ssh_path	/usr/bin/ssh
 
 # some filter examples
-#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -
-#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
-#indent -gnu -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -cp0 -bli0 -npsl -
-#a2ps -1 -f8 -R -Egnuc -T4 --stdin=something
-#a2ps -1 -f8
+#a2ps -1 -f8 -R -Egnuc -T4
+#a2ps -1 -f10 -r
 #xmllint --format -
+#xmllint --valid -

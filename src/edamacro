@@ -47,32 +47,56 @@ KEY_NONE	:qo
 #Description: alias for qoth
 	quit_others
 .
+KEY_NONE	ps
+#Description: get the list of processes
+	shell_cmd ps -eHo pid,ppid,user,sid,pgid,uid,gid,euid,egid,cmd
+	finish_in_fg
+.
 #KEY_NONE	cvs
 ##Description: run CVS command
 #	vcstool cvs $0
 #.
 #KEY_NONE	svn
-##Description: run subversion command
+#Description: run Subversion command
 #	vcstool svn $0
 #.
+#KEY_NONE	svndiff
+##Description: run svn diff on current file and process the outcome
+#	filter_all func
+#	vcstool svn diff -x -w ^G
+#	is_special diff
+#	process_diff
+#.
 #KEY_NONE	hg
-##Description: run mercurial command
+#Description: run Mercurial command
 #	vcstool hg $0
 #.
-#KEY_NONE	hgdiff
-##Description: run hg diff on that file and process the outcome
+
+#KEY_C_F6	hginfo
+##Description: run hg commands to get info
+#	vcstool hg sum
+#	vcstool hg diff --stat
+#	vcstool hg status
+#.
+#KEY_C_F7	hgdiff
+##Description: run hg diff on current file and process the outcome
 #	filter_all func
-#	vcstool hg diff -g -p ^G
+#	vcstool hg diff -p -w ^G
 #	is_special diff
 #	process_diff
 #.
-#KEY_NONE	svndiff
-##Description: run svn diff on that file and process the outcome
-#	filter_all func
-#	vcstool svn diff ^G
-#	is_special diff
-#	process_diff
-#.
+KEY_NONE	save_cmds
+#Description: example, how to save the output of "cmds" to cmds.txt
+	show_commands
+	select_all
+	add_file cmds.txt
+	delete_lines all
+	go_top
+	cp_select
+	file_file
+	show_commands
+	drop_file
+.
 #KEY_NONE	cindent
 ##Description: reindent C code in buffer
 #	select_all

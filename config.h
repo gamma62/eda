@@ -5,4 +5,4 @@
 
 #undef THE_BACKSPACE_C_H_CHEAT		/* special case: switch BackSpace and ^H */
 
-#define DEVELOPMENT_VERSION
+#undef DEVELOPMENT_VERSION

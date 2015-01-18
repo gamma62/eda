@@ -2,7 +2,7 @@
 * ed.c
 * editor and main event handler, command parser and run, external macro run, command table tools
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -169,34 +169,34 @@ run_macro_command (int mi, char *args_inbuff)
 			ix = macros[mi].maclist[ii].m_index;
 			if (table[ix].tflag & TSTAT_ARGS) {
 				mptr = macros[mi].maclist[ii].m_args;
-				//--- compile actual args list from macro args string and commandline
+				/*--- compile actual args list from macro args string and commandline */
 				jj = kk = 0;
 				while (mptr[jj] != '\0' && kk+1 < CMDLINESIZE-1) {
 					if (mptr[jj] == '\\' && mptr[jj+1] != '\0') {
-						// escaped, copy args literally
+						/* escaped, copy args literally */
 						args_ready[kk++] = mptr[jj];
 						args_ready[kk++] = mptr[jj+1];
 						jj += 2;
 					} else if (mptr[jj] == '$' && mptr[jj+1] >= '0' && mptr[jj+1] <= '9') {
 						iy = mptr[jj+1] - '0';
 						if (iy > 0 && iy <= args_cnt) {
-							// copy args[iy-1]
+							/* copy args[iy-1] */
 							for (xx=0; args[iy-1][xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
 								args_ready[kk++] = args[iy-1][xx];
 							}
 						} else if (iy == 0) {
-							// copy whole args_inbuff
+							/* copy whole args_inbuff */
 							for (xx=0; args_inbuff[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
 								args_ready[kk++] = args_inbuff[xx];
 							}
 						} else {
-							// fail, copy args literally
+							/* fail, copy args literally */
 							args_ready[kk++] = mptr[jj];
 							args_ready[kk++] = mptr[jj+1];
 						}
 						jj += 2;
 					} else if (mptr[jj] == '^' && mptr[jj+1] == 'G') {
-						// copy (short) filename
+						/* copy (short) filename */
 						for (xx=0; CURR_FILE.fname[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
 							args_ready[kk++] = CURR_FILE.fname[xx];
 						}
@@ -206,7 +206,7 @@ run_macro_command (int mi, char *args_inbuff)
 					}
 				}
 				args_ready[kk] = '\0';
-				//--- ready
+				/*--- ready */
 				REC_LOG(LOG_DEBUG, "trace macro %d [%s] [%s]", ix, table[ix].fullname, args_ready);
 				if (cnf.gstat & GSTAT_RECORD)
 					record(table[ix].fullname, args_ready);
@@ -522,7 +522,7 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 	} else if (ibuff[0] == '|') {
 		/* 0x7c filter_cmd() */
 		clen = 1; /* good for both "|sort" and "| wc -l" */
-		abeg = 0;
+		abeg = 1;
 	} else if (ibuff[0] == '/') {
 		/* 0x2f search() */
 		clen = 1; /* command and the first argument also, do not skip! */
@@ -539,14 +539,14 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		}
 		abeg = i;
 	}
-	//CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg);
+	/* CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg); */
 
 	/* search down command name in macros[].name and table[].name
 	*/
 	for (xi=0; xi < MLEN; xi++)
 	{
 		if (macros[xi].name[0] != '\0') {
-			//CMD_LOG(LOG_DEBUG, "try macro [%s]", macros[xi].name);
+			/* CMD_LOG(LOG_DEBUG, "try macro [%s]", macros[xi].name); */
 			for (i=0; i < clen; i++) {
 				if (macros[xi].name[i] != ibuff[i])
 					break;

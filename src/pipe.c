@@ -3,7 +3,7 @@
 * tools for fork/execve processes, external programs and filters, make, find, vcs tools, sh/ssh,
 * utilities for background processing
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -88,12 +88,15 @@ ishell_cmd (const char *ext_cmd)
 	char ext_argstr[CMDLINESIZE];
 	unsigned i=0, j=0;
 	char head[50];
+	const char *phead=NULL;
+
 	memset(ext_argstr, 0, sizeof(ext_argstr));
 	memset(head, 0, sizeof(head));
 
 	/* command is optional */
 	if (ext_cmd[0] == '\0') {
 		snprintf(ext_argstr, sizeof(ext_argstr)-1, "i-sh");
+		phead = ext_argstr;
 	} else {
 		if (ext_cmd[0] == 0x27) {
 			j = 1;
@@ -101,13 +104,14 @@ ishell_cmd (const char *ext_cmd)
 		} else {
 			snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
 		}
+		phead = ext_cmd;
 	}
 
 	head[i++] = '*';
-	while (i < sizeof(head)-2 && ext_cmd[j] != '\0') {
-		if ((ext_cmd[j] == ' ') || (ext_cmd[j] == 0x27))
+	while (i < sizeof(head)-2 && phead[j] != '\0') {
+		if ((phead[j] == ' ') || (phead[j] == 0x27))
 			break;
-		head[i++] = ext_cmd[j++];
+		head[i++] = phead[j++];
 	}
 	head[i++] = '*';
 	head[i++] = '\0';
@@ -215,7 +219,7 @@ vcstool (const char *ext_cmd)
 	memset(tname, 0, sizeof(tname));
 	snprintf(tname, sizeof(tname)-1, "*%s*", cnf.vcs_tool[i]);
 
-	// do not set OPT_NOAPP
+	/* OPT_NOAPP breaks macros with multiple commands */
 	ret = read_pipe (tname, cnf.vcs_path[i], ext_cmd, OPT_NOBG | OPT_REDIR_ERR);
 
 	return (ret);
@@ -350,6 +354,11 @@ filter_cmd (const char *ext_cmd)
 	if (ext_cmd[0] == '\0') {
 		tracemsg("no filter command");
 		return (0);
+	}
+
+	if (cnf.select_ri == -1) {
+		tracemsg ("no selection for filter command");
+		return (1);
 	}
 
 	ret = filter_cmd_eng(ext_cmd, OPT_IN_OUT | OPT_REDIR_ERR | OPT_SILENT);
@@ -758,6 +767,10 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 
 	PIPE_LOG(LOG_INFO, "fork/parent -- ri:%d, new ri:%d -- pid:%d pipes: in=%d out=%d",
 		ring_i, cnf.ring_curr, chrw, in_pipe[XWRITE], out_pipe[XREAD]);
+	PIPE_LOG(LOG_INFO, "fork/parent -- *process* pid:%d (ppid:%d) sid:%d pgid:%d",
+		cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
+	PIPE_LOG(LOG_INFO, "fork/parent -- *user* uid:%d gid:%d euid:%d egid:%d",
+		cnf.uid, cnf.gid, cnf.euid, cnf.egid);
 
 	/* common */
 	if (opts & OPT_IN_OUT) {
@@ -782,6 +795,8 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			lno_write = wr_select(in_pipe[XWRITE], 
 				((LMASK(cnf.ring_curr)) ? (opts & OPT_IN_OUT_SH_MARK) : 0));
 		}
+		if (lno_write < 1)
+			ret = 100;
 		PIPE_LOG(LOG_INFO, "feed child process (ri:%d, opts:0x%x): pipe=%d -- wrote %d line(s)",
 			ring_i, (opts & OPT_IN_OUT_MASK), in_pipe[XWRITE], lno_write);
 	}
@@ -808,7 +823,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			/* first line: header
 			*/
 			char header_str[CMDLINESIZE];
-			strncpy(header_str, (getuid() ? "$ " : "# "), 3);
+			strncpy(header_str, (cnf.uid ? "$ " : "# "), 3);
 			strncat(header_str, ext_argstr, sizeof(header_str)-5);
 			strncat(header_str, "\n", 2);
 			if (insert_line_before (CURR_FILE.bottom, header_str) != NULL) {
@@ -835,7 +850,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			CURR_FILE.curr_line = CURR_FILE.bottom->prev;
 			CURR_FILE.lineno = CURR_FILE.num_lines;
 			CURR_LINE->lflag &= ~LMASK(cnf.ring_curr);	/* unhide */
-			update_focus(INCR_FOCUS_ONCE, cnf.ring_curr, 0, NULL);
+			update_focus(INCR_FOCUS, cnf.ring_curr);
 		}
 
 		/* (re)set origin */
@@ -878,7 +893,6 @@ readout_pipe (int ring_i)
 	int ret=0;
 	int ni, total=0, finish=0, pull, got, count;
 	int ring_orig = cnf.ring_curr;
-	int status=0;
 	static int zombie = 0;
 
 	/* init */
@@ -918,7 +932,8 @@ readout_pipe (int ring_i)
 		cnf.ring_curr = ring_i;
 		got = read (cnf.fdata[ring_i].pipe_output, rb, LINESIZE_INIT);
 		if (got == -1) {
-			if (++zombie == ZOMBIE_DELAY) {
+			/* not a problem, check if alive */
+			if (++zombie >= ZOMBIE_DELAY) {
 				if (check_zombie(ring_i) == -1) {
 					stop_bg_process();	/* defunct */
 				}
@@ -961,12 +976,13 @@ readout_pipe (int ring_i)
 			}
 		}
 		cnf.fdata[ring_i].rb_nexti = ni;
+		got = 0;
 
 		if (finish) {
 			/* pipe_output must be closed -- that is the flag
 			*/
 			PIPE_LOG(LOG_DEBUG, "-- ri=%d, pipe=%d finished --- wait4", ring_i, cnf.fdata[ring_i].pipe_output);
-			status = wait4_bg(ring_i);	/* finished */
+			got = wait4_bg(ring_i);	/* finished */
 
 			if ((cnf.fdata[ring_i].pipe_opts & OPT_SILENT) == 0) {
 				/* last line: footer
@@ -979,11 +995,11 @@ readout_pipe (int ring_i)
 			}
 
 			if (cnf.fdata[ring_i].pipe_opts & OPT_NOBG) {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] FOREground task finished (status=%d, ret=%d)",
-					ring_i, cnf.fdata[ring_i].fname, status, ret);
+				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] FOREground task finished (wait %d, ret %d)",
+					ring_i, cnf.fdata[ring_i].fname, got, ret);
 			} else {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] BACKground task finished (status=%d, ret=%d)",
-					ring_i, cnf.fdata[ring_i].fname, status, ret);
+				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] BACKground task finished (wait %d, ret %d)",
+					ring_i, cnf.fdata[ring_i].fname, got, ret);
 			}
 		}
 
@@ -992,7 +1008,7 @@ readout_pipe (int ring_i)
 			cnf.fdata[ring_i].curr_line = cnf.fdata[ring_i].bottom->prev;
 			cnf.fdata[ring_i].lineno = cnf.fdata[ring_i].num_lines;
 			cnf.fdata[ring_i].curr_line->lflag &= ~LMASK(cnf.ring_curr);
-			update_focus(FOCUS_ON_LAST_LINE, ring_i, 0, NULL);
+			update_focus(FOCUS_ON_LASTBUT1_LINE, ring_i);
 		}
 	}
 
@@ -1089,6 +1105,7 @@ check_zombie (int ri)
 				cnf.fdata[ri].chrw = -1;
 				status = -1;
 			} else {
+				/* Resource temporarily unavailable, or something similar */
 				status = 0;
 			}
 		} else {

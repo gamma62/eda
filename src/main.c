@@ -2,7 +2,7 @@
 * main.c
 * main function, init, defaults, signal handler and log tools
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -105,7 +105,7 @@ main (int argc, char *argv[])
 		case 'V':
 			printf ("%s\n", long_version_string);
 			printf ("\n\
-Copyright 2003-2014 Attila Gy. Molnar.\n\
+Copyright 2003-2015 Attila Gy. Molnar.\n\
 \n\
 Eda is free software: you can redistribute it and/or modify\n\
 it under the terms of the GNU General Public License as published by\n\
@@ -149,14 +149,12 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	/* init point for memory management control */
 
 	/* setup syslog */
+#ifdef DEVELOPMENT_VERSION
 	openlog("eda", LOG_PID, LOG_LOCAL0);
 	if (cnf.noconfig) {
 		setlogmask( LOG_MASK(LOG_EMERG) );
-#ifndef DEVELOPMENT_VERSION
-	} else {
-		setlogmask( LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR) );
-#endif
 	}
+#endif
 
 	if (process_rcfile(cnf.noconfig) || process_keyfile(cnf.noconfig) || process_seqfile(cnf.noconfig)) {
 		leave("resource processing failed");
@@ -217,7 +215,7 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 			if (strchr(argv[optind], ':') != NULL) {
 				/* <filename>:<linenumber>
 				*/
-				simple_parser(argv[optind]);
+				simple_parser(argv[optind], SIMPLE_PARSER_JUMP);
 			} else {
 				/* <filename>
 				*/
@@ -333,7 +331,9 @@ leave (const char *reason)
 	if (reason && reason[0] != '\0') {
 		fprintf(stderr, "%s\n", reason);
 	}
+#ifdef DEVELOPMENT_VERSION
 	closelog();
+#endif
 
 	/* finish point for memory management control */
 	exit(EXIT_SUCCESS);
@@ -503,7 +503,7 @@ set_defaults(void)
 void
 tracemsg(const char *format, ...)
 {
-	char temp[1024];	// instead of TRACESIZE*CMDLINESIZE
+	char temp[1024];	/* instead of TRACESIZE*CMDLINESIZE */
 	int i=0, j=0, k=0;
 	va_list args;
 

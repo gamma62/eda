@@ -1,6 +1,6 @@
 /* function prototypes
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -79,7 +79,9 @@ extern int strip_lines (const char *args);		/* public */
 extern int ringlist_parser (const char *dataline);
 extern char *dirlist_parser (const char *dataline);
 extern int lsdir (const char *dirpath);
-extern int simple_parser (const char *dline);
+#define SIMPLE_PARSER_JUMP 0
+#define SIMPLE_PARSER_WINKIN 1
+extern int simple_parser (const char *dline, int jump_mode);
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */
@@ -129,7 +131,7 @@ extern int set_position_by_pointer (MEVENT pointer);
 extern int first_screen_row (void);
 extern int last_screen_row (void);
 extern void update_curpos (int ri);
-extern void update_focus (MOTION_TYPE motion_type, int ri, int value, int *data_ptr);
+extern void update_focus (MOTION_TYPE motion_type, int ri);
 extern void upd_trace (void);
 extern void init_colors (int palette);
 
@@ -199,7 +201,9 @@ extern int decr_filter_level (void);			/* public */
 extern int incr2_filter_level (void);			/* public */
 extern int decr2_filter_level (void);			/* public */
 extern int tomatch (void);				/* public */
-extern LINE *tomatch_eng (LINE *, int *, int *, int *);
+#define TOMATCH_DONT_SET_FOCUS 0
+#define TOMATCH_SET_FOCUS 1
+extern LINE *tomatch_eng (LINE *, int *, int *, int set_focus);
 extern int forcematch (void);				/* public */
 extern int fold_block (void);				/* public */
 extern int fold_thisfunc (void);			/* public */
@@ -256,10 +260,9 @@ extern void set_bookmark (int bm_i);
 extern void clr_bookmark (int bm_i);
 extern void clr_opt_bookmark (void);
 extern int jump2_bookmark (int bm_i, int jump_without_preview);
-extern void show_bookmarks (void);
 extern void clear_bookmarks (int ring_i);
 extern int mhist_push (int ring_i, int lineno);
-extern int mhist_pop (void);				/* public */
+extern int mhist_pop (void);
 extern void mhist_clear (int ring_i);
 
 /* search.c */
@@ -311,7 +314,7 @@ extern int tag_load_file (void);			/* public */
 extern int tag_rm_all (void);
 extern int tag_view_info (const char *arg_symbol);	/* public */
 extern int tag_jump_to (const char *arg_symbol);	/* public */
-extern int tag_jump_back (void);
+extern int tag_jump_back (void);			/* public */
 
 /* util.c */
 extern char *get_last_word (const char *dataline, int len);

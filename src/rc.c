@@ -3,7 +3,7 @@
 * tools for resource handling, load and set resources, key trees, macros, projects
 * and the "cmds" table
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -121,7 +121,6 @@ rc_c_local_macros() {
 				strncpy((dest), (testpath), sizeof(dest)); \
 				(dest)[sizeof(dest)-1] = '\0'; \
 			} else { \
-				if (!cnf.bootup) perror("miert"); \
 				if (cnf.bootup) tracemsg ("invalid path [%s]", (testpath)); \
 				ret = 3; \
 			} \
@@ -239,6 +238,7 @@ set (const char *argz)
 			if (x < 2 || x > 16) {
 				ret = 1;
 			} else if (cnf.tabsize != x) {
+				cnf.tabsize = x;
 				if (cnf.bootup) {
 					/* update! */
 					for (ri=0; ri<RINGSIZE; ri++) {
@@ -246,7 +246,6 @@ set (const char *argz)
 							update_curpos(ri);
 					}
 				}
-				cnf.tabsize = x;
 			}
 		}
 		if (cnf.bootup) tracemsg ("tabsize %d", cnf.tabsize);
@@ -286,6 +285,8 @@ set (const char *argz)
 			subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
 			sublen = strlen(subtoken);
 			SET_CHECK( cnf.find_opts );
+		} else {
+			if (cnf.bootup) tracemsg ("find_opts %s", cnf.find_opts);
 		}
 	} else if (!cnf.bootup && strncmp(token, "find_path", 9)==0) {
 		SET_CHECK_X( cnf.find_path, sublen, subtoken );
@@ -295,6 +296,8 @@ set (const char *argz)
 			subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
 			sublen = strlen(subtoken);
 			SET_CHECK( cnf.make_opts );
+		} else {
+			if (cnf.bootup) tracemsg ("make_opts %s", cnf.make_opts);
 		}
 	} else if (!cnf.bootup && strncmp(token, "make_path", 9)==0) {
 		SET_CHECK_X( cnf.make_path, sublen, subtoken );
@@ -335,14 +338,14 @@ set (const char *argz)
 		if (sublen > 0) {
 			x = strtol(subtoken, NULL, 0);
 			if (x >= 0 && x <= PALETTE_MAX) {
-				if (cnf.bootup && cnf.palette != x) {
-					init_colors (x);
+				if (x != cnf.palette) {
+					cnf.palette = x;
+					if (cnf.bootup)
+						init_colors (cnf.palette);
 				}
-				cnf.palette = x;
 			}
-		} else {
-			ret = 1;
 		}
+		if (cnf.bootup) tracemsg ("palette %d", cnf.palette);
 	}
 
 	/* syslog log levels by module */
@@ -369,7 +372,7 @@ set (const char *argz)
 			"MAIN%d FH%d CMD%d HIST%d REPL%d TAGS%d SELE%d FILT%d PIPE%d PD%d REC%d UPD%d",
 				cnf.log[0],cnf.log[1],cnf.log[2],cnf.log[3],cnf.log[4],cnf.log[5],
 				cnf.log[6],cnf.log[7],cnf.log[8],cnf.log[9],cnf.log[10],cnf.log[11]);
-			tracemsg ("log [%s]", mystring);
+			tracemsg ("log %s", mystring);
 		}
 	}
 
@@ -694,11 +697,11 @@ process_macrofile (int noconfig)
 		if (ret) {
 			fprintf(stderr, "eda: processing [%s] failed (%d), line=%d", macfile[j], ret, mline);
 			if (ret==161) {
-				fprintf(stderr, " : string for key name very long, max %u\n", sizeof(name));
+				fprintf(stderr, " : string for key name very long, max %u\n", (unsigned)sizeof(name));
 			} else if (ret==163) {
 				fprintf(stderr, " : key name not found\n");
 			} else if (ret==164) {
-				fprintf(stderr, " : string for function name very long, max %u\n", sizeof(name));
+				fprintf(stderr, " : string for function name very long, max %u\n", (unsigned)sizeof(name));
 			} else if (ret==166) {
 				fprintf(stderr, " : function name not found\n");
 			} else if (ret==167) {
@@ -823,7 +826,7 @@ process_project (int noconfig)
 			ret = set (str);
 			if (ret) ret += 100;
 		} else if (section == 2) {
-			ret = simple_parser(str);
+			ret = simple_parser(str, SIMPLE_PARSER_JUMP);
 			if (ret) ret += 200;
 		}
 	}
@@ -1075,15 +1078,13 @@ command name          keyb shortcut    function name\n\
 				strncpy(name_buff, "n/a", 4);
 			}
 
-#ifndef DEVELOPMENT_VERSION
-			if ((table[ti].fkey < KEY_NONE) && (table[ti].minlen < 1)) {
-				/* only for macros */
-				continue;
-			} else if (strncmp(name_buff, "nop", 4) == 0) {
-				/* the end */
-				break;
-			}
-#endif
+			//if ((table[ti].fkey < KEY_NONE) && (table[ti].minlen < 1)) {
+			//	/* only for macros */
+			//	continue;
+			//} else if (strncmp(name_buff, "nop", 4) == 0) {
+			//	/* the end */
+			//	break;
+			//}
 
 			snprintf(circle_line, sizeof(circle_line)-1, "%-20s  %-15s  %-20s\n",
 				name_buff, key_buff, table[ti].fullname);
@@ -1093,11 +1094,12 @@ command name          keyb shortcut    function name\n\
 
 	if (ret==0) {
 		CURR_LINE = CURR_FILE.top->next;
+		/* after type_text/insert_chars clean LSTAT_CHANGE */
 		for (lp=CURR_LINE; TEXT_LINE(lp); lp=lp->next) {
 			lp->lflag &= ~LSTAT_CHANGE;
 		}
 		CURR_FILE.lineno = 1;
-		update_focus(FOCUS_SET_INIT, cnf.ring_curr, 1, NULL);
+		update_focus(FOCUS_ON_2ND_LINE, cnf.ring_curr);
 		go_home();
 		CURR_FILE.fflag &= ~FSTAT_CHANGE;
 		/* disable inline editing, adding or removing lines */

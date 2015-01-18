@@ -1,7 +1,7 @@
 /*
 * main.h
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -46,7 +46,7 @@
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
 #define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement */
-#define PALETTE_MAX	2
+#define PALETTE_MAX	1
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
 #define LINESIZE_MIN	0x001f		/* (2^5-1) incr/decr step for realloc() ==31 */
@@ -57,6 +57,7 @@
 /* 0xff space reserved after allocation */
 #define REP_ASIZE(len)	((size_t) (((len) | 0x1f) + 0xff + 1))
 
+#ifdef DEVELOPMENT_VERSION
 #define MAIN_LOG(prio, fmt, args...)	if (cnf.log[0]>0 && cnf.log[0]>=prio) syslog(prio, "MAIN: " fmt, ##args)
 #define FH_LOG(prio, fmt, args...)	if (cnf.log[1]>0 && cnf.log[1]>=prio) syslog(prio, "FH:%s: " fmt, __FUNCTION__, ##args)
 #define CMD_LOG(prio, fmt, args...)	if (cnf.log[2]>0 && cnf.log[2]>=prio) syslog(prio, "CMD:%s: " fmt, __FUNCTION__, ##args)
@@ -69,13 +70,27 @@
 #define PD_LOG(prio, fmt, args...)	if (cnf.log[9]>0 && cnf.log[9]>=prio) syslog(prio, "PD:%s: " fmt, __FUNCTION__, ##args)
 #define REC_LOG(prio, fmt, args...)	if (cnf.log[10]>0 && cnf.log[10]>=prio) syslog(prio, "REC: " fmt, ##args)
 #define UPD_LOG(prio, fmt, args...)	if (cnf.log[11]>0 && cnf.log[11]>=prio) syslog(prio, "UPD: " fmt, ##args)
+#else
+#define MAIN_LOG(prio, fmt, args...)	;
+#define FH_LOG(prio, fmt, args...)	;
+#define CMD_LOG(prio, fmt, args...)	;
+#define HIST_LOG(prio, fmt, args...)	;
+#define REPL_LOG(prio, fmt, args...)	;
+#define TAGS_LOG(prio, fmt, args...)	;
+#define SELE_LOG(prio, fmt, args...)	;
+#define FILT_LOG(prio, fmt, args...)	;
+#define PIPE_LOG(prio, fmt, args...)	;
+#define PD_LOG(prio, fmt, args...)	;
+#define REC_LOG(prio, fmt, args...)	;
+#define UPD_LOG(prio, fmt, args...)	;
+#endif
 
 /* for wgetch() and timers */
 #define CUST_ESCDELAY	20		/* to set global variable ESCDELAY: expire time (original 1000ms) */
 #define CUST_WTIMEOUT	50		/* wgetch timeout (miliseconds) */
 #define RESIZE_DELAY	3		/* internal counter for wgetch timeouts before reporting KEY_RESIZE */
 #define FILE_CHDELAY	(1000/CUST_WTIMEOUT*5)	/* file re-stat timing, 5 seconds */
-#define ZOMBIE_DELAY	(1000/CUST_WTIMEOUT*1)	/* zombie process timing, 1 second */
+#define ZOMBIE_DELAY	(1000/CUST_WTIMEOUT*1)	/* check process alive, 1 second */
 #define REFRESH_EVENT	(-2)		/* force display refresh */
 
 /* bit masks for global flags */
@@ -422,7 +437,6 @@ struct change_data_tag
 	int change_count;	/* counter for "Rest" */
 	LINE *lx;		/* temp. for change */
 	int lineno;		/* temp. for change */
-	int focus;		/* temp. for change */
 	int lncol;		/* temp. in-line column index */
 	regmatch_t pmatch[10];	/* match and sub match */
 	int rflag;		/* 1=backref, 0=no-backref */
@@ -499,24 +513,19 @@ struct motion_history_tag
 */
 typedef enum motion_type_enum
 {
-	FOCUS_ON_FIRST_LINE,
+	FOCUS_ON_1ST_LINE,
+	FOCUS_ON_2ND_LINE,
+	FOCUS_ON_LASTBUT1_LINE,
 	FOCUS_ON_LAST_LINE,
-	INCR_FOCUS_ONCE,
-	DECR_FOCUS_ONCE,
+	INCR_FOCUS,
+	DECR_FOCUS,
+	INCR_FOCUS_SHADOW,
+	DECR_FOCUS_SHADOW,
 	CENTER_FOCUSLINE,
-	FOCUS_SET_INIT,
-	FOCUS_AFTER_PRESET,
-	PRESET_FOCUS_MOVE_INCR,
-	PRESET_FOCUS_MOVE_DECR,
-	CENTER_FOCUS_ON_BIG_LEAP,
-	KEEP_FOCUS_UPPER_3RD,
-	KEEP_FOCUS_LOWER_3RD,
-	KEEP_FOCUS_CENTERED,
+	FOCUS_AWAY_TOP,
+	FOCUS_AWAY_BOTTOM,
 	FOCUS_AVOID_BORDER,
-	FOCUS_OPT_PULL_MIDDLE,
-	FOCUS_PULL_MIDDLE,
-
-	NOTHING_TODO
+	FOCUS_NOCHANGE
 } MOTION_TYPE;
 
 typedef enum test_access_type_enum

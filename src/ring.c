@@ -2,7 +2,7 @@
 * ring.c 
 * ring-list, bookmark handling, motion history functions
 *
-* Copyright 2003-2014 Attila Gy. Molnar
+* Copyright 2003-2015 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -133,7 +133,7 @@ list_buffers (void)
 		CURR_FILE.num_lines = lno_read;
 		CURR_LINE = CURR_FILE.top->next;
 		CURR_FILE.lineno = 1;
-		update_focus(FOCUS_SET_INIT, cnf.ring_curr, 1, NULL);
+		update_focus(FOCUS_ON_2ND_LINE, cnf.ring_curr);
 		go_home();
 		CURR_FILE.fflag &= ~FSTAT_CHANGE;
 		/* disable inline editing and adding lines */
@@ -395,7 +395,7 @@ mhist_push (int ring_i, int lineno)
 }
 
 /*
-** mhist_pop - skip back one step in motion history, highly experimental
+* skip back one step in motion history
 */
 int
 mhist_pop (void)
@@ -403,9 +403,6 @@ mhist_pop (void)
 	MHIST *mhp = NULL;
 	LINE *lp = NULL;
 	int ready = 0;
-
-	if (cnf.mhistory == NULL)
-		return (0);
 
 	while (cnf.mhistory != NULL && ready == 0) {
 		mhp = cnf.mhistory;
