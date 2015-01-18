@@ -1,29 +1,24 @@
 # Object files
 *.o
 *.ko
-*.obj
-*.elf
 
 # Precompiled Headers
-*.gch
-*.pch
 
 # Libraries
-*.lib
 *.a
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
-*.dll
+# Shared objects
 *.so
 *.so.*
-*.dylib
 
 # Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+src/eda
+
+# Misc
+*~
+eda*.tgz
+build.sh
+github_
+
