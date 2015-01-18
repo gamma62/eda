@@ -1,0 +1,643 @@
+.\"
+.TH "EDAMACRO" "5" "2015-01-11" "0.9.47" ""
+
+.SH "NAME"
+\fBeda\fR \- editor for programmers, the internal function API for macros
+
+.SH "SYNOPSIS"
+
+The eda macros are extensions of the command set, based on the public
+functions of eda. The syntax and the API is described in this man page.
+
+.SH "DESCRIPTION"
+
+Lets start with an example macro.
+.br
+
+.nf
+    KEY_C_Y        delline_alias
+    #Description: alias for Meta-D
+            delline
+    .
+.fi
+
+Macros must have a name for command line start (delline_alias here) and
+a key binding (KEY_C_Y here). The name shall be one word without spaces.
+The key name regex pattern is KEY_[A-Z0-9_]+ for acceptance and KEY_NONE 
+is a valid no-key. See the edakeys file for valid key names.
+The description line is optional, reserved for later use. The macro can have
+various arguments, constants from the script, inserted literally at runtime
+and the ones from the command line, inserted dynamically by reference,
+$1...$9 and $0. The $0 refers the whole list of parameters. Additionally,
+the ^G token will be replaced by the (short) filename.
+Custom arguments and the ones from the command line can be mixed.
+
+The macro commands are listed after the header line until a line with
+one dot (or an empty line). The body lines of the macro must start with
+one TAB, followed by the function name and the optional parameters.
+
+See the public keys in the edakeys file and use the "cmds" command to see
+current list of commands. Command names can be abbreviated, minimum length
+is marked with the dot character in the "cmds" list.
+.br
+
+.SH "Functions for macros grouped by feature"
+
+.SS base editor functions: switch between command line and text area (ESC or F12)
+switch_text_cmd
+.br
+.TP 17
+.B switch_text_cmd
+switch between text area and command line
+.br
+
+.SS base editor functions: moving around in text area and command line
+go_up go_down go_smarthome go_home go_end go_left go_right
+.br
+.TP 7
+.B go_up
+go up one line in the text area, or leave command line
+.TP 9
+.B go_down
+go down one line in the text area, or leave command line
+.TP 14
+.B go_smarthome
+move cursor to 1st position in focus line or 1st non-blank
+.TP 9
+.B go_home
+move cursor to 1st position in focus line
+.TP 8
+.B go_end
+move cursor to last position in focus line
+.TP 9
+.B go_left
+move cursor to left by 1 character in the text area
+.TP 10
+.B go_right
+move cursor to right by 1 character in the text area
+.br
+
+.SS base editor functions: inline editing in text area and command line
+delback_char delete_char
+.br
+.TP 14
+.B delback_char
+go left and delete, or join current line to the previous one
+.TP 13
+.B delete_char
+delete one character under cursor in current line, this action may delete the line itself or join the next line
+.br
+
+.SS base editor functions: launching command or start parser in text area
+keypress_enter
+.br
+.TP 16
+.B keypress_enter
+handle the Enter keypress in text area, regular file buffers, special window, interactive shells
+.br
+
+.SS using command line history (previous in history: Ctrl-UP or Ctrl-O)
+clhistory_prev
+.br
+.TP 16
+.B clhistory_prev
+copy the previous item from history to command line, with prefix filtering, prefix of the original line
+.br
+
+.SS using command line history (next, back, in history: Ctrl-DOWN or Ctrl-P)
+clhistory_next
+.br
+.TP 16
+.B clhistory_next
+copy the next item (towards present) from history to command line, with prefix filtering, prefix of the original line
+.br
+
+.SS special text area functions:
+type_text split_line join_line
+.br
+.TP 11
+.B type_text
+insert stream data (multiline) into text buffer from cursor position, smartindent is off while this action;
+.TP 12
+.B split_line
+split current line in two parts at current position
+.TP 11
+.B join_line
+join current line with next visible text line
+.br
+
+.SS base editor functions: moving around in text area
+go_page_up go_page_down prev_nonblank next_nonblank go_top go_bottom goto_line goto_pos center_focusline
+.br
+.TP 12
+.B go_page_up
+move focus one screen upwards, or jump to screen's first line first
+.TP 14
+.B go_page_down
+move focus one screen downwards, or jump to screen's last line first
+.TP 15
+.B prev_nonblank
+move cursor to the previous word's begin character on the left
+.TP 15
+.B next_nonblank
+move cursor to the next word's begin character on the right
+.TP 8
+.B go_top
+move focus to the files first visible text line, or th etop marker
+.TP 11
+.B go_bottom
+move focus to the files last visible text line, or the bottom marker
+.TP 11
+.B goto_line
+move focus to the line with given number, like ":1"
+.TP 10
+.B goto_pos
+move cursor to the given screen position in the line
+.TP 18
+.B center_focusline
+scroll the screen that focus line will be vertically centered
+.br
+
+.SS file I/O and switching buffers
+add_file reload_file reload_bydiff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all hide_file
+.br
+.TP 10
+.B add_file
+add file to new editor buffer or switch to the already opened file
+.TP 13
+.B reload_file
+read file from disk and replace lines in regular buffer
+.TP 15
+.B reload_bydiff
+reload regular file from disk smoothly based on content differences, keep line attributes, bookmarks, tagging where possible
+.TP 11
+.B prev_file
+switch to previous buffer in the ring, skip hidden unless others closed
+.TP 11
+.B next_file
+switch to next buffer in the ring, skip hidden unless others closed
+.TP 11
+.B save_file
+save current file to disk (overwrite if exists) with an intermediate backup, the "save as" function does not overwrite an existing file
+.TP 11
+.B file_file
+save this file if necessary and quit buffer
+.TP 11
+.B quit_file
+quit file if there are no pending changes, drop scratch buffer anyway
+.TP 11
+.B drop_file
+drop file immediately, even if changed
+.TP 13
+.B quit_others
+quit all other unchanged files or scratch buffers
+.TP 10
+.B quit_all
+drop all buffers unconditionally and leave the program
+.TP 10
+.B file_all
+save all files where necessary and leave the program
+.TP 11
+.B hide_file
+hide regular file buffer, unhide any
+.br
+
+.SS editing lines:
+deleol del2bol delline duplicate delete_lines strip_lines
+.br
+.TP 8
+.B deleol
+delete focus line characters from cursor position upto the end of line, this action may join the next line
+.TP 9
+.B del2bol
+delete focus line characters from cursor position toward begin of line
+.TP 9
+.B delline
+delete current (focus) line in the text area
+.TP 11
+.B duplicate
+duplicate current (focus) line in text area and move cursor down
+.TP 14
+.B delete_lines
+delete all or selected lines, parameter must be "all" or "selection"
+.TP 13
+.B strip_lines
+strip trailing whitechars (space, tab, CR) from the lines, according to the parameter, either "all" or "selection"
+.br
+
+.SS line selection based functions
+line_select reset_select select_all cp_select mv_select rm_select go_select_first go_select_last unindent_left indent_right shift_left shift_right over_select
+.br
+.TP 13
+.B line_select
+select line, set border line of range of selected lines, any further calls extend or shrink this range
+.TP 14
+.B reset_select
+reset line selection
+.TP 12
+.B select_all
+select all visible lines in current buffer without changing filter bits
+.TP 11
+.B cp_select
+copy visible selection lines to current file after focus line, newly added lines will be the new selection
+.TP 11
+.B mv_select
+move visible selection lines to current file after focuse line, and reset selection if move-reset resource is ON, otherwise newly added lines will be the new selection
+.TP 11
+.B rm_select
+remove visible selection lines and reset selection
+.TP 17
+.B go_select_first
+move the focus to the first visible line of selection
+.TP 16
+.B go_select_last
+move the focus to the last visible line of selection
+.TP 15
+.B unindent_left
+shift characters of (visible) selection lines to the left, as long as the first character is whitechar
+.TP 14
+.B indent_right
+shift characters of (visible) selection lines to the right, insert first character(s) according to the indent resource
+.TP 12
+.B shift_left
+shift characters of (visible) selection lines to the left, until the line is not empty
+.TP 13
+.B shift_right
+shift characters of (visible) selection lines to the right, the first character will be duplicated if the line is not empty
+.TP 13
+.B over_select
+overwrite visible selection lines with the ones from "*sh*" buffer, command must be launched from the "*sh*" buffer
+.br
+
+.SS multiline selection operations
+pad_block cut_block left_cut_block split_block join_block
+.br
+.TP 11
+.B pad_block
+pad the selection lines one-by-one, fill with space character upto given position or current cursor position
+.TP 11
+.B cut_block
+cut the selection lines one-by-one at given position or at current cursor position
+.TP 16
+.B left_cut_block
+cut the selection lines to the left one-by-one at given position or at current cursor position
+.TP 13
+.B split_block
+split selected lines in two separate lines, one-by-one at given position or at current cursor position
+.TP 12
+.B join_block
+join two blocks of selection lines one-by-one, the separator line is either chosen by the given regex pattern or the first empty line, if nothing passed
+.br
+
+.SS filtering while editing at different levels
+filter_all filter_less filter_more filter_tmp_all filter_expand_up filter_expand_down filter_restrict incr_filter_level decr_filter_level incr2_filter_level decr2_filter_level incr_filter_cycle
+.br
+.TP 12
+.B filter_all
+make all lines visible according to the parameter, those and only those; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise argument is handled as regexp
+.TP 13
+.B filter_less
+make less lines visible according to the parameter; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
+.TP 13
+.B filter_more
+make more lines visible according to the parameter; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
+.TP 16
+.B filter_tmp_all
+switch between filtered view and full view, showing all lines
+.TP 18
+.B filter_expand_up
+expand the range of visible lines upwards
+.TP 20
+.B filter_expand_down
+expand the range of visible lines downwards
+.TP 17
+.B filter_restrict
+restrict the range of visible lines by the current line
+.TP 19
+.B incr_filter_level
+increment filter level of this buffer
+.TP 19
+.B decr_filter_level
+decrement filter level of this buffer
+.TP 20
+.B incr2_filter_level
+increment filter level and duplicate filter bits also
+.TP 20
+.B decr2_filter_level
+decrement filter level and duplicate filter bits also
+.TP 19
+.B incr_filter_cycle
+increment filter level in cycle
+.br
+
+.SS special tool to process diff outputs (patches)
+process_diff
+.br
+.TP 14
+.B process_diff
+process the unified diff output, make preparation to review additions and changes of target files
+.br
+
+.SS search, change, highlight, regexp tools
+search repeat_search change color_tag tag_focusline highlight_word search_word tag_line_byword search_cmd_macro
+.br
+.TP 8
+.B search
+start forward search with given regular expression (like "/reset"); reset search immediately if match not found; submatch referencies '\\1'...'\\9' can be used
+.TP 15
+.B repeat_search
+search next occurence; reset search if no more matches
+.TP 8
+.B change
+start search and replace with given regular expressions (like "ch /from/to/"), possible delimiters are slash, single quote, double quote, exclamation mark; submatch referencies '\\1'...'\\9' and '&' can be used
+.TP 11
+.B color_tag
+mark lines with color in different ways, if argument is missing the focus word is used; with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged, while with regexp argument only the matchhing lines will have color mark; with empty pattern all marks are removed (like "tag //")
+.TP 15
+.B tag_focusline
+toggle the color mark of the focus line
+.TP 16
+.B highlight_word
+highlight matching bytes in the line according to regexp or the focus word; reset highlighting if cursor is not in a word or pattern is explicit empty (like "high //")
+.TP 13
+.B search_word
+start immediate find search with the word under cursor
+.TP 17
+.B tag_line_byword
+mark lines with color containing the word under cursor (tagging the lines)
+.TP 18
+.B search_cmd_macro
+reset search command or start again with last search pattern, depending on the search status
+.br
+
+.SS brace match and folding
+tomatch forcematch fold_block fold_thisfunc
+.br
+.TP 9
+.B tomatch
+go to the matching block character; pairs of Parenthesis "()", Square bracket "[]", Curly bracket "{}" and Angle bracket "<>" are searched
+.TP 12
+.B forcematch
+go to the matching block character like tomatch but searching invisible lines also, the result will be made visible
+.TP 12
+.B fold_block
+folding block lines manually, hide/unhide block lines upto the matching block character
+.TP 15
+.B fold_thisfunc
+fold block content around the focus line, hide/unhide block lines; show header and footer lines first, change content visibility othervise
+.br
+
+.SS tags support
+tag_load_file tag_view_info tag_jump_to tag_jump_back
+.br
+.TP 15
+.B tag_load_file
+load or reload the content of "tags" file as configured in "tags_file" resource
+.TP 15
+.B tag_view_info
+view symbol definition in a notification, gained from "tags" file
+.TP 13
+.B tag_jump_to
+jump to the symbol definition, based on information gained from "tags" file
+.TP 15
+.B tag_jump_back
+come back from the last tag jump
+.br
+
+.SS calling external tools
+shell_cmd ishell_cmd sshell_cmd make_cmd vcstool
+.br
+.TP 11
+.B shell_cmd
+launch shell to run given command with the optional arguments and catch output to buffer
+.TP 12
+.B ishell_cmd
+launch interactive shell or given command with the optional arguments, catch output and show in buffer, read input from the last line; the Apostrophe character maybe used to enclose parameters
+.TP 12
+.B sshell_cmd
+launch secure shell with arguments starting with <user>@<host>, catch output and show in buffer, read input from the last line;
+.TP 10
+.B make_cmd
+start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource
+.TP 9
+.B vcstool
+start VCS command with arguments, the first one must be the name of the vcs tool itself, the rest are the real parameters, macros maybe used for abbreviation
+.br
+
+.SS changing buffer type
+is_special
+.br
+.TP 12
+.B is_special
+show buffer type or set buffer type, regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools) regular filenames can be changed to equivalent name of same inode
+.br
+
+.SS multifile search tools
+locate_find_switch multisearch_cmd find_cmd locate_cmd find_window_switch fw_option_switch fsearch_path_macro fsearch_args_macro
+.br
+.TP 20
+.B locate_find_switch
+switch between external (find) or internal (locate) search method, for multiple file search
+.TP 17
+.B multisearch_cmd
+multiple file search with external or internal method, depending on the locate switch setting, external by default
+.TP 10
+.B find_cmd
+start find/egrep process with given pattern and catch output, set arguments on commandline and options in find_opts resource
+.TP 12
+.B locate_cmd
+start internal search with given pattern, search in open regular buffers only
+.TP 20
+.B find_window_switch
+jump to the file search, usually find, output window or back
+.TP 18
+.B fw_option_switch
+switch on/off the full word option for egrep/find
+.TP 20
+.B fsearch_path_macro
+change the path elements of the find command, and show the find_opts setting
+.TP 20
+.B fsearch_args_macro
+change the name patterns of find command, and show the find_opts setting
+.br
+
+.SS using external filters
+filter_cmd filter_shadow_cmd
+.br
+.TP 12
+.B filter_cmd
+start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
+.TP 19
+.B filter_shadow_cmd
+start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines, or all lines if no selection, set child process arguments on commandline, for example "|| a2ps -1 -f8"
+.br
+
+.SS resources, keys, macros, projects
+set load_rcfile load_keyfile load_macrofile save_project
+.br
+.TP 5
+.B set
+set resource values or print as notification, usage: "set [resource [value(s)]]", get help with "set help"
+.TP 13
+.B load_rcfile
+open ~/.eda/edarc resource file, changes in the file are activated at next run
+.TP 14
+.B load_keyfile
+open ~/.eda/edakeys file with user defined symbolic key names, changes in the file are activated at next run
+.TP 16
+.B load_macrofile
+load_macrofile - open ~/.eda/edamacro file with user defined macros, changes in the file are activated at next run
+.TP 14
+.B save_project
+save project file in the ~/.eda/ directory, last used project name can be omitted
+.br
+
+.SS directory and buffer list, bookmarks, commands list
+list_buffers lsdir_cmd bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 show_commands
+.br
+.TP 14
+.B list_buffers
+open a special buffer with a list of open files and bookmarks
+.TP 11
+.B lsdir_cmd
+create directory listing in special buffer for easy navigation and opening, argument must be a directory
+.TP 8
+.B bm_set
+add bookmark to current file and line position, the parameter maybe the bookmark number (1...9) or if omitted, the first free number is selected
+.TP 10
+.B bm_clear
+clear the given bookmark or all bookmarks, the parameter maybe the bookmark number (1...9) or "*" to remove all
+.TP 10
+.B bm_jump1
+jump to 1st bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump2
+jump to 2nd bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump3
+jump to 3rd bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump4
+jump to 4th bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump5
+jump to 5th bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump6
+jump to 6th bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump7
+jump to 7th bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump8
+jump to 8th bookmark if possible, show bookmark info in notification before jump
+.TP 10
+.B bm_jump9
+jump to 9th bookmark if possible, show bookmark info in notification before jump
+.TP 15
+.B show_commands
+show table of commands, keyboard shortcuts and function names for macros
+.br
+
+.SS only for macros and external processes
+finish_in_fg stop_bg_process
+.br
+.TP 14
+.B finish_in_fg
+finish reading output of external process in foreground, read from pipe until process finished
+.TP 17
+.B stop_bg_process
+stop running background process of current buffer
+.br
+
+.SS various macro like and helper functions
+prefix_macro smartind_macro shadow_macro view_bname ins_bname ins_varname ins_filename cp_text2cmd word_case
+.br
+.TP 14
+.B prefix_macro
+set on/off the prefix of the lines
+.TP 16
+.B smartind_macro
+set on/off the smartindent setting
+.TP 14
+.B shadow_macro
+set on/off the shadow marker (hidden lines counter)
+.TP 12
+.B view_bname
+view block/function name in notification, try even from make and find buffers
+.TP 11
+.B ins_bname
+insert block/function name into command line or focus line in text area
+.TP 13
+.B ins_varname
+insert word into command line
+.TP 14
+.B ins_filename
+insert original filename of buffer into command line or text area
+.TP 13
+.B cp_text2cmd
+copy current line from text area to the command line, overwrite rest of line
+.TP 11
+.B word_case
+switch the case of characters in the word under cursor
+.br
+
+.SS any other tools
+force_redraw mouse_support nop recording_switch rotate_palette version 
+.br
+.TP 14
+.B force_redraw
+force the screen redraw of current buffer
+.TP 15
+.B mouse_support
+switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
+.TP 5
+.B nop
+no operation, does nothing, only for testing
+.TP 18
+.B recording_switch
+switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
+.TP 16
+.B rotate_palette
+change color palette setting in cycle
+.TP 9
+.B version
+show the version string
+.br
+
+.SH "INTERACTIVE COMMANDS"
+While using \fBeda\fR enter the "cmds" command to see commands abbreviated name (dot in the name) and full name,
+the default keyboard shortcut (this can be changed except n/a),
+and the function name (the same as in the API list above).
+.br
+
+.SH "COPYRIGHT"
+
+  Copyright (C) 2003-2015 Attila Gy. Molnár
+
+  Eda is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Eda is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Eda. If not, see <http://www.gnu.org/licenses/>.
+
+.SH "AUTHOR"
+
+  Original author of the Eda program is Attila Gy. Molnár
+  gamma62 at citromail dot hu
+
+.SH "SEE ALSO"
+.BR eda (1),
+.BR bash (1),
+.BR sed (1),
+.BR awk (1),
+.BR perl (1)
+version control tools
+

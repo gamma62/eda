@@ -1,0 +1,24 @@
+### project settings ###
+### chdir  /storage/proj/proj123
+indent  tab  1
+tabsize  8
+# the terminal's title is the project name, by default, switch off autotitle
+autotitle  off
+# use the white background palette
+palette  1
+# keep backup files, for example
+backup_nokeep  off
+# unlink file before save; the eda default is to keep hardlinks
+save_inode  no
+# find options for project
+find_opts src/ doc/ test/ -type f ( -name '*.[ch]' ) -exec egrep -nH -w
+# project's make options
+make_path	/usr/bin/make
+make_opts	-w -f make.proj123
+# end of project options
+# separator lines start with ###, do not remove them
+# file list will be added by the "sp", save project, command
+
+### project files ###
+src/main.c:1
+doc/README:1
