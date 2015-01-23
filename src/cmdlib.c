@@ -748,7 +748,7 @@ general_parser (void)
 
 /*
 ** is_special - show buffer type or set buffer type,
-**	regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and 
+**	regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and
 **	special buffers (sh, ls, make, find, diff, configured VCS tools)
 **	regular filenames can be changed to equivalent name of same inode
 */
@@ -779,7 +779,7 @@ is_special (const char *special)
 			CURR_FILE.stat = test;
 
 			return (0);	/*done*/
-			
+
 		} else {
 			/* create a buffer name, to use it later */
 			tfname[slen++] = '*';
@@ -2096,7 +2096,7 @@ process_diff (void)
 				/* unhide diff change */
 				lx_->lflag &= ~FMASK(cnf.fdata[ri_].flevel);
 
-				if (!regexec(&reg1, lx_->buff, 10, pmatch, 0) && 
+				if (!regexec(&reg1, lx_->buff, 10, pmatch, 0) &&
 					pmatch[1].rm_so >= 0 && pmatch[1].rm_so < pmatch[1].rm_eo)
 				{
 					iy = 0;

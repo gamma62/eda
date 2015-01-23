@@ -1181,7 +1181,7 @@ fold_block (void)
 
 /*
 ** fold_thisfunc - fold block content around the focus line, hide/unhide block lines;
-**	show header and footer lines first, change content visibility othervise 
+**	show header and footer lines first, change content visibility othervise
 */
 int
 fold_thisfunc (void)

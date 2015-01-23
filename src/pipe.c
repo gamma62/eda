@@ -1,5 +1,5 @@
 /*
-* pipe.c 
+* pipe.c
 * tools for fork/execve processes, external programs and filters, make, find, vcs tools, sh/ssh,
 * utilities for background processing
 *
@@ -35,6 +35,7 @@
 #include <sys/wait.h>		/* waitpid */
 #include <errno.h>
 #include <syslog.h>
+#include <sys/ioctl.h>
 #include "main.h"
 #include "proto.h"
 
@@ -86,37 +87,20 @@ ishell_cmd (const char *ext_cmd)
 {
 	int ret=0;
 	char ext_argstr[CMDLINESIZE];
-	unsigned i=0, j=0;
-	char head[50];
-	const char *phead=NULL;
-
 	memset(ext_argstr, 0, sizeof(ext_argstr));
-	memset(head, 0, sizeof(head));
 
 	/* command is optional */
 	if (ext_cmd[0] == '\0') {
-		snprintf(ext_argstr, sizeof(ext_argstr)-1, "i-sh");
-		phead = ext_argstr;
+		snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c %s", cnf.sh_path);
 	} else {
 		if (ext_cmd[0] == 0x27) {
-			j = 1;
 			snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c %s", ext_cmd);
 		} else {
 			snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
 		}
-		phead = ext_cmd;
 	}
 
-	head[i++] = '*';
-	while (i < sizeof(head)-2 && phead[j] != '\0') {
-		if ((phead[j] == ' ') || (phead[j] == 0x27))
-			break;
-		head[i++] = phead[j++];
-	}
-	head[i++] = '*';
-	head[i++] = '\0';
-
-	ret = read_pipe (head, cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT);
+	ret = read_pipe ("*ish*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT);
 
 	return (ret);
 }
@@ -256,8 +240,8 @@ find_cmd (const char *ext_cmd)
 				return (1);
 			}
 		}
-		snprintf(ext_argstr, sizeof(ext_argstr)-1, "find %s %s '%s' {} ;", 
-			cnf.find_opts, ((cnf.gstat & GSTAT_CASES) ? "" : "-i"), 
+		snprintf(ext_argstr, sizeof(ext_argstr)-1, "find %s %s '%s' {} ;",
+			cnf.find_opts, ((cnf.gstat & GSTAT_CASES) ? "" : "-i"),
 			((word[0] == '.' || word[0] == '>') ? word+1 : word));
 		FREE(word); word = NULL;
 	} else {
@@ -265,7 +249,7 @@ find_cmd (const char *ext_cmd)
 		delim = ext_cmd[0];
 		cut_delimiters (ext_cmd, temp, sizeof(temp));
 		delim = (delim == 0x22) ? 0x22 : 0x27;
-		snprintf(ext_argstr, sizeof(ext_argstr)-1, "find %s %s %c%s%c {} ;", 
+		snprintf(ext_argstr, sizeof(ext_argstr)-1, "find %s %s %c%s%c {} ;",
 			cnf.find_opts, ((cnf.gstat & GSTAT_CASES) ? "" : "-i"), delim, temp, delim);
 	}
 
@@ -539,7 +523,7 @@ show_define (const char *fname, int lineno)
 *
 */
 static int
-fork_exec (const char *ext_cmd, const char *ext_argstr, 
+fork_exec (const char *ext_cmd, const char *ext_argstr,
 	int *in_pipe, int *out_pipe, int opts)
 {
 	char token_str[CMDLINESIZE];
@@ -564,19 +548,6 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	}
 	strncpy(cmd, ext_cmd, sizeof(cmd));
 	cmd[sizeof(cmd)-1] = '\0';
-
-#ifdef DEVELOPMENT_VERSION
-	{
-		int i;
-		char temp[1024];
-		memset(temp, 0, sizeof(temp));
-		for (i=0; i<xx; i++) {
-			strncat(temp, " ", 1);
-			strncat(temp, args[i], 100);
-		}
-		PIPE_LOG(LOG_DEBUG, "cmd:%s args:%s", cmd, temp);
-	}
-#endif
 
 	if (opts & OPT_INTERACT) {
 		if ((ptm = open("/dev/ptmx", O_RDWR)) < 0) {
@@ -613,12 +584,17 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 			return (-1);
 		}
 	}
+	PIPE_LOG(LOG_DEBUG, "in pipe W %d R %d  out pipe W %d R %d",
+		in_pipe[XWRITE], in_pipe[XREAD], out_pipe[XWRITE], out_pipe[XREAD]);
+
 	if ((chrw = fork()) == -1) {
 		PIPE_LOG(LOG_ERR, "fork() [r/w] failed (%s)", strerror(errno));
-		close(out_pipe[XREAD]);
-		close(out_pipe[XWRITE]);
-		close(in_pipe[XREAD]);
 		close(in_pipe[XWRITE]);
+		if (out_pipe[XREAD] != in_pipe[XWRITE])
+			close(out_pipe[XREAD]);
+		close(out_pipe[XWRITE]);
+		if (in_pipe[XREAD] != out_pipe[XWRITE])
+			close(in_pipe[XREAD]);
 		return (-1);
 	}
 
@@ -626,32 +602,44 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		/* child process
 		*/
 		struct sigaction sigAct;
-		memset(&sigAct, 0, sizeof (sigAct));
+		memset(&sigAct, 0, sizeof(sigAct));
+
+		/* close parent sides */
+		close(in_pipe[XWRITE]);
+		if (out_pipe[XREAD] != in_pipe[XWRITE])
+			close(out_pipe[XREAD]);
+
+		dup2(out_pipe[XWRITE], 1);		/* stdout */
+		if (opts & OPT_REDIR_ERR) {
+			dup2(out_pipe[XWRITE], 2);	/* redir stderr */
+		} else {
+			close(2);			/* drop stderr */
+		}
+		if (opts & (OPT_IN_OUT | OPT_INTERACT)) {
+			dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
+		} else {
+			close(0);			/* no stdin */
+		}
+
+		/* close after dup */
+		close(out_pipe[XWRITE]);
+		if (in_pipe[XREAD] != out_pipe[XWRITE])
+			close(in_pipe[XREAD]);
 
 		if (opts & OPT_INTERACT) {
-			dup2(out_pipe[XWRITE], 1);		/* stdout */
-			if (opts & OPT_REDIR_ERR) {
-				dup2(out_pipe[XWRITE], 2);	/* redir stderr */
-			}
-			if (opts & (OPT_IN_OUT | OPT_INTERACT)) {
-				dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
-			}
-		} else {
-			dup2(out_pipe[XWRITE], 1);		/* stdout */
-			if (opts & OPT_REDIR_ERR) {
-				dup2(out_pipe[XWRITE], 2);	/* redir stderr */
-			} else {
-				close(2);			/* drop stderr */
-			}
-			close(out_pipe[XREAD]);
-			close(out_pipe[XWRITE]);
-			if (opts & OPT_IN_OUT) {
-				dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
-			} else {
-				close(0);			/* no stdin */
-			}
-			close(in_pipe[XREAD]);
-			close(in_pipe[XWRITE]);
+			/* become session leader */
+			if (setsid() == -1)
+				perror("setsid");
+			/* set the controlling terminal */
+			ioctl(0, TIOCSCTTY, 1);
+			/* try fixing */
+			if (setenv("COLUMNS", "200", 1) == -1)
+				perror("setenv");
+			if (setenv("LINES", "50", 1) == -1)
+				perror("setenv");
+			/* greetings */
+			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
+				getpid(), getppid(), getsid(0), getpgid(0));
 		}
 
 		/* reset signal handler for child
@@ -661,7 +649,6 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		sigaction(SIGINT, &sigAct, NULL);
 		sigaction(SIGQUIT, &sigAct, NULL);
 		sigaction(SIGTERM, &sigAct, NULL);
-		sigaction(SIGCHLD, &sigAct, NULL);
 		sigaction(SIGPIPE, &sigAct, NULL);
 		sigaction(SIGUSR1, &sigAct, NULL);
 		sigaction(SIGUSR2, &sigAct, NULL);
@@ -675,7 +662,8 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	/* parent process
 	*/
 	close(out_pipe[XWRITE]);
-	close(in_pipe[XREAD]);
+	if (in_pipe[XREAD] != out_pipe[XWRITE])
+		close(in_pipe[XREAD]);
 
 	return chrw;
 }
@@ -705,7 +693,7 @@ finish_in_fg (void)
 }
 
 /*
-* this function starts external command like "$ext_cmd $ext_argstr" 
+* this function starts external command like "$ext_cmd $ext_argstr"
 * in the background and is going to process the outcome to memory buffer
 * (ring index selected by sbufname) with some options in opts
 * returns 0 if ok, otherwise error...
@@ -778,7 +766,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		*/
 		if ((opts & OPT_IN_OUT_FOCUS) == OPT_IN_OUT_FOCUS) {
 			/* focus line from the original buffer */
-			lno_write = write_out_chars(in_pipe[XWRITE], 
+			lno_write = write_out_chars(in_pipe[XWRITE],
 				cnf.fdata[ring_i].curr_line->buff,
 				cnf.fdata[ring_i].curr_line->llen);
 		} else if ((opts & OPT_IN_OUT_REAL_ALL) == OPT_IN_OUT_REAL_ALL) {
@@ -792,7 +780,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 				((LMASK(cnf.ring_curr)) ? (opts & OPT_IN_OUT_SH_MARK) : 0));
 		} else {
 			/* selection lines, with or without shadow mark */
-			lno_write = wr_select(in_pipe[XWRITE], 
+			lno_write = wr_select(in_pipe[XWRITE],
 				((LMASK(cnf.ring_curr)) ? (opts & OPT_IN_OUT_SH_MARK) : 0));
 		}
 		if (lno_write < 1)
@@ -814,6 +802,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			CURR_FILE.fflag |= FSTAT_INTERACT;
 			/* for prompt recognition */
 			CURR_FILE.last_input_length = 0;
+			CURR_FILE.last_input[0] = '\0';
 		} else {
 			/* disable inline editing, adding lines */
 			CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
@@ -1021,7 +1010,7 @@ readout_pipe (int ring_i)
 * return 1 after changes to current buffer
 * return -1 on error
 */
-int 
+int
 background_pipes (void)
 {
 	int bits = (FSTAT_OPEN | FSTAT_SPECW | FSTAT_SCRATCH);

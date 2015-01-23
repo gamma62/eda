@@ -1,4 +1,4 @@
-/* 
+/*
 * keys.c
 * keypress raw processing engine, uses external config data
 *
@@ -228,7 +228,7 @@ process_seqfile (int noconfig)
 
 /*
  * process the input string
- * get values and interpret them 
+ * get values and interpret them
  * merge the whole set into the tree
  * return: 0 if everything is ok
  */
@@ -360,7 +360,7 @@ process_esc_seq (const char *str, NODE *tree)
 }
 
 /*
- * free allocated memory: 
+ * free allocated memory:
  * this function will be called recursively
  */
 void
@@ -384,7 +384,7 @@ free_seq_tree (NODE *node)
 /*
  * test version of event_handler()
  * keypress recognition test
- * based on library features and escape sequence tree, 
+ * based on library features and escape sequence tree,
  * read and processed from external file
  * ---
  * experimental mouse support, switch on/off by 'm'
@@ -393,8 +393,8 @@ void
 key_test (void)
 {
 	volatile int mouse_on=0;
-	mmask_t mouse_events_mask = (BUTTON1_PRESSED | BUTTON1_RELEASED | 
-		BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED | 
+	mmask_t mouse_events_mask = (BUTTON1_PRESSED | BUTTON1_RELEASED |
+		BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED |
 		BUTTON1_TRIPLE_CLICKED |
 		BUTTON2_CLICKED | BUTTON3_CLICKED);
 	int ch=0, ki=0, maxx=0, maxy=0;
@@ -428,7 +428,7 @@ key_test (void)
 			} else if (ch == '\r') {
 				wprintw (stdscr, ">%02X\n", ch);
 			} else if (ch == KEY_MOUSE) {
-				wprintw (stdscr, ">KEY_MOUSE row=%d col=%d\n", 
+				wprintw (stdscr, ">KEY_MOUSE row=%d col=%d\n",
 					pointer.y, pointer.x);
 			} else {
 				ki = index_key_value(ch);
@@ -497,7 +497,7 @@ test_key_handler (NODE *seq_tree)
 
 		} else if (ch == KEY_MOUSE) {
 			mok = getmouse(&pointer);
-			wprintw (stdscr, "(%d: y=%d x=%d state=0%o) ", 
+			wprintw (stdscr, "(%d: y=%d x=%d state=0%o) ",
 				mok, pointer.y, pointer.x, pointer.bstate);
 			if (mok == OK) {
 				ready = 1;

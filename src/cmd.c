@@ -715,35 +715,35 @@ keypress_enter (void)
 {
 	char insert[CMDLINESIZE];
 	int push = sizeof(insert);
-	int offset = 0;
+	int offset=0, i=0;
 
 	if ((CURR_FILE.fflag & FSTAT_INTERACT) &&
 	    (CURR_FILE.pipe_input != 0) &&
 	    (CURR_FILE.lineno == CURR_FILE.num_lines))
 	{
-		/* push the bytes into child's reader pipe,
-		* but they will be echoed back, therefor remove the rest
-		* after the prompt (assumed it has constant size)
+		/* push the bytes into child's reader pipe, but without the prompt
 		*/
 		if (CURR_FILE.last_input_length > 0)
 		{
-			if (CURR_FILE.last_input_length < CURR_LINE->llen)
-				offset = CURR_FILE.last_input_length;
-			else if (CURR_FILE.last_input_length == CURR_LINE->llen)
-				offset = CURR_FILE.last_input_length-1;
+			i=0;
+			while (i < CURR_LINE->llen-1 && i < CURR_FILE.last_input_length) {
+				if (CURR_FILE.last_input[i] != CURR_LINE->buff[i])
+					break;
+				i++;
+			}
+			offset = i;
 		}
 		if (push > CURR_LINE->llen - offset)
 			push = CURR_LINE->llen - offset;
-		strncpy(insert, CURR_LINE->buff+offset, sizeof(insert));
-		insert[sizeof(insert)-1] = '\0';
-
-		/* keep only the prompt */
-		PIPE_LOG(LOG_DEBUG, "(keep only the prompt) llen %d from offset %d [%s] -- push bytes [%s]",
-			CURR_LINE->llen, offset, CURR_LINE->buff+offset, insert);
-		CURR_FILE.lncol = offset;
-		deleol();
-
-		write_out_chars(CURR_FILE.pipe_input, insert, push);
+		if (push > 0) {
+			strncpy(insert, CURR_LINE->buff+offset, sizeof(insert));
+			insert[sizeof(insert)-1] = '\0';
+			PIPE_LOG(LOG_DEBUG, "last_input %d llen %d offset %d -- push %d bytes [%s]",
+				CURR_FILE.last_input_length, CURR_LINE->llen, offset, push, insert);
+			CURR_FILE.lncol = offset;
+			deleol();
+			write_out_chars(CURR_FILE.pipe_input, insert, push);
+		}
 		/* cnf.gstat |= GSTAT_UPDNONE; */
 	}
 	else if ( !(CURR_FILE.fflag & FSTAT_NOEDIT) ) {
@@ -1573,9 +1573,10 @@ milbuff (LINE *lp, int from, int length, const char *replacement, int rl)
 int
 type_text (const char *str)
 {
-	unsigned slen=0, begin=0, last=0;
+	int slen=0, begin=0, last=0, plen=0, i=0;
 	int ret=0;
 	char smartind;
+	const char *prompt=NULL;
 
 	if (str[0] == '\0')
 		return(0);
@@ -1591,6 +1592,9 @@ type_text (const char *str)
 	slen = strlen(str);
 	begin = 0;
 	last = 0;
+	plen = sizeof(CURR_FILE.last_input);
+	CURR_FILE.last_input_length = 0;
+	CURR_FILE.last_input[0] = '\0';
 
 	while (begin < slen) {
 		while (last < slen && str[last] != '\n') {
@@ -1600,6 +1604,7 @@ type_text (const char *str)
 			ret = insert_chars (&str[begin], last-begin);
 			/* for interactive shells */
 			CURR_FILE.last_input_length = last-begin;
+			prompt = &str[begin];
 		}
 		if (ret) {
 			break;
@@ -1610,8 +1615,17 @@ type_text (const char *str)
 		}
 		begin = last;
 	}
+
 	if (CURR_FILE.fflag & FSTAT_INTERACT) {
-		PIPE_LOG(LOG_DEBUG, "last_input_length %d", CURR_FILE.last_input_length);
+		i=0;
+		if (prompt != NULL) {
+			while(i<plen-1 && i<CURR_FILE.last_input_length) {
+				CURR_FILE.last_input[i] = prompt[i];
+				i++;
+			}
+		}
+		CURR_FILE.last_input[i] = '\0';
+		PIPE_LOG(LOG_DEBUG, "last_input %d [%s]", CURR_FILE.last_input_length, CURR_FILE.last_input);
 	}
 
 	if (smartind)

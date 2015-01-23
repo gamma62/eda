@@ -163,8 +163,8 @@ get_fname (char *path, unsigned maxsize, char **choices)
 			for (i=1; i<r; i++) {
 				for (j=len; j<new; j++) {
 					if (path[j] == '\0' ||
-					globbuf.gl_pathv[i][j] == '\0' ||
-					path[j] != globbuf.gl_pathv[i][j]) 
+					    globbuf.gl_pathv[i][j] == '\0' ||
+					    path[j] != globbuf.gl_pathv[i][j])
 					{
 						new = j;
 						break;
@@ -643,7 +643,7 @@ canonicalpath (const char *path)
 	/* advanced replacement: "/word/.." -> "/" */
 	runner = 0;
 	while (runner+2 < size) {
-		if (dir[runner] == '/' && dir[runner+1] == '.' && dir[runner+2] == '.' && 
+		if (dir[runner] == '/' && dir[runner+1] == '.' && dir[runner+2] == '.' &&
 			(dir[runner+3] == '\0' || dir[runner+3] == '/'))
 		{
 			if (runner == 0) {

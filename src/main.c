@@ -450,7 +450,7 @@ set_defaults(void)
 	strncpy(cnf.tags_file,	"./tags",		sizeof(cnf.tags_file));
 	strncpy(cnf.make_path,	"/usr/bin/make",	sizeof(cnf.make_path));
 	strncpy(cnf.make_opts,	"-f Makefile",		sizeof(cnf.make_opts));
-	strncpy(cnf.sh_path,	"/bin/sh",		sizeof(cnf.sh_path));
+	strncpy(cnf.sh_path,	"/bin/bash",		sizeof(cnf.sh_path));
 	strncpy(cnf.diff_path,	"/usr/bin/diff",	sizeof(cnf.diff_path));
 	strncpy(cnf.ssh_path,	"/usr/bin/ssh",		sizeof(cnf.ssh_path));
 	for(i=0; i < 10; i++) {

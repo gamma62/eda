@@ -1,5 +1,5 @@
 /*
-* tags.c 
+* tags.c
 * support functions to use "tags" file from ctags, parse tags file, use saved information to jump to definition
 *
 * Copyright 2003-2015 Attila Gy. Molnar
@@ -287,7 +287,7 @@ tag_load_file (void)
 		if (buff[i] == ';') {
 			/* extended format */
 			buff[i] = '\0';		/* close pp, lineno or pattern */
-			i += 3;			
+			i += 3;
 			line_format = 2;
 		}
 		else if (buff[j] >= '0' && buff[j] <= '9' && buff[i-1] >= '0' && buff[i-1] <= '9') {
@@ -570,7 +570,7 @@ tag_items (const char *symbol, TAGTYPE type, int flag)
 			saved_count = -1;
 		} else {
 			if (count > 1) {
-				tracemsg ("symbol \"%s\" multiple match (%d of %d)", 
+				tracemsg ("symbol \"%s\" multiple match (%d of %d)",
 					symbol, saved_count, count);
 			}
 		}

@@ -137,7 +137,7 @@ lll_rm (LINE *line_p)
 /*
  * move lp_src after lp_trg
  * return with the pointer to this element (lp_src becomes lp_trg->next)
- * or NULL on error 
+ * or NULL on error
  */
 LINE *
 lll_mv (LINE *lp_src, LINE *lp_trg)
@@ -174,7 +174,7 @@ lll_mv (LINE *lp_src, LINE *lp_trg)
 /*
  * move lp_src before lp_trg
  * return with the pointer to this element (lp_src becomes lp_trg->prev)
- * or NULL on error 
+ * or NULL on error
  */
 LINE *
 lll_mv_before (LINE *lp_src, LINE *lp_trg)

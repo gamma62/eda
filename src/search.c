@@ -478,7 +478,7 @@ cut_delimiters (const char *expr, char *expr_new, int length)
 
 /*
  * regexp shorthands: \d \D and \t
- * the \s \S \w \W are handled by regcomp/glibc 
+ * the \s \S \w \W are handled by regcomp/glibc
  */
 void
 regexp_shorthands (const char *pattern, char *ext_pattern, int length)
@@ -717,7 +717,7 @@ change (const char *argz)
 	char expr_new[XPATTERN_SIZE], repl_expr_new[XPATTERN_SIZE];
 	int global_opt = 0;
 	LINE *g_lx=NULL;
-	int g_lineno=0, g_focus=0, g_lncol=0; 
+	int g_lineno=0, g_focus=0, g_lncol=0;
 
 	/* reset regexp */
 	reset_search();
@@ -1113,8 +1113,8 @@ do_replacement (CHDATA *chp)
 		chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so,
 		chp->rep_length);
 
-	ret = milbuff (chp->lx, 
-		chp->lncol + chp->pmatch[0].rm_so, 
+	ret = milbuff (chp->lx,
+		chp->lncol + chp->pmatch[0].rm_so,
 		chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so,
 		chp->rep_buff,
 		chp->rep_length);

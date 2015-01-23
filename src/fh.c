@@ -53,7 +53,7 @@ work_uptime (const char *headline)
 	time_t now=0;
 	struct tm *tm_p;
 	long gone=0;
-	int uptime=0, wmin=0, whours=0, upmin=0, uphours=0, updays=0, slen=0; 
+	int uptime=0, wmin=0, whours=0, upmin=0, uphours=0, updays=0, slen=0;
 	char *iobuffer=NULL, mystring[500];
 
 	now = time(NULL);

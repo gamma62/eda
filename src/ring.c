@@ -1,5 +1,5 @@
 /*
-* ring.c 
+* ring.c
 * ring-list, bookmark handling, motion history functions
 *
 * Copyright 2003-2015 Attila Gy. Molnar

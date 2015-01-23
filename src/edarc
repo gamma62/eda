@@ -50,6 +50,7 @@ tags_file	./tags
 make_path	/usr/bin/make
 make_opts	-w
 
+# bash is working, dash not
 sh_path		/bin/bash
 diff_path	/usr/bin/diff
 ssh_path	/usr/bin/ssh
