@@ -1,0 +1,147 @@
+command name          keyb shortcut    function name
+--------------------  ---------------  --------------------
+n/a                   PPAGE            go_page_up          
+n/a                   NPAGE            go_page_down        
+n/a                   Ctrl-LEFT        prev_nonblank       
+n/a                   Ctrl-RIGHT       next_nonblank       
+top                   Ctrl-PPAGE       go_top              
+bot.tom               Ctrl-NPAGE       go_bottom           
+: <arg>               n/a              goto_line           
+pos <arg>             n/a              goto_pos            
+ce.nter               F5               center_focusline    
+e.d [<arg>]           n/a              add_file            
+re!                   none             reload_file         
+re.load               none             reload_bydiff       
+prev                  none             prev_file           
+next                  F8               next_file           
+sa.ve <arg>           F2               save_file           
+fi.le                 F3               file_file           
+q.uit                 F4               quit_file           
+qq.uit                none             drop_file           
+qo.th                 Shift-F4         quit_others         
+qa.ll                 none             quit_all            
+fa.ll                 none             file_all            
+hide                  Ctrl-F2          hide_file           
+deleol                F6               deleol              
+del2bol               Shift-F6         del2bol             
+dell.ine              Alt-D            delline             
+dup                   F7               duplicate           
+dele.te <arg>         n/a              delete_lines        
+strip <arg>           n/a              strip_lines         
+lisel                 Alt-L            line_select         
+resel                 Alt-U            reset_select        
+sea.ll                none             select_all          
+cpsel                 Alt-C            cp_select           
+mvsel                 Alt-M            mv_select           
+rmsel                 Alt-G            rm_select           
+over                  none             over_select         
+selfi.rst             Alt-A            go_select_first     
+sella.st              Alt-E            go_select_last      
+unind.ent             Shift-F7         unindent_left       
+ind.ent               Shift-F8         indent_right        
+shl.eft               Shift-F9         shift_left          
+shr.ight              Shift-F10        shift_right         
+pad.b <arg>           none             pad_block           
+cut.b <arg>           none             cut_block           
+lcut.b <arg>          none             left_cut_block      
+split.b <arg>         none             split_block         
+join.b <arg>          none             join_block          
+all [<arg>]           n/a              filter_all          
+less [<arg>]          n/a              filter_less         
+more <arg>            n/a              filter_more         
+ftmp                  Alt-EQUAL        filter_tmp_all      
+fxup                  Ctrl-U           filter_expand_up    
+fxdn                  Ctrl-N           filter_expand_down  
+fres                  Ctrl-E           filter_restrict     
+il.evel               none             incr_filter_level   
+dl.evel               none             decr_filter_level   
+il2                   none             incr2_filter_level  
+dl2                   none             decr2_filter_level  
+n/a                   Alt-BACKSLASH    incr_filter_cycle   
+pd.iff                none             process_diff        
+/ <arg>               n/a              search              
+n/a                   Ctrl-L           repeat_search       
+ch.ange <arg>         n/a              change              
+tag [<arg>]           n/a              color_tag           
+tf                    Shift-F1         tag_focusline       
+hi.gh [<arg>]         Ctrl-H           highlight_word      
+n/a                   Ctrl-J           search_word         
+n/a                   Ctrl-K           tag_line_byword     
+n/a                   Ctrl-F           search_cmd_macro    
+mat.ch                F9               tomatch             
+fm.atch               Ctrl-F9          forcematch          
+fb.lock               Ctrl-F10         fold_block          
+this.f                Ctrl-F11         fold_thisfunc       
+lt                    n/a              tag_load_file       
+sym.bol [<arg>]       F10              tag_view_info       
+j.ump [<arg>]         F11              tag_jump_to         
+sh <arg>              n/a              shell_cmd           
+ish [<arg>]           n/a              ishell_cmd          
+ssh <arg>             n/a              sshell_cmd          
+make [<arg>]          n/a              make_cmd            
+vcstool <arg>         n/a              vcstool             
+is [<arg>]            none             is_special          
+locsw.itch            none             locate_find_switch  
+n/a                   Alt-Q            multisearch_cmd     
+find [<arg>]          none             find_cmd            
+loc.ate [<arg>]       none             locate_cmd          
+n/a                   Alt-W            find_window_switch  
+fw.ord                none             fw_option_switch    
+fsp.ath <arg>         none             fsearch_path_macro  
+fsea.rgs <arg>        none             fsearch_args_macro  
+| <arg>               n/a              filter_cmd          
+|| <arg>              n/a              filter_shadow_cmd   
+set <arg>             n/a              set                 
+rc                    n/a              load_rcfile         
+key.s                 n/a              load_keyfile        
+macro.s               n/a              load_macrofile      
+sp [<arg>]            none             save_project        
+ri.ng                 Alt-R            list_buffers        
+ls.dir [<arg>]        n/a              lsdir_cmd           
+bms [<arg>]           Alt-ZERO         bm_set              
+bmc <arg>             none             bm_clear            
+b1                    Alt-ONE          bm_jump1            
+b2                    Alt-TWO          bm_jump2            
+b3                    Alt-THREE        bm_jump3            
+b4                    Alt-FOUR         bm_jump4            
+b5                    Alt-FIVE         bm_jump5            
+b6                    Alt-SIX          bm_jump6            
+b7                    Alt-SEVEN        bm_jump7            
+b8                    Alt-EIGHT        bm_jump8            
+b9                    Alt-NINE         bm_jump9            
+cmd.s                 none             show_commands       
+jb.ack                Ctrl-T           tag_jump_back       
+n/a                   n/a              finish_in_fg        
+stop                  none             stop_bg_process     
+pref                  Alt-GRAVEACC     prefix_macro        
+sma.rt                Alt-MINUS        smartind_macro      
+sha.dow               none             shadow_macro        
+vbn                   F1               view_bname          
+n/a                   Ctrl-B           ins_bname           
+n/a                   Ctrl-V           ins_varname         
+n/a                   Ctrl-G           ins_filename        
+n/a                   Ctrl-X           cp_text2cmd         
+wc.ase                Ctrl-F5          word_case           
+pal.ette              Ctrl-F3          rotate_palette      
+mouse                 none             mouse_support       
+redraw                Ctrl-R           force_redraw        
+record                none             recording_switch    
+version               none             version             
+n/a                   n/a              switch_text_cmd     
+n/a                   n/a              clhistory_prev      
+n/a                   n/a              clhistory_next      
+n/a                   n/a              go_up               
+n/a                   n/a              go_down             
+n/a                   n/a              go_smarthome        
+n/a                   n/a              go_home             
+n/a                   n/a              go_end              
+n/a                   n/a              go_left             
+n/a                   n/a              go_right            
+n/a                   n/a              delback_char        
+n/a                   n/a              delete_char         
+n/a                   n/a              keypress_enter      
+n/a                   n/a              type_text           
+n/a                   n/a              split_line          
+n/a                   n/a              join_line           
+nop                   n/a              nop                 
+

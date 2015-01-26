@@ -111,6 +111,13 @@ upd_statusline (void)
 			obuff_rest[lenrest++] = 't';
 			obuff_rest[lenrest] = '\0';
 		}
+		if (CURR_FILE.pipe_output != 0) {
+			obuff_rest[lenrest++] = ' ';
+			obuff_rest[lenrest++] = 'r';
+			obuff_rest[lenrest++] = 'u';
+			obuff_rest[lenrest++] = 'n';
+			obuff_rest[lenrest] = '\0';
+		}
 	} else {
 		if (CURR_FILE.fflag & FSTAT_SCRATCH) {
 			obuff_rest[lenrest++] = ' ';

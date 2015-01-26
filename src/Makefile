@@ -1,6 +1,6 @@
 # Makefile for eda sources
 #
-# Copyright 2003-2011 Attila Gy. Molnar
+# Copyright 2003-2015 Attila Gy. Molnar
 #
 # This file is part of eda project.
 #
@@ -27,22 +27,18 @@
 
 include ../conf.make
 
-PROGHOME = $(PREFIX)/share/eda
-MANROOT = $(PREFIX)/share/man
-DOCLINK = $(PREFIX)/share/doc/eda
+PROGHOME = $(datadir)/eda
 ARCH = $(shell uname -m)
-REV = $(shell cat ../REV || echo 1397)
 
 CC = gcc
-HARDENING = -g -O2 -fPIE -fstack-protector-all --param=ssp-buffer-size=4 \
-	-Wformat -Werror=format-security -Wstack-protector
+HARDENING = -g -O2 -fPIE \
+	-Wformat -Werror=format-security
 CFLAGS = -W -Wall -D_FORTIFY_SOURCE=2 $(HARDENING) \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -I..
 LDFLAGS = $(HARDENING) -fPIE -pie -Wl,-z,relro -Wl,-z,now \
 	-rdynamic
 
-HDRS = main.h curses_ext.h command.h proto.h
-KEY_HDRS = keys.h rkeys.h
+HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
@@ -51,21 +47,44 @@ SRCS = $(OBJS:.o=.c)
 
 all: eda
 
--include .depend
-
 eda: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -lncurses
 
-.depend:
-	$(CC) $(CFLAGS) -MM *.c > $@
+install:
+	install -d -m 755  $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 -p -s eda  $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 -p xeda  $(DESTDIR)$(PREFIX)/bin/
+	install -d -m 755 -p  $(DESTDIR)$(CONFPATH)/
+	install -m 644 -p edarc edakeys edaseq  $(DESTDIR)$(CONFPATH)/
+	install -d -m 755  $(DESTDIR)$(PROGHOME)/
+	install -m 644 -p edarc edakeys edaseq edamacro sample.proj  $(DESTDIR)$(PROGHOME)/
+	install -m 755 -p set_op.pl  $(DESTDIR)$(PROGHOME)/
+
+uninstall:
+	for f in eda xeda ; do \
+	  if test -f $(DESTDIR)$(PREFIX)/bin/$$f ; then rm -f $(DESTDIR)$(PREFIX)/bin/$$f ; fi ; \
+	done
+	for f in edarc edakeys edaseq ; do \
+	  if test -f $(DESTDIR)$(CONFPATH)/$$f ; then rm -f $(DESTDIR)$(CONFPATH)/$$f ; fi ; \
+	done
+	-rmdir $(DESTDIR)$(CONFPATH) || true
+	for f in edarc edakeys edaseq edamacro sample.proj set_op.pl ; do \
+	  if test -f $(DESTDIR)$(PROGHOME)/$$f ; then rm -f $(DESTDIR)$(PROGHOME)/$$f ; fi ; \
+	done
+	-rmdir $(DESTDIR)$(PROGHOME) || true
 
 clean:
-	-rm -f *.o *.i eda *~
+	-rm -f *.o *.i *~ core* eda tags
+
+ctags: tags
+
+tags: $(SRCS) $(HDRS)
+	-ctags *.c *.h ../*.h
 
 # ------------------------------------
 
 main.o: main.c $(SRCS) $(HDRS)
-	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DVERSION=\"$(VERSION)\" -c -o $@ $<
 
 rc.o: rc.c
 	$(CC) $(CFLAGS) -DCONFPATH=\"$(CONFPATH)\" -DPROGHOME=\"$(PROGHOME)\" -c -o $@ $<

@@ -77,20 +77,23 @@ list_buffers (void)
 			/* base data
 			*/
 			if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-				snprintf(one_line, sizeof(one_line)-1, "r=%d %s (origin:%d) %s%s%s #lines %d\n",
+				snprintf(one_line, sizeof(one_line)-1, "r=%d %s (origin:%d) %s%s%s%s%s #lines %d\n",
 					ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin,
 					(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
 					(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
+					(cnf.fdata[ri].fflag & FSTAT_CHMASK) ? "r/o " : "",
 					(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "interactive " : "",
+					(cnf.fdata[ri].pipe_output != 0) ? "running " : "",
 					cnf.fdata[ri].num_lines);
 			} else {
 				tm_p = localtime(&cnf.fdata[ri].stat.st_mtime);
 				strftime(mtime_buff, 39, "%Y-%m-%d %H:%M:%S", tm_p);
 				mtime_buff[39] = '\0';
-				snprintf(one_line, sizeof(one_line)/2, "r=%d %s %s %s%s #lines %d ",
+				snprintf(one_line, sizeof(one_line)/2, "r=%d %s %s %s%s%s #lines %d ",
 					ri, cnf.fdata[ri].fname,
 					(cnf.fdata[ri].fflag & FSTAT_RO) ? "R/O" : "R/W",
 					(cnf.fdata[ri].fflag & FSTAT_CHANGE) ? "Mod " : "",
+					(cnf.fdata[ri].fflag & FSTAT_EXTCH) ? "Ext.Mod " : "",
 					(cnf.fdata[ri].fflag & FSTAT_HIDDEN) ? "HIDDEN " : "",
 					cnf.fdata[ri].num_lines);
 				cnt = strlen(one_line);

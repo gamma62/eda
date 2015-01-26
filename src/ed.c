@@ -161,7 +161,7 @@ run_macro_command (int mi, char *args_inbuff)
 		dup_buffer[CMDLINESIZE-1] = '\0';
 		args_cnt = parse_args (dup_buffer, args);
 
-		CMD_LOG(LOG_DEBUG, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
+		CMD_LOG(LOG_INFO, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
 			mi, macros[mi].name, macros[mi].fkey, args_inbuff, args_cnt);
 
 		cnf.gstat |= GSTAT_SILENT;
@@ -239,7 +239,7 @@ run_command (int ti, const char *args_inbuff)
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
 
-		CMD_LOG(LOG_DEBUG, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
+		CMD_LOG(LOG_INFO, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
 			ti, table[ti].name, table[ti].fkey, args_inbuff);
 
 		if (table[ti].tflag & TSTAT_ARGS) {
@@ -539,14 +539,14 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		}
 		abeg = i;
 	}
-	/* CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg); */
+	CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg);
 
 	/* search down command name in macros[].name and table[].name
 	*/
 	for (xi=0; xi < MLEN; xi++)
 	{
 		if (macros[xi].name[0] != '\0') {
-			/* CMD_LOG(LOG_DEBUG, "try macro [%s]", macros[xi].name); */
+			CMD_LOG(LOG_DEBUG, "check macro name [%s]", macros[xi].name);
 			for (i=0; i < clen; i++) {
 				if (macros[xi].name[i] != ibuff[i])
 					break;
@@ -585,7 +585,7 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		}
 		args[i-abeg] = '\0';
 		ibuff[clen] = '\0';
-		CMD_LOG(LOG_DEBUG, "command [%s] arguments [%s]", ibuff, args);
+		CMD_LOG(LOG_DEBUG, "parsed -> [%s] [%s]", ibuff, args);
 	}
 
 	return (xi);

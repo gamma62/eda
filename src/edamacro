@@ -1,7 +1,8 @@
 # System-wide configuration file
 # do not edit, save a copy to ~/.eda/ instead
 
-# macro file for eda with commented samples, see edamacro(5)
+# macro file for eda with commented samples, 
+# details about syntax and functions in edamacro(5)
 #
 # ---sample
 #KEY_NONE	whynot
@@ -15,20 +16,26 @@
 #.
 # ---end sample
 #
+# Note:
+# to capture the end of a background process (like shell_cmd or filter_cmd) the macro must call
+#       finish_in_fg  
+# to overwrite the selection lines pushed to filter_cmd use the function
+#       over_select
+#
 KEY_C_Y		delline_alias
 #Description: alias for Alt-D
 	delline
 .
 KEY_NONE	symdiff
-#Description: symmetrical difference set operation on word sets, words in two separate line blocks
+#Description: symmetrical difference set operation on word sets, separate line blocks
 	filter_cmd /usr/local/share/eda/set_op.pl --word --symdiff
 .
 KEY_NONE	union
-#Description: union set operation on word sets, words in two separate line blocks
+#Description: union set operation on word sets, separate line blocks
 	filter_cmd /usr/local/share/eda/set_op.pl --word --union
 .
 KEY_NONE	inter
-#Description: intersection set operation on word sets, words in two separate line blocks
+#Description: intersection set operation on word sets, separate line blocks
 	filter_cmd /usr/local/share/eda/set_op.pl --word --inter
 .
 KEY_NONE	:w
@@ -47,74 +54,71 @@ KEY_NONE	:qo
 #Description: alias for qoth
 	quit_others
 .
-KEY_NONE	ps
-#Description: get the list of processes
-	shell_cmd ps -eHo pid,ppid,user,sid,pgid,uid,gid,euid,egid,cmd
+KEY_NONE	man
+#Description: open manual page
+	shell_cmd man $0
 	finish_in_fg
-.
-#KEY_NONE	cvs
-##Description: run CVS command
-#	vcstool cvs $0
-#.
-#KEY_NONE	svn
-#Description: run Subversion command
-#	vcstool svn $0
-#.
-#KEY_NONE	svndiff
-##Description: run svn diff on current file and process the outcome
-#	filter_all func
-#	vcstool svn diff -x -w ^G
-#	is_special diff
-#	process_diff
-#.
-#KEY_NONE	hg
-#Description: run Mercurial command
-#	vcstool hg $0
-#.
-
-#KEY_C_F6	hginfo
-##Description: run hg commands to get info
-#	vcstool hg sum
-#	vcstool hg diff --stat
-#	vcstool hg status
-#.
-#KEY_C_F7	hgdiff
-##Description: run hg diff on current file and process the outcome
-#	filter_all func
-#	vcstool hg diff -p -w ^G
-#	is_special diff
-#	process_diff
-#.
-KEY_NONE	save_cmds
-#Description: example, how to save the output of "cmds" to cmds.txt
-	show_commands
-	select_all
-	add_file cmds.txt
-	delete_lines all
 	go_top
-	cp_select
-	file_file
-	show_commands
-	drop_file
 .
-#KEY_NONE	cindent
-##Description: reindent C code in buffer
-#	select_all
-#	filter_cmd indent -kr -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
-#	finish_in_fg
-#	over_select
-#.
-#KEY_NONE	xmlindent
-##Description: reindent xml text in buffer
-#	select_all
-#	filter_cmd xmllint --format -
-#	finish_in_fg
-#	over_select
-#.
-#KEY_NONE	print
-##Description: print with shadow marks, selection lines or all lines
-#	select_all
-#	filter_shadow_cmd a2ps -1 -f8
-#	finish_in_fg
-#	reset_select
-#.
+KEY_NONE	ps
+#Description: list of processes, ps -eHo ...
+	shell_cmd ps -eHo pid,ppid,user,tty,%cpu,%mem,nlwp,sid,pgid,cmd
+.
+# KEY_NONE	cvs
+# #Description: alias to run any CVS command
+# 	vcstool cvs $0
+# .
+# KEY_NONE	svn
+# #Description: alias to run any Subversion command
+# 	vcstool svn $0
+# .
+# KEY_NONE	hg
+# #Description: alias to run any Mercurial command
+# 	vcstool hg $0
+# .
+# KEY_NONE	hginfo
+# #Description: run hg commands to get info: summary, diff stat, status
+# 	vcstool hg sum
+# 	vcstool hg diff --stat
+# 	vcstool hg status
+# .
+# KEY_NONE	hgdiff
+# #Description: run hg diff on current file and process the outcome
+# 	filter_all func
+# 	vcstool hg diff -p -w ^G
+# 	is_special diff
+# 	process_diff
+# .
+# KEY_NONE	svndiff
+# #Description: run svn diff on current file and process the outcome
+# 	filter_all func
+# 	vcstool svn diff -x -w ^G
+# 	is_special diff
+# 	process_diff
+# .
+# KEY_NONE	cindent
+# #Description: reindent C code, all visible lines
+# 	select_all
+# 	filter_cmd indent -kr -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
+# 	finish_in_fg
+# 	over_select
+# .
+# KEY_NONE	xmlindent
+# #Description: reindent xml text, all visible lines
+# 	select_all
+# 	filter_cmd xmllint --format -
+# 	finish_in_fg
+# 	over_select
+# .
+# KEY_NONE	save_cmds
+# #Description: save the output of "cmds" to cmds.txt
+# 	show_commands
+# 	select_all
+# 	add_file cmds.txt
+# 	delete_lines all
+# 	go_top
+# 	cp_select
+# 	file_file
+# 	show_commands
+# 	drop_file
+# .

@@ -240,6 +240,13 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 		}
 	}
 
+#ifndef NO_STDIN_PIPE
+	/* stdin pipe --- without other options */
+	if ((cnf.ring_size == 0) && ( !isatty(0) )) {
+		read_stdin();
+	}
+#endif
+
 	/* nothing else? */
 	if (cnf.ring_size == 0) {
 #ifdef OPEN_NONAME
@@ -523,13 +530,14 @@ tracemsg(const char *format, ...)
 	while (cnf.trace < TRACESIZE) {
 		for (j=0, k=0; j < cnf.maxx-1 && temp[i] != '\0'; j++, i++) {
 			cnf.tracerow[cnf.trace][j] = temp[i];
-			if (cnf.tracerow[cnf.trace][j] == ' ') {
-				k = j;
+			if ((k == 0) || (j < cnf.maxx - 20)) {
+				if (cnf.tracerow[cnf.trace][j] == ' ')
+					k = j;
 			}
 		}
 
-		/* try to find word boundary (20 characters from the end) */
-		if (j > k && k > cnf.maxx - 20) {
+		/* word wrap at last boundary */
+		if (j > cnf.maxx - 2) {
 			i -= j-k-1;	/* previous word begin */
 			j = k;		/* overwrite last space */
 		}

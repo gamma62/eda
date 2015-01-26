@@ -233,6 +233,7 @@ extern int filter_shadow_cmd (const char *ext_cmd);	/* public */
 extern int lsdir_cmd (const char *ext_cmd);		/* public */
 extern int show_define (const char *fname, int lineno);
 extern int finish_in_fg (void);				/* public */
+extern int read_stdin (void);
 extern int read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, int opts);
 extern int readout_pipe (int ring_i);
 extern int background_pipes (void);

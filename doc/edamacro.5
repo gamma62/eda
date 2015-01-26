@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2015-01-23" "0.9.47" ""
+.TH "EDAMACRO" "5" "2015-01-26" "0.9.47" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -184,13 +184,13 @@ save current file to disk (overwrite if exists) with an intermediate backup, the
 save this file if necessary and quit buffer
 .TP 11
 .B quit_file
-quit file if there are no pending changes, drop scratch buffer anyway
+quit file if there are no pending changes, drop scratch buffer anyway, but refuse quit if background process is running
 .TP 11
 .B drop_file
 drop file immediately, even if changed
 .TP 13
 .B quit_others
-quit all other unchanged files or scratch buffers
+quit all other unchanged files or scratch buffers, except ones with running background process
 .TP 10
 .B quit_all
 drop all buffers unconditionally and leave the program
@@ -343,10 +343,10 @@ search repeat_search change color_tag tag_focusline highlight_word search_word t
 .br
 .TP 8
 .B search
-start forward search with given regular expression (like "/reset"); reset search immediately if match not found; submatch referencies '\\1'...'\\9' can be used
+start forward search with given regular expression (like "/reset" or "/\<ret\>/"); reset search immediately if match not found; submatch referencies '\\1'...'\\9' can be used
 .TP 15
 .B repeat_search
-search next occurence; reset search if no more matches
+search next occurence; reset search if not found
 .TP 8
 .B change
 start search and replace with given regular expressions (like "ch /from/to/"), possible delimiters are slash, single quote, double quote, exclamation mark; submatch referencies '\\1'...'\\9' and '&' can be used
@@ -421,7 +421,7 @@ launch secure shell with arguments starting with <user>@<host>, catch output and
 start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource
 .TP 9
 .B vcstool
-start VCS command with arguments, the first one must be the name of the vcs tool itself, the rest are the real parameters, macros maybe used for abbreviation
+start VCS command with arguments (does not fork to background), the first argument must be the name of the vcs tool itself, the rest are the optional parameters
 .br
 
 .SS changing buffer type

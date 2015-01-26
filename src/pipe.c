@@ -173,8 +173,9 @@ make_cmd (const char *ext_cmd)
 }
 
 /*
-** vcstool - start VCS command with arguments, the first one must be the name of the vcs tool itself,
-**	the rest are the real parameters, macros maybe used for abbreviation
+** vcstool - start VCS command with arguments (does not fork to background),
+**	the first argument must be the name of the vcs tool itself,
+**	the rest are the optional parameters
 */
 int
 vcstool (const char *ext_cmd)
@@ -693,6 +694,66 @@ finish_in_fg (void)
 }
 
 /*
+* this function reads the stdin, moves that to pipe_output and reopen /dev/tty,
+* finish reading in the background as "*sh*" buffer without a process
+* returns 0 if ok, otherwise error...
+*/
+int
+read_stdin (void)
+{
+	int ring_i=0, ret=0;
+	const char *cterminal=NULL;
+	int pipeFD, newSTDIN;
+
+	ring_i = cnf.ring_curr;
+
+	if ( isatty(0) ) {
+		/* no stdin pipe */
+		return 1;
+	}
+	cterminal = ctermid(NULL);
+	pipeFD = dup(0);
+	close(0);
+	newSTDIN = open(cterminal, O_RDONLY);
+	if (newSTDIN != 0) {
+		dup2(newSTDIN, 0);
+		close(newSTDIN);
+	}
+	if ( !isatty(0) ) {
+		return 1;
+	}
+	PIPE_LOG(LOG_NOTICE, "dup to pipe=%d, reopen %s", pipeFD, cterminal);
+
+	if ((ret = scratch_buffer("*sh*")) != 0) {
+		return (ret);
+	}
+	/* cnf.ring_curr is set now */
+
+	CURR_FILE.chrw = -1;
+	CURR_FILE.pipe_opts = OPT_SILENT;
+	CURR_FILE.pipe_input = 0;
+	CURR_FILE.pipe_output = pipeFD;
+
+	CURR_FILE.fflag |= FSTAT_SPECW;
+	CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
+
+	if (ring_i != cnf.ring_curr) {
+		CURR_FILE.origin = ring_i;
+	}
+
+	CURR_FILE.curr_line = CURR_FILE.top;
+	CURR_FILE.lineno = 0;
+
+	if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
+		PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
+			CURR_FILE.pipe_output, strerror(errno));
+	}
+	PIPE_LOG(LOG_INFO, "ri=%d stdin-pipe -- continue in background", cnf.ring_curr);
+
+	return (0);
+}
+
+/*
 * this function starts external command like "$ext_cmd $ext_argstr"
 * in the background and is going to process the outcome to memory buffer
 * (ring index selected by sbufname) with some options in opts
@@ -732,7 +793,8 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	/* cnf.ring_curr is set now */
 	if (CURR_FILE.pipe_output != 0) {
 		tracemsg("background process is already running in this buffer!");
-		PIPE_LOG(LOG_WARNING, "cannot start, background process (%s) running! ri:%d pipe:%d", sbufname, cnf.ring_curr, CURR_FILE.pipe_output);
+		PIPE_LOG(LOG_WARNING, "cannot start, background process (%s) running! ri:%d pipe:%d",
+			sbufname, cnf.ring_curr, CURR_FILE.pipe_output);
 		cnf.ring_curr = ring_i;
 		return (0);
 	}
@@ -857,7 +919,8 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			/* continue in background
 			*/
 			if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
-				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)", CURR_FILE.pipe_output, strerror(errno));
+				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
+					CURR_FILE.pipe_output, strerror(errno));
 			}
 			PIPE_LOG(LOG_INFO, "ri=%d [%s] -- continue in background", cnf.ring_curr, sbufname);
 		}
@@ -970,7 +1033,8 @@ readout_pipe (int ring_i)
 		if (finish) {
 			/* pipe_output must be closed -- that is the flag
 			*/
-			PIPE_LOG(LOG_DEBUG, "-- ri=%d, pipe=%d finished --- wait4", ring_i, cnf.fdata[ring_i].pipe_output);
+			PIPE_LOG(LOG_DEBUG, "-- ri=%d, pipe=%d finished --- wait4",
+				ring_i, cnf.fdata[ring_i].pipe_output);
 			got = wait4_bg(ring_i);	/* finished */
 
 			if ((cnf.fdata[ring_i].pipe_opts & OPT_SILENT) == 0) {

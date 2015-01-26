@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=eda
+Comment=Editor for programmers
+TryExec=xeda
+Exec=xeda %F
+Terminal=false
+Type=Application
+Icon=eda-icon
+Categories=Utility;TextEditor;TextTools;Development;
+StartupNotify=true
+MimeType=text/plain;

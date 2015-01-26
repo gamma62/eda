@@ -342,27 +342,35 @@ add_file (const char *fname)
 }
 
 /*
-** quit_file - quit file if there are no pending changes, drop scratch buffer anyway
+** quit_file - quit file if there are no pending changes, drop scratch buffer anyway,
+**	but refuse quit if background process is running
 */
 int
 quit_file (void)
 {
 	int ret=0;
 
+	if (CURR_FILE.pipe_output != 0) {
+		tracemsg("background process is running, use stop first or qquit");
+		return (0);
+	}
+
 	/* don't drop if changed, except scratch/special/read-only buffer */
 	if ((CURR_FILE.fflag & FSTAT_CHANGE) &&
-	    (CURR_FILE.fflag & (FSTAT_SCRATCH | FSTAT_SPECW | FSTAT_RO)) == 0) {
+	!(CURR_FILE.fflag & (FSTAT_SCRATCH | FSTAT_SPECW | FSTAT_RO))) {
 		tracemsg ("file changed, use save or qquit.");
 		/* select cmdline */
 		CURR_FILE.fflag |= FSTAT_CMD;
 	} else {
 		ret = drop_file ();
 	}
+
 	return (ret);
 }
 
 /*
-** quit_others - quit all other unchanged files or scratch buffers
+** quit_others - quit all other unchanged files or scratch buffers,
+**	except ones with running background process
 */
 int
 quit_others (void)
@@ -376,8 +384,11 @@ quit_others (void)
 			continue;
 		if ((cnf.fdata[ri].fflag & FSTAT_OPEN) == 0)
 			continue;
+		if (cnf.fdata[ri].pipe_output != 0)
+			continue;
 		cnf.ring_curr = ri;
-		if ((CURR_FILE.fflag & FSTAT_SPECW) || !(CURR_FILE.fflag & FSTAT_CHANGE)) {
+		if (!(CURR_FILE.fflag & FSTAT_CHANGE) ||
+		(CURR_FILE.fflag & (FSTAT_SCRATCH | FSTAT_SPECW | FSTAT_RO))) {
 			ret = drop_file ();
 		}
 	}
@@ -401,8 +412,8 @@ file_file (void)
 		ret = save_file ("");
 	}
 	if (ret == 0) {
-		cnf.trace = 0;	/* do not display the "file saved: ..." message */
-		ret = drop_file ();
+		cnf.trace = 0; /* do not display the "file saved" message */
+		ret = quit_file ();
 	}
 	return (ret);
 }
@@ -1054,7 +1065,6 @@ parse_diff_header (const char *ptr, int ra[5])
 	return 0;
 }
 
-
 /*
 ** reload_bydiff - reload regular file from disk smoothly based on content differences,
 **	keep line attributes, bookmarks, tagging where possible
@@ -1475,8 +1485,11 @@ save_file (const char *newfname)
 			}
 		}
 	} else {
-		/* if there is bg proc running... */
-		stop_bg_process();	/* save_file() */
+		/* if there is bg proc running... this is here an explicit call */
+		if (CURR_FILE.pipe_output != 0) {
+			tracemsg("stop background process");
+			stop_bg_process();	/* save_file() */
+		}
 
 		strncpy(gname, newfname, sizeof(gname));
 		gname[sizeof(gname)-1] = '\0';

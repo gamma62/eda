@@ -367,34 +367,24 @@ int
 yesno (const char *str)
 {
 	int ret = (-1);
-	int slen = strlen(str);
 
-	switch (slen)
-	{
-	case 1:
+	if (str[1] == '\0') {
 		if (str[0]=='1' || str[0]=='y')
 			ret=1;
 		else if (str[0]=='0' || str[0]=='n')
 			ret=0;
-		break;
 
-	case 2:
-		if (strncmp(str, "on", 2)==0)
+	} else if (str[2] == '\0') {
+		if (str[0]=='o' && str[1]=='n')
 			ret=1;
-		else if (strncmp(str, "no", 2)==0)
+		else if (str[0]=='n' && str[1]=='o')
 			ret=0;
-		break;
 
-	case 3:
-		if (strncmp(str, "yes", 3)==0)
+	} else if (str[3] == '\0') {
+		if (str[0]=='y' && str[1]=='e' && str[2]=='s')
 			ret=1;
-		if (strncmp(str, "off", 3)==0 || strncmp(str, "not", 3)==0)
+		else if (str[0]=='o' && str[1]=='f' && str[2]=='f')
 			ret=0;
-		break;
-
-	default:
-		ret = (-1);
-		break;
 	}
 
 	return (ret);

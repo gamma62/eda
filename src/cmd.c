@@ -562,7 +562,7 @@ ed_cmdline (int ch)
 	} /* switch */
 
 	if (ch == KEY_RETURN) {
-		CMD_LOG(LOG_INFO, "return: buff [%s] length (%d)", cnf.cmdline_buff, cnf.cmdline_len);
+		CMD_LOG(LOG_NOTICE, "return: buff [%s] length (%d)", cnf.cmdline_buff, cnf.cmdline_len);
 	}
 
 	return (ret);

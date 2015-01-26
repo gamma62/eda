@@ -38,6 +38,7 @@
 extern CONFIG cnf;
 
 /* local proto */
+static int repeat_search_eng (void);
 static int search_for_replace (CHDATA *chp);
 static int accum_replacement (CHDATA *chp);
 static int do_replacement (CHDATA *chp);
@@ -541,7 +542,7 @@ tag_focusline (void)
 }
 
 /*
-** search - start forward search with given regular expression (like "/reset");
+** search - start forward search with given regular expression (like "/reset" or "/\<ret\>/");
 **	reset search immediately if match not found;
 **	submatch referencies '\\1'...'\\9' can be used
 */
@@ -614,45 +615,19 @@ reset_search (void)
 }
 
 /*
- * search the next matching line,
- * adjust CURR_LINE, CURR_FILE.lineno and focus, lncol, curpos, lnoff
- * if found: return 0
- * if not: return 1 (initial call) or return 0 (external calls)
- * else: -1 (error)
+ * internal subroutine for repeat_search, phase one and two; return 0 on success
  */
-
-/*
-** repeat_search - search next occurence; reset search if no more matches
-*/
-int
-repeat_search (void)
+static int
+repeat_search_eng (void)
 {
 	int ret = 1;
-	LINE *lx;
-	int lineno, cnt, xcol;
+	LINE *lx = CURR_LINE;
+	int lineno = CURR_FILE.lineno;
+	int xcol = CURR_FILE.lncol;
 	regmatch_t pmatch;
-	char search_rflag=0;
-	int restore_focus = CURR_FILE.focus;
+	int cnt = 0;
+	int search_rflag = 0;
 
-	if ( !(CURR_FILE.fflag & FSTAT_TAG2)) {
-		return (0);
-	}
-
-	/* start search */
-	if (CURR_LINE->lflag & LSTAT_TOP) {
-		lx = CURR_LINE->next;
-		lineno = CURR_FILE.lineno+1;
-	} else {
-		lx = CURR_LINE;
-		lineno = CURR_FILE.lineno;
-	}
-	xcol = CURR_FILE.lncol;		/* initial shift in the line */
-	if (!repeat_search_initial_call && (CURR_FILE.fflag & FSTAT_TAG4)) {
-		/* special skip before repeated search, zero length BoL or EoL anchor */
-		xcol += 1;
-	}
-
-	/* search only the first match */
 	while (!(lx->lflag & LSTAT_BOTTOM)) {
 		if (xcol < lx->llen) {
 			search_rflag = (xcol>0) && (CURR_FILE.fflag & FSTAT_TAG4) ? REG_NOTBOL : 0;
@@ -673,28 +648,93 @@ repeat_search (void)
 		next_lp (cnf.ring_curr, &lx, &cnt);
 		lineno += cnt;
 		xcol = 0;
+		/* partially useful */
 		if ((cnf.gstat & GSTAT_SHADOW) && (cnt > 1))
 			update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
 		else
 			update_focus(INCR_FOCUS, cnf.ring_curr);
 	}
 
-	/* search finished */
-	if ((ret == 0) && TEXT_LINE(lx)) {
+	if (ret == 0) {
 		/* found */
 		CURR_LINE = lx;
 		CURR_FILE.lineno = lineno;
-		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 		CURR_FILE.lncol = xcol + pmatch.rm_eo;
+		/* focus updated */
+	}
+
+	return (ret);
+}
+
+/*
+ * search the next matching line,
+ * adjust CURR_LINE, CURR_FILE.lineno and focus, lncol, curpos, lnoff
+ * if found: return 0
+ * if not: return 1 (except for the initial call)
+ * else: -1 (error)
+ */
+
+/*
+** repeat_search - search next occurence; reset search if not found
+*/
+int
+repeat_search (void)
+{
+	int ret = 1;
+	LINE *restore_lx = CURR_LINE;
+	int restore_lineno = CURR_FILE.lineno;
+	int restore_lncol = CURR_FILE.lncol;
+	int restore_focus = CURR_FILE.focus;
+
+	if ( !(CURR_FILE.fflag & FSTAT_TAG2)) {
+		return (0);
+	}
+
+	/* start search */
+	if (CURR_LINE->lflag & LSTAT_TOP) {
+		CURR_LINE = CURR_LINE->next;
+		CURR_FILE.lineno++;
+	}
+
+	/* initial shift in the line */
+	if (!repeat_search_initial_call && (CURR_FILE.fflag & FSTAT_TAG4)) {
+		/* special skip before repeated search, zero length BoL or EoL anchor */
+		CURR_FILE.lncol++;
+	}
+
+	/* phase one -- search only the first match */
+	ret = repeat_search_eng();
+	if (ret == 0) {
+		/* found -- match position set by engine */
+		update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 		update_curpos(cnf.ring_curr);
-		/* select text area */
+		/* text area */
 		CURR_FILE.fflag &= ~FSTAT_CMD;
 	} else {
-		/* not found */
-		tracemsg ("search: no match");
-		reset_search();
+		if (repeat_search_initial_call && (CURR_FILE.focus > 0) && (UNLIKE_TOP(CURR_LINE))) {
+			/* phase two -- search only to show earlier matches */
+			go_first_screen_line ();
+			CURR_FILE.lncol = CURR_FILE.curpos = 0;
+			ret = repeat_search_eng();
+		}
+
+		/* restore original position anyway */
+		CURR_LINE = restore_lx;
+		CURR_FILE.lineno = restore_lineno;
 		CURR_FILE.focus = restore_focus;
-		ret = (repeat_search_initial_call) ? 1 : 0;	/* 'no match' is not an error */
+		CURR_FILE.lncol = restore_lncol;
+		update_curpos(cnf.ring_curr);
+
+		if (ret == 0) {
+			/* found, but before the focus -- position reverted */
+			/* text area */
+			CURR_FILE.fflag &= ~FSTAT_CMD;
+		} else {
+			/* not found -- position reverted */
+			tracemsg ("search: no match");
+			reset_search();
+			ret = (repeat_search_initial_call) ? 1 : 0;	/* 'no match' is not an error */
+		}
 	}
 
 	repeat_search_initial_call = 0;

@@ -200,7 +200,8 @@ select_all (void)
 			lp = lp->next;
 		}
 
-		if (count==0) tracemsg ("file not empty but nothing selected");
+		if (count==0)
+			tracemsg ("file is not empty, but selected lines are not visible");
 	}
 
 	return (ret);
