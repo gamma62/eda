@@ -631,13 +631,12 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 			/* become session leader */
 			if (setsid() == -1)
 				perror("setsid");
-			/* set the controlling terminal */
-			ioctl(0, TIOCSCTTY, 1);
+			/* set controlling terminal */
+			if (ioctl(0, TIOCSCTTY, 1) == -1)
+				perror("ioctl SCTTY");
 			/* try fixing */
-			if (setenv("COLUMNS", "200", 1) == -1)
-				perror("setenv");
-			if (setenv("LINES", "50", 1) == -1)
-				perror("setenv");
+			setenv("COLUMNS", "200", 1);
+			setenv("LINES", "50", 1);
 			/* greetings */
 			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
 				getpid(), getppid(), getsid(0), getpgid(0));
@@ -702,7 +701,7 @@ int
 read_stdin (void)
 {
 	int ring_i=0, ret=0;
-	const char *cterminal=NULL;
+	const char *cterminal = "/dev/tty";
 	int pipeFD, newSTDIN;
 
 	ring_i = cnf.ring_curr;
@@ -711,18 +710,26 @@ read_stdin (void)
 		/* no stdin pipe */
 		return 1;
 	}
-	cterminal = ctermid(NULL);
+
 	pipeFD = dup(0);
 	close(0);
+
 	newSTDIN = open(cterminal, O_RDONLY);
-	if (newSTDIN != 0) {
+	if (newSTDIN < 0) {
+		PIPE_LOG(LOG_ERR, "open %s - failed (%s)", cterminal, strerror(errno));
+		close(pipeFD);
+		return 1;
+	}
+	if (newSTDIN > 0) {
 		dup2(newSTDIN, 0);
 		close(newSTDIN);
 	}
 	if ( !isatty(0) ) {
+		PIPE_LOG(LOG_CRIT, "failed to redirect stdin-pipe ... given up");
+		close(pipeFD);
 		return 1;
 	}
-	PIPE_LOG(LOG_NOTICE, "dup to pipe=%d, reopen %s", pipeFD, cterminal);
+	PIPE_LOG(LOG_NOTICE, "stdin-pipe dup to pipe=%d, re-opened %s", pipeFD, cterminal);
 
 	if ((ret = scratch_buffer("*sh*")) != 0) {
 		return (ret);
@@ -984,10 +991,12 @@ readout_pipe (int ring_i)
 		cnf.ring_curr = ring_i;
 		got = read (cnf.fdata[ring_i].pipe_output, rb, LINESIZE_INIT);
 		if (got == -1) {
+			ret = 1; /* nothing read */
 			/* not a problem, check if alive */
 			if (++zombie >= ZOMBIE_DELAY) {
 				if (check_zombie(ring_i) == -1) {
 					stop_bg_process();	/* defunct */
+					ret = 0; /* finish */
 				}
 				zombie = 0;
 			}
@@ -1071,7 +1080,7 @@ readout_pipe (int ring_i)
 /*
 * handle all background pipes with readout_pipe() calls
 * return 0 if nothing happened in current buffer
-* return 1 after changes to current buffer
+* return 1 after changes to current buffer (cnf.ring_curr)
 * return -1 on error
 */
 int
@@ -1085,11 +1094,13 @@ background_pipes (void)
 		if (((cnf.fdata[ri].fflag & bits) == bits) && (cnf.fdata[ri].pipe_output != 0)) {
 			err = readout_pipe (ri);
 			if (err < 0) {
-				PIPE_LOG(LOG_ERR, "readout_pipe() failed, ri=%d -- error %d", ri, err);
+				PIPE_LOG(LOG_ERR, "pipe read failure, ri=%d -- error %d", ri, err);
 				ret = -1;	/* error */
 			} else if (err == 0) {
 				/* change happened */
-				ret = (ri == cnf.ring_curr) ? (ret | 1) : ret;
+				if ((ri == cnf.ring_curr) && (ret == 0)) {
+					ret = 1;
+				}
 			}
 		}
 	}
@@ -1213,44 +1224,44 @@ stop_bg_process (void)
 static int
 getxline (char *buff, int *count, int max, int fd)
 {
-	int ch, ch_prev=0;
+	char ch=0, ch_prev=0;
 	int cnt=0, ret=0;
 
 	while (cnt < max-2) {
 		ch=0;
-		ret = read(fd, &ch, 1); /* we do need 1 byte, but this is not portable; works on Little Endian CPU */
+		ret = read (fd, &ch, 1); /* read bytes one-by-one */
+
 		if (ret == 0) {
 			/* eof */
 			break;
 		} else if (ret == -1) {
 			if (errno == EAGAIN) {
 				ret = 2;
-				break;
 			} else {
 				PIPE_LOG(LOG_ERR, "read (from pipe %d) failed (%s)", fd, strerror(errno));
 				ret = -1;
-				break;
 			}
-		} else {
-			ret = 1;
-			if (ch == '\n') {
-				if (ch_prev == '\r')
-					buff[cnt++] = '\r';
-				buff[cnt++] = '\n';
-				break;
-			} else if (ch == 0x09) {
-				/* tab */
-				buff[cnt++] = ch;
-			} else if (ch >= 0x20 && ch != 0x7f) {
-				/* printable */
-				buff[cnt++] = ch;
-			} else if (ch == 0x08) {
-				/* backspace */
-				if (cnt > 0)
-					buff[--cnt] = '\0';
-			}
-			ch_prev = ch;
+			break;
 		}
+
+		ret = 1;
+		if (ch == '\n') {
+			if (ch_prev == '\r')
+				buff[cnt++] = '\r';
+			buff[cnt++] = '\n';
+			break;
+		} else if (ch == 0x09) {
+			/* tab */
+			buff[cnt++] = ch;
+		} else if ((unsigned char)ch >= 0x20 && (unsigned char)ch != 0x7f) {
+			/* printable */
+			buff[cnt++] = ch;
+		} else if (ch == 0x08) {
+			/* backspace */
+			if (cnt > 0)
+				buff[--cnt] = '\0';
+		}
+		ch_prev = ch;
 	}
 
 	buff[cnt] = '\0';

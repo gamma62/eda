@@ -154,7 +154,7 @@ extern void key_test (void);
 /* fh.c */
 extern int next_file (void);				/* public */
 extern int prev_file (void);				/* public */
-extern int query_inode (long inode);
+extern int query_inode (ino64_t inode);
 extern int try_add_file (const char *testfname);
 extern int add_file (const char *fname);		/* public */
 extern int quit_file (void);				/* public */

@@ -923,7 +923,7 @@ disp_c_local_macros() {
 void
 init_colors (int palette)
 {
-	int i;
+	short i;
 
 	if (palette < 0 || palette > PALETTE_MAX) {
 		palette = 0;

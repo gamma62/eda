@@ -220,17 +220,16 @@ prev_file (void)
 /*
 * query_inode - check the ring if inode used by open (non-special) file
 * returns valid ring index if found, -1 otherwise
-* warning: st_ino is long long
 */
 int
-query_inode (long inode)
+query_inode (ino64_t inode)
 {
 	int ri=0, ret = -1;
 
 	for (ri=0; ri<RINGSIZE; ri++) {
 		if ((cnf.fdata[ri].fflag & FSTAT_OPEN) &&
 		    !(cnf.fdata[ri].fflag & FSTAT_SCRATCH) &&
-		    ((long)cnf.fdata[ri].stat.st_ino == inode)) {
+		    (cnf.fdata[ri].stat.st_ino == inode)) {
 			ret = ri;
 			break;
 		}
@@ -342,18 +341,13 @@ add_file (const char *fname)
 }
 
 /*
-** quit_file - quit file if there are no pending changes, drop scratch buffer anyway,
-**	but refuse quit if background process is running
+** quit_file - quit file if there are no pending changes, drop scratch buffers and read-only buffers anyway,
+**	running background process in this buffer will be stopped
 */
 int
 quit_file (void)
 {
 	int ret=0;
-
-	if (CURR_FILE.pipe_output != 0) {
-		tracemsg("background process is running, use stop first or qquit");
-		return (0);
-	}
 
 	/* don't drop if changed, except scratch/special/read-only buffer */
 	if ((CURR_FILE.fflag & FSTAT_CHANGE) &&
@@ -369,8 +363,8 @@ quit_file (void)
 }
 
 /*
-** quit_others - quit all other unchanged files or scratch buffers,
-**	except ones with running background process
+** quit_others - quit all other unchanged files or scratch buffers or read-only buffers,
+**	but do not close buffer with running background process
 */
 int
 quit_others (void)
@@ -401,7 +395,7 @@ quit_others (void)
 }
 
 /*
-** file_file - save this file if necessary and quit buffer
+** file_file - call save on this file if not scratch or unchanged and quit
 */
 int
 file_file (void)
@@ -566,7 +560,7 @@ int
 restat_file (int ring_i)
 {
 	struct stat test;
-	TEST_ACCESS_TYPE access = TEST_ACCESS_NONE;
+	TEST_ACCESS_TYPE ta_check = TEST_ACCESS_NONE;
 	int ret=0;
 
 	if (ring_i>=0 && ring_i<RINGSIZE &&
@@ -592,14 +586,14 @@ restat_file (int ring_i)
 
 			/* additionally, check R/W status
 			*/
-			access = testaccess(&test);
-			if (access == TEST_ACCESS_RW_OK) {
+			ta_check = testaccess(&test);
+			if (ta_check == TEST_ACCESS_RW_OK) {
 				if ((cnf.fdata[ring_i].fflag & FSTAT_RO)) {
 					cnf.fdata[ring_i].fflag &= ~FSTAT_RO;
 					ret |= 16;
 				}
 				cnf.fdata[ring_i].fflag &= ~FSTAT_SCRATCH;
-			} else if (access == TEST_ACCESS_R_OK) {
+			} else if (ta_check == TEST_ACCESS_R_OK) {
 				if (!(cnf.fdata[ring_i].fflag & FSTAT_RO)) {
 					cnf.fdata[ring_i].fflag |= FSTAT_RO;
 					ret |= 4;
@@ -636,11 +630,11 @@ testaccess (struct stat *test)
 	int groupsize=0;
 	int check_group=0;
 	int i=0;
-	TEST_ACCESS_TYPE access = TEST_ACCESS_NONE;
+	TEST_ACCESS_TYPE ta_return = TEST_ACCESS_NONE;
 
 	if ((S_ISREG(test->st_mode)) == 0) {
 		/* not a regular file */
-		return access;
+		return ta_return;
 	}
 
 	if (cnf.euid == 0) {
@@ -651,13 +645,13 @@ testaccess (struct stat *test)
 
 	if (test->st_uid == cnf.euid) {
 		if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IRUSR | S_IWUSR)) {
-			access = TEST_ACCESS_RW_OK;
+			ta_return = TEST_ACCESS_RW_OK;
 		} else if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IRUSR)) {
-			access = TEST_ACCESS_R_OK;
+			ta_return = TEST_ACCESS_R_OK;
 		} else if ((test->st_mode & (S_IRUSR | S_IWUSR)) == (S_IWUSR)) {
-			access = TEST_ACCESS_W_OK;
+			ta_return = TEST_ACCESS_W_OK;
 		}
-		return access;
+		return ta_return;
 	}
 
 	if (test->st_gid == cnf.egid) {
@@ -671,23 +665,23 @@ testaccess (struct stat *test)
 	}
 	if (check_group) {
 		if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IRGRP | S_IWGRP)) {
-			access = TEST_ACCESS_RW_OK;
+			ta_return = TEST_ACCESS_RW_OK;
 		} else if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IRGRP)) {
-			access = TEST_ACCESS_R_OK;
+			ta_return = TEST_ACCESS_R_OK;
 		} else if ((test->st_mode & (S_IRGRP | S_IWGRP)) == (S_IWGRP)) {
-			access = TEST_ACCESS_W_OK;
+			ta_return = TEST_ACCESS_W_OK;
 		}
-		return access;
+		return ta_return;
 	}
 
 	if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IROTH | S_IWOTH)) {
-		access = TEST_ACCESS_RW_OK;
+		ta_return = TEST_ACCESS_RW_OK;
 	} else if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IROTH)) {
-		access = TEST_ACCESS_R_OK;
+		ta_return = TEST_ACCESS_R_OK;
 	} else if ((test->st_mode & (S_IROTH | S_IWOTH)) == (S_IWOTH)) {
-		access = TEST_ACCESS_W_OK;
+		ta_return = TEST_ACCESS_W_OK;
 	}
-	return access;
+	return ta_return;
 }
 
 /* getxline_filter - fix inline CR, let pass CR/LF through and drop control chars
@@ -1454,7 +1448,8 @@ drop_all (void)
 
 /*
 ** save_file - save current file to disk (overwrite if exists) with an intermediate backup,
-**	the "save as" function does not overwrite an existing file
+**	the "save as" function does not overwrite an existing file,
+**	running background process will be stopped
 */
 int
 save_file (const char *newfname)
@@ -1485,9 +1480,8 @@ save_file (const char *newfname)
 			}
 		}
 	} else {
-		/* if there is bg proc running... this is here an explicit call */
+		/* if there is bg proc running... this an explicit call */
 		if (CURR_FILE.pipe_output != 0) {
-			tracemsg("stop background process");
 			stop_bg_process();	/* save_file() */
 		}
 

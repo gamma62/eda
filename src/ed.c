@@ -66,7 +66,6 @@ editor (void)
 	cbreak ();
 	noecho ();
 	nonl ();
-	clear ();
 	typeahead (0); /* check stdin for typeahead, we used initscr() */
 
 	getmaxyx (stdscr, cnf.maxy, cnf.maxx);
@@ -98,8 +97,6 @@ editor (void)
 
 	event_handler ();
 
-	clear ();
-	refresh ();
 	endwin ();	/* End */
 	cnf.bootup = 0;
 
@@ -126,7 +123,7 @@ app_resize (void)
 	(cnf.wstatus)->_begx = 0;
 	(cnf.wtext)->_begy = 1;
 	(cnf.wtext)->_begx = 0;
-	(cnf.wbase)->_begy = cnf.maxy - 1;
+	(cnf.wbase)->_begy = (short)(cnf.maxy - 1);
 	(cnf.wbase)->_begx = 0;
 
 	wresize (cnf.wstatus, 1, cnf.maxx);

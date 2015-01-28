@@ -27,12 +27,12 @@
 
 include ../conf.make
 
-PROGHOME = $(datadir)/eda
 ARCH = $(shell uname -m)
+REV = $(shell cat ../REV 2>/dev/null || echo 0)
 
 CC = gcc
 HARDENING = -g -O2 -fPIE \
-	-Wformat -Werror=format-security
+	-Wformat -Wformat-security
 CFLAGS = -W -Wall -D_FORTIFY_SOURCE=2 $(HARDENING) \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -I..
 LDFLAGS = $(HARDENING) -fPIE -pie -Wl,-z,relro -Wl,-z,now \
@@ -51,27 +51,27 @@ eda: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -lncurses
 
 install:
-	install -d -m 755  $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 -p -s eda  $(DESTDIR)$(PREFIX)/bin/
-	install -m 755 -p xeda  $(DESTDIR)$(PREFIX)/bin/
-	install -d -m 755 -p  $(DESTDIR)$(CONFPATH)/
-	install -m 644 -p edarc edakeys edaseq  $(DESTDIR)$(CONFPATH)/
-	install -d -m 755  $(DESTDIR)$(PROGHOME)/
-	install -m 644 -p edarc edakeys edaseq edamacro sample.proj  $(DESTDIR)$(PROGHOME)/
-	install -m 755 -p set_op.pl  $(DESTDIR)$(PROGHOME)/
+	install -d -m 755  $(DESTDIR)$(prefix)/bin/
+	install -m 755 -p -s eda  $(DESTDIR)$(prefix)/bin/
+	install -m 755 -p xeda  $(DESTDIR)$(prefix)/bin/
+	install -d -m 755 -p  $(DESTDIR)$(sysconfdir)/eda/
+	install -m 644 -p edarc edakeys edaseq  $(DESTDIR)$(sysconfdir)/eda/
+	install -d -m 755  $(DESTDIR)$(datadir)/eda/
+	install -m 644 -p edarc edakeys edaseq edamacro sample.proj  $(DESTDIR)$(datadir)/eda/
+	install -m 755 -p set_op.pl  $(DESTDIR)$(datadir)/eda/
 
 uninstall:
 	for f in eda xeda ; do \
-	  if test -f $(DESTDIR)$(PREFIX)/bin/$$f ; then rm -f $(DESTDIR)$(PREFIX)/bin/$$f ; fi ; \
+	  if test -f $(DESTDIR)$(prefix)/bin/$$f ; then rm -f $(DESTDIR)$(prefix)/bin/$$f ; fi ; \
 	done
 	for f in edarc edakeys edaseq ; do \
-	  if test -f $(DESTDIR)$(CONFPATH)/$$f ; then rm -f $(DESTDIR)$(CONFPATH)/$$f ; fi ; \
+	  if test -f $(DESTDIR)$(sysconfdir)/eda/$$f ; then rm -f $(DESTDIR)$(sysconfdir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(CONFPATH) || true
+	-rmdir $(DESTDIR)$(sysconfdir)/eda || true
 	for f in edarc edakeys edaseq edamacro sample.proj set_op.pl ; do \
-	  if test -f $(DESTDIR)$(PROGHOME)/$$f ; then rm -f $(DESTDIR)$(PROGHOME)/$$f ; fi ; \
+	  if test -f $(DESTDIR)$(datadir)/eda/$$f ; then rm -f $(DESTDIR)$(datadir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(PROGHOME) || true
+	-rmdir $(DESTDIR)$(datadir)/eda || true
 
 clean:
 	-rm -f *.o *.i *~ core* eda tags
@@ -84,13 +84,13 @@ tags: $(SRCS) $(HDRS)
 # ------------------------------------
 
 main.o: main.c $(SRCS) $(HDRS)
-	$(CC) $(CFLAGS) -DVERSION=\"$(VERSION)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c -o $@ $<
 
 rc.o: rc.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(CONFPATH)\" -DPROGHOME=\"$(PROGHOME)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c -o $@ $<
 
 keys.o: keys.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(CONFPATH)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c -o $@ $<
 
 # ------------------------------------
 

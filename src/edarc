@@ -50,13 +50,17 @@ tags_file	./tags
 make_path	/usr/bin/make
 make_opts	-w
 
-# bash is working, dash not
+# mandatory tools
 sh_path		/bin/bash
 diff_path	/usr/bin/diff
 ssh_path	/usr/bin/ssh
 
-# some filter examples
+# some filter examples, recommended tools
 #a2ps -1 -f8 -R -Egnuc -T4
 #a2ps -1 -f10 -r
+#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -
+#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
+#indent -gnu -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -cp0 -bli0 -npsl -
+#indent -gnu -fc1 -i4 -bli0 -nut -bap -l100 -
 #xmllint --format -
 #xmllint --valid -

@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2015-01-26" "0.9.47" ""
+.TH "EDAMACRO" "5" "2015-01-28" "0.9.47" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -178,19 +178,19 @@ switch to previous buffer in the ring, skip hidden unless others closed
 switch to next buffer in the ring, skip hidden unless others closed
 .TP 11
 .B save_file
-save current file to disk (overwrite if exists) with an intermediate backup, the "save as" function does not overwrite an existing file
+save current file to disk (overwrite if exists) with an intermediate backup, the "save as" function does not overwrite an existing file, running background process will be stopped
 .TP 11
 .B file_file
-save this file if necessary and quit buffer
+call save on this file if not scratch or unchanged and quit
 .TP 11
 .B quit_file
-quit file if there are no pending changes, drop scratch buffer anyway, but refuse quit if background process is running
+quit file if there are no pending changes, drop scratch buffers and read-only buffers anyway, running background process in this buffer will be stopped
 .TP 11
 .B drop_file
 drop file immediately, even if changed
 .TP 13
 .B quit_others
-quit all other unchanged files or scratch buffers, except ones with running background process
+quit all other unchanged files or scratch buffers or read-only buffers, but do not close buffer with running background process
 .TP 10
 .B quit_all
 drop all buffers unconditionally and leave the program

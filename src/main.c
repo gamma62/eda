@@ -167,15 +167,16 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	memset(&sigAct, 0, sizeof (sigAct));
 	sigemptyset(&sigAct.sa_mask);
 	sigAct.sa_handler = sigh;
-	sigaction(SIGHUP, &sigAct, NULL);	/* Hangup || control proc died */
-	sigaction(SIGINT, &sigAct, NULL);	/* interrupt from keyb (Ctrl-C) */
-	sigaction(SIGQUIT, &sigAct, NULL);	/* quit from keyb (Ctrl-\) */
-	sigaction(SIGPIPE, &sigAct, NULL);	/* catch and ignore */
-	sigaction(SIGTERM, &sigAct, NULL);	/* (first) termination signal */
-	/* signal(SIGCHLD, SIG_DFL); --- do not catch it; needed for waitpid() and Unix98 pty */
+	sigaction(SIGHUP, &sigAct, NULL);	/* Hangup detected on controlling terminal or death of controlling process */
+	sigaction(SIGINT, &sigAct, NULL);	/* Interrupt from keyboard (Ctrl-C) ... catch and ignore the first time */
+	sigaction(SIGQUIT, &sigAct, NULL);	/* Quit from keyboard (Ctrl-\) -- CORE */
+	sigaction(SIGPIPE, &sigAct, NULL);	/* Broken pipe: write to pipe with no readers ... catch and ignore silently */
+	sigaction(SIGTERM, &sigAct, NULL);	/* Termination signal */
+	/* signal(SIGCHLD, SIG_DFL); --- Child stopped or terminated --- do not catch it; needed for waitpid() and Unix98 pty */
 	sigAct.sa_handler = SIG_IGN;
 	sigaction(SIGUSR1, &sigAct, NULL);
 	sigaction(SIGUSR2, &sigAct, NULL);
+	/* signal(SIGWINCH, SIG_DFL); --- Window resize signal --- do not catch it; needed for delayed resize, KEY_RESIZE */
 
 	if (keytest) {
 		if (isatty(0) && isatty(1))
@@ -288,10 +289,11 @@ sigh (int sig)
 	time_t now;
 
 	if (sig == SIGPIPE) {
+		MAIN_LOG(LOG_ERR, "SIGPIPE -- ignored");
 		return;		/* ignored */
 	}
 
-	/* handle accidental keyb interrupt (^C) */
+	/* handle accidental keyboard interrupt (^C) ... ignore first time */
 	if (sig == SIGINT) {
 		now = time(NULL);
 		/* 5 seconds */
@@ -304,9 +306,6 @@ sigh (int sig)
 	MAIN_LOG(LOG_ERR, "signal %d", sig);
 
 	if (cnf.bootup) {
-		/* this is signal handler, do not call
-		* clear (); refresh ();
-		*/
 		endwin();
 	}
 
