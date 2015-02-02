@@ -1060,6 +1060,34 @@ parse_diff_header (const char *ptr, int ra[5])
 }
 
 /*
+** show_diff - diff file on disk with buffer; parameters like '-w -b' maybe added on command line
+*/
+int
+show_diff (const char *diff_opts)
+{
+	int ret=0;
+	char ext_argstr[CMDLINESIZE];
+
+	if (!(CURR_FILE.fflag & FSTAT_OPEN) || (CURR_FILE.fflag & FSTAT_SPECW)) {
+		/* not for special buffers */
+		return (0);
+	}
+
+	if (cnf.diff_path[0] == '\0') {
+		tracemsg("diff path not configured");
+		return (1);
+	}
+
+	memset(ext_argstr, 0, sizeof(ext_argstr));
+	snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff -u -r %s - %s", diff_opts, CURR_FILE.fname);
+
+	/* OPT_SILENT | OPT_NOBG maybe */
+	ret = read_pipe ("*diff*", cnf.diff_path, ext_argstr, (OPT_NOAPP | OPT_IN_OUT_REAL_ALL));
+
+	return (ret);
+}
+
+/*
 ** reload_bydiff - reload regular file from disk smoothly based on content differences,
 **	keep line attributes, bookmarks, tagging where possible
 */

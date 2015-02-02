@@ -52,6 +52,7 @@ TABLE table[] = {
 	/* file I/O and switching buffers */
 	{ "ed",		-1, 1,			PN(add_file),		0x11},
 	{ "re!",	KEY_NONE, 3,		PN(reload_file),	0x00},
+	{ "diff",	KEY_NONE, 4,		PN(show_diff),		0x11},
 	{ "reload",	KEY_NONE, 2,		PN(reload_bydiff),	0x00},
 	{ "prev",	KEY_NONE, 4,		PN(prev_file),		0x00},
 	{ "next",	KEY_F8, 4,		PN(next_file),		0x00},
@@ -187,6 +188,7 @@ TABLE table[] = {
 	{ "stop",	KEY_NONE, 4,		PN(stop_bg_process),	0x00},
 
 	/* various macro like and helper functions */
+	{ "rem",	KEY_NONE, 3,		PN(reload_macros),	0x00},
 	{ "pref",	KEY_M_GRAVEACC, 4,	PN(prefix_macro),	0x00},
 	{ "smart",	KEY_M_MINUS, 3,		PN(smartind_macro),	0x00},
 	{ "shadow",	KEY_NONE, 3,		PN(shadow_macro),	0x00},

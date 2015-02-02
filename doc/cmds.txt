@@ -11,6 +11,7 @@ pos <arg>             n/a              goto_pos
 ce.nter               F5               center_focusline    
 e.d [<arg>]           n/a              add_file            
 re!                   none             reload_file         
+diff [<arg>]          none             show_diff           
 re.load               none             reload_bydiff       
 prev                  none             prev_file           
 next                  F8               next_file           
@@ -113,6 +114,7 @@ cmd.s                 none             show_commands
 jb.ack                Ctrl-T           tag_jump_back       
 n/a                   n/a              finish_in_fg        
 stop                  none             stop_bg_process     
+rem                   none             reload_macros       
 pref                  Alt-GRAVEACC     prefix_macro        
 sma.rt                Alt-MINUS        smartind_macro      
 sha.dow               none             shadow_macro        

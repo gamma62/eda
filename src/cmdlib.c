@@ -762,7 +762,7 @@ is_special (const char *special)
 
 	/* prepare tfname for comparison as well as for target filename */
 	slen=0;
-	if (special != NULL) {
+	if (special != NULL && special[0] != '\0') {
 		if ((stat(special, &test) == 0) && (CURR_FILE.stat.st_ino == test.st_ino)) {
 			/* give an equivalent name to the regular file */
 			slen = strlen(special);
@@ -815,7 +815,7 @@ is_special (const char *special)
 		} else if (strncmp(CURR_FILE.fname, "*ring*", 6) == 0) {
 			tracemsg ("list of open buffers");
 		} else if (strncmp(CURR_FILE.fname, "*cmds*", 6) == 0) {
-			tracemsg ("list of commands and macros");
+			tracemsg ("list of commands");
 		}
 		else if ((CURR_FILE.fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) == 0) {
 			switch (CURR_FILE.ftype)
@@ -897,6 +897,8 @@ is_special (const char *special)
 			   (strncmp(tfname, "*diff*", 6) == 0) ||
 			   (strncmp(tfname, "*ring*", 6) == 0))
 		{
+			/* tfname may already exist in the ring, like *diff* or *sh*, multiple times? */
+
 			CURR_FILE.fflag |= (FSTAT_SPECW | FSTAT_SCRATCH);
 			CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
 

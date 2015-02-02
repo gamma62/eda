@@ -156,6 +156,10 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	}
 #endif
 
+	if (!isatty(1)) {
+		leave("no tty");	/* isatty(1) */
+	}
+
 	if (process_rcfile(cnf.noconfig) || process_keyfile(cnf.noconfig) || process_seqfile(cnf.noconfig)) {
 		leave("resource processing failed");
 	}
@@ -188,6 +192,15 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	if (cnf.project[0] != '\0') {
 		if (process_project(cnf.noconfig)) {
 			leave("project processing failed");
+		}
+	}
+
+	if ( !isatty(0) ) {
+		int redir = 0;
+		redir = read_stdin();
+		if (redir) {
+			fprintf(stderr, "failed to redirect stdin-pipe (%d)\n", redir);
+			leave("no tty");	/* isatty(0) */
 		}
 	}
 
@@ -241,13 +254,6 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 		}
 	}
 
-#ifndef NO_STDIN_PIPE
-	/* stdin pipe --- without other options */
-	if ((cnf.ring_size == 0) && ( !isatty(0) )) {
-		read_stdin();
-	}
-#endif
-
 	/* nothing else? */
 	if (cnf.ring_size == 0) {
 #ifdef OPEN_NONAME
@@ -266,11 +272,6 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 			cnf.ring_curr = cnf.ring_size;
 			next_file();
 		}
-	}
-
-	if (!isatty(0) || !isatty(1)) {
-		MAIN_LOG(LOG_NOTICE, "<<< stdin or stdout is not tty");
-		leave("no tty");	/* isatty */
 	}
 
 	editor();
@@ -331,7 +332,7 @@ leave (const char *reason)
 	/* motion history -- useless */
 	mhist_clear(-1);
 
-	/* keys and macros */
+	/* macros */
 	drop_macros();
 
 	if (reason && reason[0] != '\0') {

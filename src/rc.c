@@ -739,6 +739,27 @@ drop_macros (void)
 		FREE(macros);
 		macros = NULL;
 	}
+	MLEN = 0;
+}
+
+/*
+** reload_macros - drop all macros and process macrofile again
+*/
+int
+reload_macros (void)
+{
+	int ret=0;
+
+	drop_macros();
+
+	ret = process_macrofile(0);
+	if (ret) {
+		tracemsg ("loading macros failed");
+	} else {
+		tracemsg ("%d macros loaded", MLEN);
+	}
+
+	return ret;
 }
 
 /*

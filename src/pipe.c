@@ -633,10 +633,10 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 				perror("setsid");
 			/* set controlling terminal */
 			if (ioctl(0, TIOCSCTTY, 1) == -1)
-				perror("ioctl SCTTY");
-			/* try fixing */
-			setenv("COLUMNS", "200", 1);
-			setenv("LINES", "50", 1);
+				perror("ioctl TIOSCTTY");
+			/* try fixing wordwrap */
+			if (setenv("COLUMNS", "130", 1) == -1)
+				perror("setenv COLUMNS");
 			/* greetings */
 			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
 				getpid(), getppid(), getsid(0), getpgid(0));
@@ -701,35 +701,41 @@ int
 read_stdin (void)
 {
 	int ring_i=0, ret=0;
-	const char *cterminal = "/dev/tty";
 	int pipeFD, newSTDIN;
 
 	ring_i = cnf.ring_curr;
 
 	if ( isatty(0) ) {
-		/* no stdin pipe */
+		/* normal tty, not stdin pipe */
 		return 1;
 	}
 
 	pipeFD = dup(0);
+	if (pipeFD == -1) {
+		perror("dup 0 failed");
+		return 2;
+	}
 	close(0);
 
-	newSTDIN = open(cterminal, O_RDONLY);
-	if (newSTDIN < 0) {
-		PIPE_LOG(LOG_ERR, "open %s - failed (%s)", cterminal, strerror(errno));
+	newSTDIN = open("/dev/tty", O_RDONLY);
+	if (newSTDIN == -1) {
+		perror("open /dev/tty failed");
 		close(pipeFD);
-		return 1;
+		return 3;
 	}
-	if (newSTDIN > 0) {
+	if (newSTDIN != 0) {
+		/* this should not happen, but call dup2 */
 		dup2(newSTDIN, 0);
 		close(newSTDIN);
 	}
 	if ( !isatty(0) ) {
-		PIPE_LOG(LOG_CRIT, "failed to redirect stdin-pipe ... given up");
+		/* control, this should not happen */
 		close(pipeFD);
-		return 1;
+		return 4;
 	}
-	PIPE_LOG(LOG_NOTICE, "stdin-pipe dup to pipe=%d, re-opened %s", pipeFD, cterminal);
+
+	/* the rest is standard input processing */
+	PIPE_LOG(LOG_NOTICE, "stdin-pipe dup to pipe=%d, re-opened /dev/tty", pipeFD);
 
 	if ((ret = scratch_buffer("*sh*")) != 0) {
 		return (ret);

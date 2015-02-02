@@ -173,6 +173,7 @@ extern int read_file (const char *fname, const struct stat *test);
 extern int query_scratch_fname (const char *fname);
 extern int scratch_buffer (const char *fname);
 extern int reload_file (void);				/* public */
+extern int show_diff (const char *diff_opts);		/* public */
 extern int reload_bydiff (void);			/* public */
 extern int clean_buffer (void);
 extern int drop_file (void);				/* public */
@@ -246,6 +247,7 @@ extern int process_rcfile (int noconfig);
 extern int process_keyfile (int noconfig);
 extern int process_macrofile (int noconfig);
 extern void drop_macros (void);
+extern int reload_macros (void);			/* public */
 extern int process_project (int noconfig);
 extern int save_project (const char *projectname);	/* public */
 extern int load_rcfile (void);				/* public */

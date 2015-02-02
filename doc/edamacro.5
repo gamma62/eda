@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2015-01-28" "0.9.47" ""
+.TH "EDAMACRO" "5" "2015-02-02" "0.9.47" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -583,7 +583,7 @@ switch the case of characters in the word under cursor
 .br
 
 .SS any other tools
-force_redraw mouse_support nop recording_switch rotate_palette version 
+force_redraw mouse_support nop recording_switch reload_macros rotate_palette show_diff version 
 .br
 .TP 14
 .B force_redraw
@@ -597,9 +597,15 @@ no operation, does nothing, only for testing
 .TP 18
 .B recording_switch
 switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
+.TP 15
+.B reload_macros
+drop all macros and process macrofile again
 .TP 16
 .B rotate_palette
 change color palette setting in cycle
+.TP 11
+.B show_diff
+diff file on disk with buffer; parameters like '-w -b' maybe added on command line
 .TP 9
 .B version
 show the version string
@@ -631,7 +637,6 @@ and the function name (the same as in the API list above).
 .SH "AUTHOR"
 
   Original author of the Eda program is Attila Gy. Molnár
-  gamma62 at citromail dot hu
 
 .SH "SEE ALSO"
 .BR eda (1),
