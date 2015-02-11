@@ -78,7 +78,6 @@ sym.bol [<arg>]       F10              tag_view_info
 j.ump [<arg>]         F11              tag_jump_to         
 sh <arg>              n/a              shell_cmd           
 ish [<arg>]           n/a              ishell_cmd          
-ssh <arg>             n/a              sshell_cmd          
 make [<arg>]          n/a              make_cmd            
 vcstool <arg>         n/a              vcstool             
 is [<arg>]            none             is_special          

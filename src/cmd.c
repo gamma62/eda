@@ -650,6 +650,18 @@ ed_text (int ch)
 	case KEY_RETURN:
 		keypress_enter();
 		break;
+	case KEY_C_D:
+		if ((CURR_FILE.fflag & FSTAT_INTERACT) &&
+		    (CURR_FILE.pipe_input != 0) &&
+		    (CURR_FILE.lineno == CURR_FILE.num_lines))
+		{
+			insert[0] = KEY_C_D;
+			insert[1] = '\0';
+			write_out_chars(CURR_FILE.pipe_input, insert, 1);
+		} else {
+			ret=0;
+		}
+		break;
 
 	case KEY_TAB:
 		if ( !(CURR_FILE.fflag & FSTAT_NOEDIT) ) {
@@ -661,7 +673,7 @@ ed_text (int ch)
 				cnf.gstat |= GSTAT_UPDFOCUS;
 			}
 		} else {
-			cnf.gstat |= GSTAT_UPDNONE;
+			ret=0;
 		}
 		break;
 	/*

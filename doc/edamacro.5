@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2015-02-02" "0.9.47" ""
+.TH "EDAMACRO" "5" "2015-02-11" "0.9.47" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -405,7 +405,7 @@ come back from the last tag jump
 .br
 
 .SS calling external tools
-shell_cmd ishell_cmd sshell_cmd make_cmd vcstool
+shell_cmd ishell_cmd make_cmd vcstool
 .br
 .TP 11
 .B shell_cmd
@@ -413,9 +413,6 @@ launch shell to run given command with the optional arguments and catch output t
 .TP 12
 .B ishell_cmd
 launch interactive shell or given command with the optional arguments, catch output and show in buffer, read input from the last line; the Apostrophe character maybe used to enclose parameters
-.TP 12
-.B sshell_cmd
-launch secure shell with arguments starting with <user>@<host>, catch output and show in buffer, read input from the last line;
 .TP 10
 .B make_cmd
 start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource

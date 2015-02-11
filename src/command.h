@@ -138,7 +138,6 @@ TABLE table[] = {
 	/* calling external tools */
 	{ "sh",		-1, 2,			PN(shell_cmd),		0x01},
 	{ "ish",	-1, 3,			PN(ishell_cmd),		0x11},
-	{ "ssh",	-1, 3,			PN(sshell_cmd),		0x01},
 	{ "make",	-1, 4,			PN(make_cmd),		0x11},
 	{ "vcstool",	-1, 7,			PN(vcstool),		0x01},
 

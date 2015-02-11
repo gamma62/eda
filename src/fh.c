@@ -714,6 +714,9 @@ getxline_filter(char *getbuff)
 		} else if ((unsigned char)getbuff[ir] >= 0x20 && (unsigned char)getbuff[ir] != 0x7f) {
 			/* printable (but maybe utf-8) */
 			getbuff[iw++] = getbuff[ir];
+		//} else if (getbuff[ir] == KEY_C_D) {
+		//	/* ^D */
+		//	break;
 		} else {
 			/* CR or control character, for example */
 			changed++;

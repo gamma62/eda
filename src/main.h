@@ -239,16 +239,18 @@
 #define OPT_IN_OUT_SH_MARK	0x0020	/* flag, lines with shadow markers */
 #define OPT_IN_OUT_MASK		0x003f
 #define OPT_REDIR_ERR		0x0040	/* stderr redirected to stdout */
-#define OPT_COMMON_MASK		0x00ff
+#define OPT_COMMON_MASK		0x007f
+/* special */
+#define OPT_NOBG		0x0080	/* keep processing in foreground */
 /* base */
-#define OPT_BASE_MASK	0x0f00
-#define OPT_STANDARD	0x0000	/* the standard processing into scratch buffer, fg or bg */
-#define OPT_NOSCRATCH	0x0100	/* no scratch buffer -- custom processing */
+#define OPT_BASE_MASK		0x0f00
+#define OPT_STANDARD		0x0000	/* the standard processing into scratch buffer, fg or bg */
+#define OPT_NOSCRATCH		0x0100	/* no scratch buffer -- custom processing */
 /* standard processing only: */
-#define OPT_NOBG	0x1000	/* keep processing in foreground */
-#define OPT_SILENT	0x2000	/* no header/footer lines */
-#define OPT_NOAPP	0x4000	/* do not append to buffer, wipe out */
-#define OPT_INTERACT	0x8000	/* interactive bg process */
+#define OPT_TTY			0x1000	/* setsid -- session leader -- sh/ish */
+#define OPT_SILENT		0x2000	/* no header/footer lines */
+#define OPT_NOAPP		0x4000	/* do not append to buffer, wipe out */
+#define OPT_INTERACT		0x8000	/* interactive bg process */
 
 typedef int (*FUNCPTR) (const char *);
 typedef int (*FUNCP0) (void);
@@ -337,7 +339,7 @@ struct fdata_tag
 	int	pipe_input;	/* child input, optional -- fd for pipe write (0 if closed) */
 	char	*readbuff;	/* for reads from pipe, (NULL if free'd)  */
 	int	rb_nexti;	/* next index in readbuff */
-	int 	last_input_length;		/* saved in type_text() for interactive shells */
+	int 	last_input_length;		/* prompt length, interactive shells */
 	char 	last_input[CMDLINESIZE];	/* prompt, interactive shells */
 };
 

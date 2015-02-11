@@ -1,6 +1,6 @@
 /*
 * pipe.c
-* tools for fork/execve processes, external programs and filters, make, find, vcs tools, sh/ssh,
+* tools for fork/execve processes, external programs and filters, make, find, vcs tools, shell,
 * utilities for background processing
 *
 * Copyright 2003-2015 Attila Gy. Molnar
@@ -72,7 +72,7 @@ shell_cmd (const char *ext_cmd)
 	} else {
 		snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
 	}
-	ret = read_pipe ("*sh*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR);
+	ret = read_pipe ("*sh*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_TTY);
 
 	return (ret);
 }
@@ -87,63 +87,37 @@ ishell_cmd (const char *ext_cmd)
 {
 	int ret=0;
 	char ext_argstr[CMDLINESIZE];
-	memset(ext_argstr, 0, sizeof(ext_argstr));
+	char head[30];
+	int i=0, j=0, se=0, sh=0;
+
+	se = sizeof(ext_argstr);
+	sh = sizeof(head);
+	memset(ext_argstr, 0, se);
+	memset(head, 0, sh);
 
 	/* command is optional */
 	if (ext_cmd[0] == '\0') {
-		snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c %s", cnf.sh_path);
+		snprintf(ext_argstr, se-1, "sh -c %s", cnf.sh_path);
+		strncpy(head, "*ish*", 5);
 	} else {
+		head[i++] = '*';
 		if (ext_cmd[0] == 0x27) {
-			snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c %s", ext_cmd);
+			snprintf(ext_argstr, se-1, "sh -c %s", ext_cmd);
+			i=0; j=1;
+			while (i < sh-2 && ext_cmd[j] != 0x27 && ext_cmd[j] != '\0')
+				head[i++] = ext_cmd[j++];
 		} else {
-			snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
+			snprintf(ext_argstr, se-1, "sh -c '%s'", ext_cmd);
+			i=0; j=0;
+			while (i < sh-2 && ext_cmd[j] != '\0')
+				head[i++] = ext_cmd[j++];
 		}
+		head[i++] = '*';
+		head[i++] = '\0';
+
 	}
 
-	ret = read_pipe ("*ish*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT);
-
-	return (ret);
-}
-
-/*
-** sshell_cmd - launch secure shell with arguments starting with <user>@<host>,
-**	catch output and show in buffer, read input from the last line;
-*/
-int
-sshell_cmd (const char *ext_cmd)
-{
-	int ret=0;
-	char ext_argstr[CMDLINESIZE];
-	unsigned i=0, j=0, found=0;
-	char head[50];
-	memset(ext_argstr, 0, sizeof(ext_argstr));
-	memset(head, 0, sizeof(head));
-
-	/* arguments are mandatory, best practice is to start with user@host */
-	if (ext_cmd[0] == '\0') {
-		return (0);
-	}
-
-	/* get user@host */
-	head[i++] = '*';
-	while (i < sizeof(head)-2 && ext_cmd[j] != '\0') {
-		if (ext_cmd[j] == ' ') {
-			if (found)
-				break;
-			else
-				i = 1;
-		} else {
-			head[i++] = ext_cmd[j];
-			if (ext_cmd[j] == '@')
-				found = 1;
-		}
-		j++;
-	}
-	head[i++] = '*';
-	head[i++] = '\0';
-
-	snprintf(ext_argstr, sizeof(ext_argstr)-1, "ssh %s", ext_cmd);
-	ret = read_pipe (head, cnf.ssh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT);
+	ret = read_pipe (head, cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT | OPT_TTY);
 
 	return (ret);
 }
@@ -627,10 +601,12 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		if (in_pipe[XREAD] != out_pipe[XWRITE])
 			close(in_pipe[XREAD]);
 
-		if (opts & OPT_INTERACT) {
+		if (opts & (OPT_INTERACT | OPT_TTY)) {
 			/* become session leader */
 			if (setsid() == -1)
 				perror("setsid");
+		}
+		if (opts & OPT_INTERACT) {
 			/* set controlling terminal */
 			if (ioctl(0, TIOCSCTTY, 1) == -1)
 				perror("ioctl TIOSCTTY");
@@ -1259,6 +1235,9 @@ getxline (char *buff, int *count, int max, int fd)
 		} else if (ch == 0x09) {
 			/* tab */
 			buff[cnt++] = ch;
+		//} else if (ch == KEY_C_D) {
+		//	/* ^D */
+		//	break;
 		} else if ((unsigned char)ch >= 0x20 && (unsigned char)ch != 0x7f) {
 			/* printable */
 			buff[cnt++] = ch;

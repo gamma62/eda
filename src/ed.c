@@ -479,6 +479,7 @@ event_handler (void)
 
 			/* warning */
 			if (ret == 0) {
+				cnf.gstat |= GSTAT_UPDNONE;
 				tracemsg("unknown key 0x%02X", ch);
 			}
 		}
