@@ -306,8 +306,6 @@ set (const char *argz)
 		SET_CHECK_X( cnf.sh_path, sublen, subtoken );
 	} else if (!cnf.bootup && strncmp(token, "diff_path", 9)==0) {
 		SET_CHECK_X( cnf.diff_path, sublen, subtoken );
-	} else if (!cnf.bootup && strncmp(token, "ssh_path", 9)==0) {
-		SET_CHECK_X( cnf.ssh_path, sublen, subtoken );
 
 	/* vcs tool settings */
 	} else if (!cnf.bootup && strncmp(token, "vcstool", 7)==0) {

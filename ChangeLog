@@ -1,0 +1,404 @@
+
+* 2015 preparation for the EDA edition "Summer '15 release 0.9.53"
+    - frozen, no change except release, Changelog, github upload
+
+* Dec 2014 - Jan 2015 -- cleanup and major redesign, 0.9.47
+
+    - set background process session leader; forward ^D to interactive shell
+    - new reload_macros() and show_diff(); changed is_special()
+    - make and compiler warning fixes (ino64_t)
+    - changed getxline() to read bytes one-by-one
+    - new read_stdin() and repeat_search_eng(); better wordwrap in tracemsg();
+    - install changes: xeda, DESTDIR again
+    - edakeys is not commented out, file generation updated
+    - release moved to eda-release repository
+    - interactive shell (session) critical fixes, prompt handling finished
+    - version 0.9.47 without tag
+    - generic LOG update, manuals and docs, design notes, macros
+    - tools for easy palette creation, new color sets, output optimization (focus)
+    - redesigned resource setting: parse_token()
+    - redesigned detecting external change: testaccess()
+    - simplified display output, access check on files
+    - unified command line parser; run_command() and run_macros() for command and keyb
+    - redesigned motion history and bookmarks, tag-jump-to and jump-back-from
+    - feature reviews, block folding, regexp handling
+    - checks and fixes on buffer overrun, globbing, xterm title
+    - coverity scans and fixes (github), minor and important
+    - redesigned command line history with prefix filter, key_left bugfix (old debt)
+    - 2014. december, this fix fired up redesign of components (after almost 3 years)
+    - fixed memory managent bug; very rare and random (1-2 per year) but critical
+
+* 2012-2014 -- some small changes only, Release_0.9.41
+
+    - 2014
+	2014-03-15 [Release_0.9.41]
+	hardening compiler options, make and install changes, create debian package
+    - 2013
+	display change: pull fucus line to middle and avoid border (1/5 instead of 1/8)
+	hardcoded values for debian wheezy; test tools; usage
+    - 2012
+	internal LOGs changed to syslog (almost all LOG_DEBUG)
+	input processing, better CR/LF handling fh, pipe), count fixes (LOG only)
+	display statusline changes; install changes
+
+* 2011 Spring-Summer, The_Summer_2011_Release_0.9.37
+
+    - 2011-07-01 [The_Summer_2011_Release_0.9.37]
+	use getcwd() instead of PWD; syslog() messages reviewed
+	release updates: changelog.Debian, xeda, edaseq, email and homepage addresses in docs,
+	edamacro, edamacro.5, README, gen-deb.sh, release.sh, replaced eda icons
+    - 2011-04-18 [The_Spring_11_Release_0.9.37pre10]
+	fixed missing mask setting in block_name()
+	memory allocation on 16 byte boundaries
+	speed up by replacing regexp_match() with regcomp/regexec/regfree calls in
+	filter_func(), block_name(), select_diff_section(), process_diff() functions
+	many LOGS dropped, some HIST logs added
+	SIGQUIT ignored now; removed JAVA, added PYTHON support
+	DESTDIR in Makefiles for install/uninstall;
+	updated release, deb and rpm build is working
+	vcs tools reorganized; unified diffs only; parser review
+    - 2011-03-27 [The_Spring_11_Release_0.9.37pre9]
+	updated docs, edamacro.5, cmds.pdf, DesignNotes, ReleaseNotes and Changelog files
+	make ready for autotools build; generate deb and rpm; install sample.proj also
+	added recording: record commands and keys to macro.log to help creating macros
+	added finish_in_fg() to support macros
+	added 'g' global option, to the change feature
+	added noconfig command flag to eda
+	added loc_switch_macro and msearch_cmd (Meta-Q) for external/internal multifile search
+    - 2011-02-06 [The_Spring_11_Release_0.9.37pre8]
+	install changes, finished base tests and regression tests
+	added automacro command option to eda
+	tracemsg does clear-to-eol
+	new global behaviour flags, GSTAT_CLOSE_OVER and GSTAT_SAVE_INODE
+
+* 2010 (Feb - Nov) -- pre-release 0.9.37, preventive security changes, fixes, experimental code
+
+    - 2010-11-04 [0.9.37pre7]
+	project handling, pwd update after project processing, mkdir ~/.eda
+	change regular filename to an equivalent with same inode possible
+	added pf the print pilter macro, print_filter() like filter_cmd(), 
+	oops fixes for the cmdline history/handling
+	new vcs tool, unified diffs, diff parser reviewed (and only for *diff*)
+	API changed, get_col(), get_pos() functions
+	macro structure simplified, static sizes; macro arguments $1...$9, $0
+	very new block functions, select.c
+	cmd/key usage statistic evaluation, various experimental tests (added and removed)
+	stop_bg() after "save as"
+	force LANG=C to avoid multibyte chars and fixed getenv("PWD") for sudo calls
+	ish/ssh back for development, memcheck again with mguard.pl
+	EDA project moved from Subversion to Mercurial, after rev.1300
+    - 2010-06-11 [The_Spring_10_Release_0.9.37pre1]
+	main changes in dirlist_parser(), lsdir() and xterm_title()
+	internal log removed/added/revised, use syslog() instead
+	revised file handling, execvp instead of execve after fork
+	the FREE macro does NULL setting also
+	* preventive security measures: coverity, valgrind and reviews:
+	  snprintf/strncpy/strncat/strncmp revised, pointer closure after free
+	* dynamic string handling, added functions csere/csere0/milbuff and
+	  slash_index/basename/dirname/canonicalpath and changed caller functions
+	handle accidental keyb interrupt (^C)
+	added xeda script, added quit_all() and file_all() macros
+	fixed reload_bydiff(); immediate search in special buffers
+	release building (.tar.gz and .rpm), release docs rewritten, release.sh optimization
+    - 2010-02-21 [The_Spring_10_Release_0.9.37pre0]
+	using 64bit stat calls for large files (st_ino problem fixed)
+
+* 2009 (Apr, June) -- some bugfixes and experimental changes
+
+	bugfixes in strip_blanks(), in dirlist the linelength, file stat updates,
+	del2bol(), prefix_macro and buffer overrun (bookmarks)
+	fixed possible bg process problems (kill/wait, do not change name/type)
+	changes after coverity checks
+	experimental lsdir_cmd, lsdir output sorted, dirlist_parser commands
+	experimental reload functions, reload_bydiff() example for external processing
+	extended read_pipe/readout_pipe for external processing
+	place cursor into text area of scratch file, do not care empty commands
+	vi macros added (fun); parser allows vi-like command aliases
+	allow filename:123 syntax also
+	re-added ic.c and experimental connectivity functions, socket_alive_check(), ip_alive_check()
+	experimental mouse support, default is off
+
+* 2008 -- lot of changes during the year, usability, redesign, some fixes, some news
+
+    - Dec 2008
+	added macro sample to the release
+	added mouse support with set_position_by_pointer()
+	do not compile ic.c into program
+    - Nov 2008
+	new color settings: the default for console and the new for rxvt; palette resource
+	fixes in block_name(), malloc/realloc wrappers, is_special() 
+	find_macro() extended: *find* and *make* buffers
+	buffer origin setting to help motion history (scratch, reopen, locate, read_pipe)
+	reintegrated memory check; compiler checks and warning fixes
+    - Oct 2008
+	rendering API changed: new update_focus() handles vertical focus changes,
+	calls replaced everywhere in the code, some functions moved to disp.c,
+	new ftype for JAVA, changed block begin and header regex patterns for folding functions,
+	experimental handling of C++ namespace,
+	dirlist_parser() has been rewritten, handles now a lot of ugly situations,
+	extended is_special() to show and set special buffer types as well as ftypes,
+	experimental: view_bname() from the make/find buffers also
+	set_op.pl script for macros, set operations, symetric diff, intersect, union
+	simple_parser() modified to handle egrep -A1 type outputs (separator '-' or ':') using regexp_match()
+	fixed over_select(), target line is the first line of selection
+	man page update
+    - Sep 2008
+	project file has now chdir pattern also, to restore pwd before file opening
+	copyright and usage adjusted
+	special skip before repeated search on zero length patterns (bol, eol, anchor)
+	some cheat codes added to curses_ext.h, macros in show_commands()
+    - May 2008
+	the top/bottom marks are almost hidden
+    - March 2008
+	bugfix in general_parser() and block_name()
+	function headers for man page
+	added macro handling capability: run_macro_command() and run_command(),
+	changed ed_common() and public functions like keypress_enter() and type_text(),
+	made reserved keys/functions accessible for macros
+	accept macros as commands; added public process_macrofile(), load_macrofile()
+	screen update optimized in tomatch()
+	experimental dump_cnf(), dump_macros() and dump_table()
+	allow log setting after bootup, drop SIGUSR signals silently
+	calc4() and read_result() removed, also ungetch() from key handler
+	use typeahead again
+	unknown types handled with defaults in block_name() and filter_func()
+	added ishell_cmd and sshell_cmd, 
+	flag interactive buffers in ring_list() and statusline(), specific setting in fork_exec(),
+	changes around read_pipe(): Unix98 ptys, check_zombie(), write_out_chars(), wait4_bg() and stop_bg()
+	bugfix in save_file(): SPECW file saved
+	tag/search pattern goes to commandline history now
+    - 2008-02-25 [The_Next_Release_MA_0.9.29pre0]
+	cmdline history: remove old duplicates
+	fixed HIDDEN file drop: next_file() and prev_file()
+	search_mac2() and color_mac3(): copy pattern into command line history also.
+	get_tags_path_back(): try to get the right file path
+	fixed fold_thisfunc(): null check after tomatch() call
+
+* 2007 (Jan, Apr, Sept-Nov) -- diff processing, vcs tools, internal search, filter levels, experimental
+
+	tracemsg with word-wrapping; only after bootup for settings
+	simplified tag symbol search; old sleeping bug fixed
+	added backspace handling to getxline()
+	search/highlight/change: anchored patterns
+	do not ignore SIGCHLD
+	new functions locate_cmd() and stop_bg()
+	modified close_background_process()
+	new cut_delimiters() tool and the internal_search() engine
+    - 2007-10-19 [The_Autumn_Release_2007_0.9.07_pre01]
+	new defaults with xorg 7.1.0 and xterm
+	implemented hide/unhide regular file in the ring
+	better performance in table[].name -> index search in parse_cmdline(), but no hashmap
+	implemented incr2_filter_level() and decr2_filter_level()
+	fixed repeat_search() and repeat_change() failure when started on top line
+	general_parser(): recursive call of dirlist_cmd() for directories
+	revised dirlist_cmd() and added get_last_word(); dropped ls_dired, ls_pwd
+	new implementation for "all diff" and diff parser
+	new filter_diff() function and [less ""] as opposite of [all ""]
+	regexp shorthands extensions \d \D
+	new function try_add_file() to support patch/diff processing
+	new diff_opts resource; settings for the "nolog" project
+	changed external commands ct_cmd(), svn_cmd(), vcs_cmd()
+	lll_goto_lineno() optimized for speed
+    - 2007-04-17 [EDA_the_0.8.83_mockingbird_release]
+	calc4 sample, revised pipe module, drop batch and mguard
+	LOGS updated, removed batch, memory_guard and some tracemsg
+	fire up ic (init connect) sample, 
+	pipe variables name changes (in[] >> child >> out[])
+	check case sensitivity in find_cmd(); changed calls to wr_select()
+	fix fold_thisfunc() if current line is block-end
+	extra error handling in scratch_buffer() for top/bottom
+	new fork_exec(), getxline() and read_file_line(); dropped read_stdin()
+	get_numbers() and get_strings() replaced by parse_args()
+	patching [v.0.8.53] release
+
+* 2006 (July - Sept) -- new selection engine, changes in file i/o, bg process handling, folding and tomatch
+
+	fixes in readout_pipe(): input size and char conversions;
+	accept commandline syntax +<linenumber> <filename> also;
+	fixed insert_chars() and join_line() in after-line-end case;
+    - 2006 Sept
+	file i/o: do not close buffer if changed, except scratch/special;
+	file i/o rework: stat and access calls;
+	file i/o: drop after failure during scratch/open/read
+	experimental read_stdin(), get_tags_path_back()
+	write() in xterm_title could be blocked, fixed
+    - 2006-08-30 [0.8.53] blackbird (turdus merula) pre-release
+	file i/o fix: clear FSTAT_CHMASK bits after save as;
+	file type saved at read-in/save-as
+	added fold_block and fold_thisfunc (based on tomatch_eng), review block_name();
+	added fword and fspath: find_fword_macro, find_searchp_macro
+	load_clhistory and save_clhistory around event_handler
+	bg process options modified; bg proc lock with fd_pipe fixed,
+	added check_bname() before fork/execve call and new read_result() for show_define();
+	added seall and over: select_all() and over_select()
+	SIGPIPE ignored but logged, catch SIGUSR1, SIGUSR2
+	added process_project() and save_project();
+	added release tools (shell scripts)
+    - 2006-07-29 [EDA_the_0.8.25_fine_selection] -- the rewritten selection engine
+	new append_line() and insert_line_before(), replace lot of calls
+	no pipe delay any more; fixed empty backup fname for unlink;
+    - 2006-07-18 [EDA_the_0.8.24_milestone_as_is] -- before interface/background function split
+	shift_engine() changed according to internal functions,
+	changes in insert_chars() and delete_char(),
+	fixed real and possible buffer overrun
+	added show_define(), full redraw on ^R, ringlist_parser() and dirlist_parser(),
+	experimental dirlist_cmd() with exec "sh -c ls -lD <pattern>"
+	tracemsg pushes focus down; motion history re-implemented
+	file i/o: close bg process on file close
+    - 2006-07-11 [EDA_the_0.8.21_release_with_docs]
+	added files eda.1 LICENSE COPYRIGHT, removed eda.pod
+
+* 2006 (Feb - March) -- base features improved step by step, safe code reviews, bugs and fixes
+
+	window wpref (prefix pane) merged into wtext, 
+	quit_others() on Shift-F4, mark truncated lines while loaded,
+	go_smarthome() for interactive use, new prev_nonblank() and next_nonblank(),
+	test script updates; batch files use "press" and "type" now
+	batch processing (in/out) with private file
+	changes in adjust_ipos() and simple_parser() for "filename :number" pattern
+	added del2bol() and fixed return value of select_word()
+	fix glob_name(): maxsize to args; globbing: fix for "tag" in ed_cmdline()
+	review: strncpy, strcpy, strncat, strcat usage again
+	use 'const char *' where possible; revised a lot of calls
+	ctags: multiple match problem fixed, show "multiple match (<n>/<r>)" if needed
+	ctags: wrong line_format fixed
+	bookmark number to bookmark preview and prefix pane; and bits shift fixed
+	vcs_tool() calls only with right tool name
+	allow coredump on ^\ for DEVELOPMENT_VERSION,
+	mguard.pl: post-mortem memory usage analyse of memory_guard.trace%d~ files
+	memory guard functions and macros and checks
+	command line buffers with dynamic memory allocation
+	adjust ipos setting (upto first space or 1 for '/' or '|' or ':')
+	added prefix filter to command line history browse, ipos
+	TAB on command line: default is file name globbing
+	added reload_file() and clean_buffer(), check_files() and restat_file() to watch external changes
+	added search macro similar to highlight()
+	more fixes in change(): arguments; LSTAT/FSTAT flag were not set
+	added type_text() for arbitrary text insertion, calls from ins_blockname() and ins_filename()
+	compiler warning options added to Makefile, fixed strict ansi c warnings
+	buffers change control: FSTAT_NO* bits and FSTAT_CHMASK everywhere
+	ignore SIGCHLD and do not wait
+	changed resources and handling: edarc, set_defaults(), set()
+	added edaseq processing, real and test handlers, command line switch -k
+	added index_* functions for command processing and batch
+	print info in case of broken edakeys during processing
+	cmds window show '...' if function requires args
+	added forcematch() and find_macro() and grep_options_macro()
+	filtering macros: HIDDEN_LINE, LMASK; added incr_filter_level(), decr_filter_level()
+	read_pipe(): waitpid args fixed; no defunct process any more
+	file i/o info and error messages: tracemsg() for user interface and syslog()
+	improved block header match for c and h files; also typedef
+	added show_time() and show_commands() and smartind_macro()
+	improved ring list with parser to jump file:line or bookmark
+	added FSTAT_TAG4 flag for anchored search regexp, to use REG_NOTBOL or not
+	added backup_nokeep resource with default 0
+	EDA project moved from CVS to Subversion, after [0.8.4]
+
+* 2005 Spring -- some features, bookmarking, ring list, run/batch, experimental changes
+
+	cygwin updates, globbing to filter_cmd(), simple line format recognition to tag_load_file()
+	advanced batch() error/fail handling in event_handler(); added run_test()
+    - 2005-05-12 [EDA_v082_0_050511]
+	meta sends lowercase + KEY_META
+	the "avoid matching newline at line end" changes in repeat_search() and search_for_replace()
+	added bookmark to the prefix string, sleeping BUG fixed in text_line(): xpos increment
+	added cnf.grep_opts to find_cmd(), do not copy LSTAT_BM_BITS in duplicate()
+	added cp_text2cmd, improved regexp handling: regexp_shorthands()
+	added the -w option to the 'where-used' function find_cmd()
+	new advanced test session for selection,filtering,ctags,find usage
+    - 2005-03-27 [EDA_050327_bookmarking_ready]
+	extended ring-list, bookmarking, mhist, and strip_blanks(); prefix_str()
+	pod2man and install, manual page in POD format replaces eda.1
+	history_* replaced by motion history tools: tag_jump_to(), tag_jump_back(), set_position()
+	and mhist_push() in tag_jump2_pattern(), prefix_macro()
+	(sleeping) bug fixed in strip_lines(): CURR_LINE used instead of lp
+	set() changed to handle const args
+	added new functions load_rcfile(), load_keyfile()
+	added utility function search_goto_pattern(); cflow dropped
+	added filter symbol 0x7c to parse_cmdline()
+	removed up,down,left,right,cflow* added rc,keys,mh_clear and KEY_M_EQUAL with prefix_macro()
+    - 2005-03-10 [EDA_050310_motion_history_first]
+	motion history functions added
+	fix: FSTAT_OPEN check in lll_goto_lineno()
+	fine-tuning around line-change-bit in join_line(), simplified upd_select()
+	getuid() based prompt in read_pipe()
+	added record_keypress() and batch() with minor changed in event_handler()
+	lines after cp/mv do not inherit bookmark bits
+	added clear_all_bookmarks() to drop_file()
+    - 2005-02-28 [EDA_050228_the_bookmarking_release]
+	bookmarking internals: set_bookmark() clr_bookmark() jump2_bookmark() clear_all_bookmarks()
+	bookmarking commands: bm_set() bm_clr() bm_clear_all() bm_jumpX()
+	ring list, bookmarking started
+	next_file() replace cnf.ring_curr=0; add_file() added cnf.curses_up flag check
+	tomatch() improved by apostrophe handling
+	tags_path resource added; command line option: -T TAGS_PATH
+    - 2005-02-17 [EDA_050218_the_standup_release]
+	enhanced block_name() and filter_func() by header/begin patterns
+	regexp_match() extension, match is filled with the Nth sub
+	func/block header patterns added; command line has new options: -j jump to symbol, -t load tags file
+	tags functionality improved by class and linkage
+
+* 2004 (Oct - Nov) -- pipes, search, change
+
+	added strip_lines(), delete_lines() and ins_varname()/ins_bname()/view_bname()
+	extended filter for C, Perl, Tcl blocks, regexp_match()
+	changes in process_rcfile() for config file load, and glob_name(), find_cmd bound to KEY_C_Q
+	changed shift left/right selection,
+	removed old popen/pclose and replaced by former low level pipe I/O handling
+    - 2004-11-09 [EDA_041110_the_pipe_release,EDA_v065_16]
+	first pipe-in/pipe-out completed,
+	parser extensions (make, find/grep) and special buffers,
+	function table has noedit flag,
+	added tag_focus and xterm_title
+    - 2004-10-25 [EDA_041025_the_release_change,EDA_v065_0]
+	fine-tuning, fixes, extensions, key tester, debug tools
+
+* 2004 (Jan - Apr) -- ctags support, search, change, filtering
+
+    - 2004-04-18 [EDA_v063_4]
+	wrappers file_file(), save_file(); do also "save as" now
+	fixed select_word(), added block_name()
+	set() extended by indent resource,
+	new wrapper functions up,down,left,right cursor motion
+	experimental change in filter and color-tag functions
+    - 2004-03-30 [EDA_v061_0]
+	new defaults move-reset and icase, added -t flag for tags autoload
+    - 2004-03-08 [EDA_040305_v060_the_jumping_release]
+	ctags feature closed: load file, view symbol and jump to/jump back
+    - 2004-02-22 [EDA_v059_0]
+	view and jump/jump-back is working
+	screen resize fix
+	ctags support for eda; first version completed
+	search function is working
+    - 2004-01-28 [EDA_v052_1]
+	fix for cp/rm selection: clean lflag (~LSTAT_FMASK)
+	added color_tag, color mark of lines
+	first step with regexp: search.c
+
+* 2003 (2003-07-26 - 2003-09-18) -- base functionality and early design
+
+    - 2003-09-18 [EDA_030918_v050_many_fine_features]
+	news: tomatch, filename globbing, smartindent, set() resources,
+	filter temporary on/off, all/less/more at actual filter level
+    - 2003-09-13 [EDA_030913_v040_filter_layer_edition]
+	first special feature: transparent filter while editing
+	go_up, go_down, go_page_up, go_page_down, delback_char, delline, join_line
+    - 2003-08-31 [EDA_030831_v031_selection_one]
+	selection for lines implemented, early design
+    - 2003-08-24 [EDA_030824_v030_sigwinch_fix]
+	first fix for sigwinch
+    - 2003-08-22 [EDA_030823_v022_colored]
+	text UI got some colors
+    - 2003-08-18 [EDA_030816_v021_editing]
+	file save/backup
+    - 2003-08-16 [EDA_030816_v020_base_editing]
+	base line editing capability
+    - 2003-08-08 [EDA_030809_in_front_of_v020]
+	moving around lines better, up,down,pgup,pgdn fine,
+	inline display TAB handling, command library
+    - 2003-08-03 [EDA_030803_viewer_pre_release]
+	the very basic viewer, display scrolling, command line parser and history,
+	linked list library in the background
+    - 2003-07-26
+	start of project, CVS commit "first run"
+

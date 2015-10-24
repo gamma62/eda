@@ -103,7 +103,9 @@ main (int argc, char *argv[])
 			cnf.noconfig = 1;
 			break;
 		case 'V':
-			printf ("%s\n", long_version_string);
+			//0.9.53 birthday message
+			printf ("EDA edition \"Summer '15 release 0.9.53\"\n");
+			//printf ("%s\n", long_version_string);
 			printf ("\n\
 Copyright 2003-2015 Attila Gy. Molnar.\n\
 \n\
@@ -459,7 +461,6 @@ set_defaults(void)
 	strncpy(cnf.make_opts,	"-f Makefile",		sizeof(cnf.make_opts));
 	strncpy(cnf.sh_path,	"/bin/bash",		sizeof(cnf.sh_path));
 	strncpy(cnf.diff_path,	"/usr/bin/diff",	sizeof(cnf.diff_path));
-	strncpy(cnf.ssh_path,	"/usr/bin/ssh",		sizeof(cnf.ssh_path));
 	for(i=0; i < 10; i++) {
 		cnf.vcs_tool[i][0] = '\0';
 		cnf.vcs_path[i][0] = '\0';

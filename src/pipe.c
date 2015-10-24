@@ -1281,7 +1281,7 @@ filter_esc_seq (char *buff, int *count)
 			j++;
 		} else if (buff[j] == 0x1B) {
 			/* filter out terminal ESC sequencies (like 1B 5D 30 3B .... 07),
-			* interactive sessions, like ssh, can push into the pipe
+			* interactive sessions, can push into the pipe
 			* ---- real terminal handling is not possible here
 			*/
 			seq = 0;

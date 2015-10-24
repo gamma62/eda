@@ -1,0 +1,116 @@
+NEWS - like Changelog, but only the summary for releases
+---
+
+* 2015 preparation for the EDA edition "Summer '15 release 0.9.53"
+
+* 2014 December - 2015 January (0.9.47)
+
+    - manuals and docs, design notes, changelog, news, readme
+    - new functions reload_macros(), show_diff(), read_stdin()
+    - interactive shell fixes (session leader, forward ^D, prompt handling)
+    - display output optimization (color palette, focus line)
+    - redesigned resource setting, new parse_token, new macros, LOG update
+    - redesigned detecting external change, new testaccess()
+    - unified input command parser, launch for commands and macros
+    - redesigned motion history and bookmarks, tag-jump-to and jump-back-from (based on ctags)
+    - redesigned command line history with prefix based filter
+    - feature reviews: block folding, regexp handling, filename globbing, xterm title
+    - coverity scans and fixes, safe code reviews, compiler warnings
+    - fixed fundamental memory managent bug
+
+* 2012-2014 some small changes only, Release_0.9.41
+
+* 2011 Spring-Summer, The_Summer_2011_Release_0.9.37
+
+    - release tar.gz, deb and rpm using GNU autotools
+    - macro recording solution, finish_in_fg for macros
+    - finished base tests and regression tests
+    - added 'g' global option to the change feature
+    - multifile search (Alt-Q) can use external or internal method
+    - new global resource flags: close_over and save_inode
+    - added noconfig and automacro command line options
+
+* 2010 pre-release 0.9.37
+
+    - macro improvements, print filter, project handling
+    - new block selection functions
+    - preventive security measures: coverity, valgrind and reviews
+    - added xeda script, release build tools from tar.gz to rpm
+    - lot of internal changes
+
+* 2009 some bugfixes and experimental changes (pre 0.9.37)
+
+    - lsdir tools, reload functions
+    - coverity checks and reviews
+
+* 2008 usability changes, internal improvements
+
+    - new palette colors (UI), revised rendering (focus change)
+    - macro handling infrastructure, sample set_op.pl for macros
+    - rewritten filter function/block and folding tools
+    - better regexp handling (anchor), find macro
+    - internal changes (background processing, cmdline history)
+
+* 2007 The_Autumn_Release_2007_0.9.07_pre01
+
+    - hide/unhide regular file in the ring
+    - filter level change with copy bits
+    - regexp shorthands extensions \d \D and internal search
+    - patch/diff support, some VCS tools support, new diff parser
+    - experimental ic feature, EDA_the_0.8.83_mockingbird_release
+    - introduced new fork/exec design
+
+* 2006 the 0.8.53 blackbird release
+
+    - very new selection engine
+    - changes in file i/o and bg process handling
+    - tomatch engine, folding and block recognition, filter tools
+    - new functions: del2bol, force match, this function, quit others
+    - sea/over/fw/fsp macros, show commands buffer
+    - command line history save/load, prefix filter
+    - projects save/load; release preparation tools
+    - multiple symbol match with ctags
+    - improved key handling (sequence tree) with key tester
+    - improved search/change/highlight tools, anchored patterns
+    - directory list and parsers
+    - security fixes, memory guard tools, memguard.pl, bug fixes
+    - internal release: EDA_the_0.8.25_fine_selection
+    - before big split: EDA_the_0.8.24_milestone_as_is
+    - EDA_the_0.8.21_release_with_docs
+    - generated docs and function API, new manual and release docs
+
+* 2005 Spring, bookmarking and experimental features
+
+    - EDA_050327_bookmarking_ready
+    - early ring list, motion history, run/batch tools
+    - ctags support extended, and globbing, tomatch
+    - resource processing
+    - and lot of experimental changes (cflow, cygwin, pod)
+
+* 2004 Autumn, pipes, search and change
+
+    - added strip and delete line functions, insert/view block/variable tools
+    - filters for C, Perl, Tcl blocks and new regexp_match()
+    - EDA_041110_the_pipe_release first pipe-in/pipe-out completed,
+    - parser for make, find/grep; xterm title, focus tag, noedit flag
+    - EDA_041025_the_release_change first milestone
+
+* 2004 Spring, early fundamental features
+
+    - ctags support
+    - regexp based filtering and search
+    - implement base functionality
+
+* 2003 (2003-07-26 - 2003-09-18) -- base functionality and early design
+
+    - EDA_030918_v050_many_fine_features
+    - EDA_030913_v040_filter_layer_edition
+    - EDA_030831_v031_selection_one
+    - EDA_030824_v030_sigwinch_fix
+    - EDA_030823_v022_colored
+    - EDA_030816_v021_editing
+    - EDA_030816_v020_base_editing
+    - EDA_030809_in_front_of_v020
+    - EDA_030803_viewer_pre_release
+    - 2003-07-26 start of project in CVS
+

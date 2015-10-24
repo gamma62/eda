@@ -46,6 +46,7 @@ go_top                   KEY_C_PPAGE
 go_bottom                KEY_C_NPAGE
 center_focusline         KEY_F5
 reload_file              KEY_NONE
+show_diff                KEY_NONE
 reload_bydiff            KEY_NONE
 prev_file                KEY_NONE
 next_file                KEY_F8
@@ -126,6 +127,7 @@ bm_jump9                 KEY_M_NINE
 show_commands            KEY_NONE
 tag_jump_back            KEY_C_T
 stop_bg_process          KEY_NONE
+reload_macros            KEY_NONE
 prefix_macro             KEY_M_GRAVEACC
 smartind_macro           KEY_M_MINUS
 shadow_macro             KEY_NONE

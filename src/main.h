@@ -409,7 +409,6 @@ struct config_tag
 	char make_opts[SHORTNAME];
 	char sh_path[SHORTNAME];
 	char diff_path[SHORTNAME];
-	char ssh_path[SHORTNAME];
 	char project[SHORTNAME];
 
 	char _home[FNAMESIZE];

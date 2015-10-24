@@ -224,7 +224,6 @@ extern void record (const char *, const char *);
 /* pipe.c */
 extern int shell_cmd (const char *ext_cmd);		/* public */
 extern int ishell_cmd (const char *ext_cmd);		/* public */
-extern int sshell_cmd (const char *ext_cmd);		/* public */
 extern int make_cmd (const char *opts);			/* public */
 extern int vcstool (const char *ext_cmd);		/* public */
 extern int find_cmd (const char *ext_cmd);		/* public */
