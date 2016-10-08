@@ -2,7 +2,7 @@
 * filter.c
 * base and advanced functions for filtered view and edit (like a builtin egrep)
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *

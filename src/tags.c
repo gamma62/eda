@@ -2,7 +2,7 @@
 * tags.c
 * support functions to use "tags" file from ctags, parse tags file, use saved information to jump to definition
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *

@@ -2,7 +2,7 @@
 * ring.c
 * ring-list, bookmark handling, motion history functions
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *

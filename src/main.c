@@ -2,7 +2,7 @@
 * main.c
 * main function, init, defaults, signal handler and log tools
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -107,7 +107,7 @@ main (int argc, char *argv[])
 			printf ("EDA edition \"Summer '15 release 0.9.53\"\n");
 			//printf ("%s\n", long_version_string);
 			printf ("\n\
-Copyright 2003-2015 Attila Gy. Molnar.\n\
+Copyright 2003-2016 Attila Gy. Molnar.\n\
 \n\
 Eda is free software: you can redistribute it and/or modify\n\
 it under the terms of the GNU General Public License as published by\n\

@@ -2,7 +2,7 @@
 * search.c
 * search and replace/change functions, filtering, line tag and word highlight, internal tool for search
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *

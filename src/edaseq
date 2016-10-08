@@ -112,13 +112,21 @@ KEY_M_TILDE		1b 7e
 # console
 #only F1-F12
 
-# gnome-terminal -- GNOME 3.4.2 -- Debian 7.1 (wheezy) -- Kernel 3.2.0
-#KEY_C_F1	not avail
-KEY_C_F2		1B 4F 31 3B 35 51
-KEY_C_F3		1B 4F 31 3B 35 52
-KEY_C_F4		1B 4F 31 3B 35 53
-KEY_S_F1		1B 4F 31 3B 32 50
-KEY_S_F2		1B 4F 31 3B 32 51
-KEY_S_F3		1B 4F 31 3B 32 52
-KEY_S_F4		1B 4F 31 3B 32 53
-#
+# example: gnome-terminal -- GNOME 3.4.2 -- Debian 7.1 (wheezy) -- Kernel 3.2.0
+# #KEY_C_F1	not avail
+#KEY_C_F2		1B 4F 31 3B 35 51
+#KEY_C_F3		1B 4F 31 3B 35 52
+#KEY_C_F4		1B 4F 31 3B 35 53
+#KEY_S_F1		1B 4F 31 3B 32 50
+#KEY_S_F2		1B 4F 31 3B 32 51
+#KEY_S_F3		1B 4F 31 3B 32 52
+#KEY_S_F4		1B 4F 31 3B 32 53
+
+# dynamic mapping
+KEY_C_UP	0x235
+KEY_C_DOWN	0x20C
+KEY_C_LEFT	0x220
+KEY_C_RIGHT	0x22F
+KEY_C_PPAGE	0x22A
+KEY_C_NPAGE	0x225
+

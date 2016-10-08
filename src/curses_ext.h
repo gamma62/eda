@@ -1,7 +1,7 @@
 /*
 * curses_ext.h
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
@@ -228,14 +228,14 @@
 #define KEY_M_RCURBRAC	(KEY_META | '}')
 #define KEY_M_TILDE	(KEY_META | '~')
 
-/* special characters (required symbols)
+/* virtual keys; dynamic mapping in edaseq
 * ---------------------------------------------
 */
-#define KEY_C_UP	0x235
-#define KEY_C_DOWN	0x20C
-#define KEY_C_LEFT	0x220
-#define KEY_C_RIGHT	0x22F
-#define KEY_C_PPAGE	0x22A
-#define KEY_C_NPAGE	0x225
+#define KEY_C_UP	(KEY_CTRL | 1)
+#define KEY_C_DOWN	(KEY_CTRL | 2)
+#define KEY_C_LEFT	(KEY_CTRL | 3)
+#define KEY_C_RIGHT	(KEY_CTRL | 4)
+#define KEY_C_PPAGE	(KEY_CTRL | 5)
+#define KEY_C_NPAGE	(KEY_CTRL | 6)
 
 #endif

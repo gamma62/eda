@@ -2,7 +2,7 @@
 * fh.c
 * file handling, from basic open/save functions upto change watch, smart reload, pipe support
 *
-* Copyright 2003-2015 Attila Gy. Molnar
+* Copyright 2003-2016 Attila Gy. Molnar
 *
 * This file is part of eda project.
 *
