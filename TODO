@@ -1,0 +1,35 @@
+
+BUGS:
+- session leader must be set in all cases, not only in ish buffer: 
+  in sh buffer does not work'man --ascii -P cat eda'
+
+- /usr/local/share foud in edamcro in release
+  minor
+
+- with files having cr/lf lines there is a design level bug:
+  insert actions after file end will add characters before lf,
+  that means: between cr and lf; thats bad
+  deleol, join_line, and maybe the block level join tool also
+
+FEATURE: python error parser
+  - ongoing: python -m py_compile script ; pyflakes script ; pylint -E script
+
+FEATURE: hashtab for the commands and keyboard inputs
+  - first part ready: perfect hash (all keys found slot in first round)
+  - second: generate this during the build
+
+FEATURE: xml tag support
+- - tomatch for xml tag tokens, block folding, etc
+
+FEATURE: R language ?
+
+FEATURE: Octave ?
+
+FEATURE: ??
+  - window split, like vim
+
+FEATURE: distributed eda ??
+  - separate eda instances communicate like one
+  - master selection, slave synch
+
+--- oldies ---
