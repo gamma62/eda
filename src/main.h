@@ -53,7 +53,6 @@
 /* with space for text lines '\0' */
 #define ALLOCSIZE(len)	((size_t) (((len) | LINESIZE_MIN) + 1))
 
-/* bigger allocation steps for change() -- required: 0xff >= CMDLINESIZE ....... miert is? ez a feltetel nem teljesul */
 /* 0xff space reserved after allocation */
 #define REP_ASIZE(len)	((size_t) (((len) | 0x1f) + 0xff + 1))
 
@@ -386,6 +385,10 @@ struct config_tag
 	int ring_curr;		/* 0 ... ring_size-1 */
 	int ring_size;		/* 0 if nothing, else 1 ... RINGSIZE */
 	FDATA fdata[RINGSIZE];
+
+	/* command key and name hashes */
+	short int *fkey_hash;	/* malloc and free */
+	short int *name_hash;	/* malloc and free */
 
 	/* selection */
 	int select_ri;		/* selection made at ring index (or -1) */

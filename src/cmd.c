@@ -2089,7 +2089,7 @@ int
 ed_common (int ch)
 {
 	int ret=4;
-	int mi=0, ti=0;
+	int ti=0;
 	char args_buff[CMDLINESIZE];
 
 	switch (ch)
@@ -2112,23 +2112,30 @@ ed_common (int ch)
 		*/
 		memset(args_buff, 0, sizeof(args_buff));
 
-		for (mi=0; mi < MLEN; mi++) {
-			if (macros[mi].fkey == ch) {
-				break;
-			}
-		}
-		if (mi >= 0 && mi < MLEN) {
-			run_macro_command (mi, args_buff);
-			break;	/* switch */
-		}
+		//for (ti=0; ti < MLEN; ti++)
+		//	if (macros[ti].fkey == ch)
+		//		break;
+		//if (ti >= 0 && ti < MLEN) {
+		//	run_macro_command (ti, args_buff);
+		//	break;	/* switch */
+		//}
+		//for (ti=0; ti < TLEN; ti++)
+		//	if (table[ti].fkey == ch)
+		//		break;
+		//if (ti >= 0 && ti < TLEN) {
+		//	run_command (ti, args_buff);
+		//	break;	/* switch */
+		//}
 
-		for (ti=0; ti < TLEN; ti++) {
-			if (table[ti].fkey == ch)
-				break;
-		}
-		if (ti >= 0 && ti < TLEN) {
-			run_command (ti, args_buff);
-			break;	/* switch */
+		ti = hash_fkey(ch);
+		if (ti >= 0) {
+			if (ti < TLEN) {
+				run_command (ti, args_buff);
+				break;	/* switch */
+			} else {
+				run_macro_command (ti-TLEN, args_buff);
+				break;	/* switch */
+			}
 		}
 
 		/* warning in event_handler */

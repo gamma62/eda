@@ -105,7 +105,7 @@ main (int argc, char *argv[])
 		case 'V':
 			//0.9.53 birthday message
 			printf ("EDA edition \"Summer '15 release 0.9.53\"\n");
-			//printf ("%s\n", long_version_string);
+			printf ("%s\n", long_version_string);
 			printf ("\n\
 Copyright 2003-2016 Attila Gy. Molnar.\n\
 \n\
@@ -167,6 +167,9 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	}
 	if (process_macrofile(cnf.noconfig)) {
 		leave("macro processing failed");
+	}
+	if (init_hashtables()) {
+		leave("hash init failure");
 	}
 
 	/* set signal handler */
@@ -327,6 +330,12 @@ leave (const char *reason)
 
 	/* sequence tree */
 	free_seq_tree(cnf.seq_tree);
+
+	/* hash */
+	FREE(cnf.fkey_hash);
+	cnf.fkey_hash = NULL;
+	FREE(cnf.name_hash);
+	cnf.name_hash = NULL;
 
 	/* tags */
 	tag_rm_all();

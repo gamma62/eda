@@ -44,10 +44,17 @@ const int KLEN = sizeof(keys)/sizeof(KEYS);
 const int RES_KLEN = RESERVED_KEYS;
 MACROS *macros;
 int MLEN;
+int hashdim;
 
 /* local proto */
 static void event_handler (void);
 static int parse_cmdline (char *ibuff, int ilen, char *args);
+static int hash_str2num(const char *buff, int len);
+static int next_hashtab_slot(const short int *HT, int k);
+#if 0
+static void hash_fkey_simulation(void);
+static void hash_name_simulation(void);
+#endif
 
 /*
 * editor
@@ -541,38 +548,39 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 
 	/* search down command name in macros[].name and table[].name
 	*/
-	for (xi=0; xi < MLEN; xi++)
-	{
-		if (macros[xi].name[0] != '\0') {
-			CMD_LOG(LOG_DEBUG, "check macro name [%s]", macros[xi].name);
-			for (i=0; i < clen; i++) {
-				if (macros[xi].name[i] != ibuff[i])
-					break;
-			}
-			if (i == clen && macros[xi].name[i] == '\0')
-				break; /* match: xi is the macro index */
-		}
-	}
-	if (xi < MLEN) {
-		xi += TLEN; /* match, shift up */
-	} else {
-		for (xi=0; xi < TLEN; xi++)
-		{
-			if (table[xi].minlen >= 1 && table[xi].minlen <= clen) {
-				for (i=0; i < clen; i++) {
-					if (table[xi].name[i] != ibuff[i])
-						break;
-				}
-				if (i == clen)	/* match: xi is the table index */
-					break;
-			}
-		}
-		if (xi == TLEN) {
-			xi += MLEN; /* no match, shift up */
-		}
-	}
+	//for (xi=0; xi < MLEN; xi++)
+	//{
+	//	if (macros[xi].name[0] != '\0') {
+	//		CMD_LOG(LOG_DEBUG, "check macro name [%s]", macros[xi].name);
+	//		for (i=0; i < clen; i++) {
+	//			if (macros[xi].name[i] != ibuff[i])
+	//				break;
+	//		}
+	//		if (i == clen && macros[xi].name[i] == '\0')
+	//			break; /* match: xi is the macro index */
+	//	}
+	//}
+	//if (xi < MLEN) {
+	//	xi += TLEN; /* match, shift up */
+	//} else {
+	//	for (xi=0; xi < TLEN; xi++)
+	//	{
+	//		if (table[xi].minlen >= 1 && table[xi].minlen <= clen) {
+	//			for (i=0; i < clen; i++) {
+	//				if (table[xi].name[i] != ibuff[i])
+	//					break;
+	//			}
+	//			if (i == clen)	/* match: xi is the table index */
+	//				break;
+	//		}
+	//	}
+	//	if (xi == TLEN) {
+	//		xi += MLEN; /* no match, shift up */
+	//	}
+	//}
 
-	if (xi == TLEN+MLEN) {
+	xi = hash_name(ibuff, clen);
+	if (xi < 0) {
 		/* not found */
 		args[0] = '\0';
 		ibuff[clen] = '\0';
@@ -646,3 +654,265 @@ index_key_value (int key_value)
 	}
 	return (ki);
 }
+
+/* hash */
+#define HASHTABSIZ	4096		/* exact power of 2 */
+#define HASHTABMASK	(HASHTABSIZ-1)
+#define HASHPRIM1	3833		/* prime under HASHTABSIZ */
+#define HASHPRIM2	1601		/* prime under HASHTABSIZ */
+
+static int
+hash_str2num(const char *buff, int len)
+{
+	//perfect string-to-number hashes, for the commands
+	// shift init  prime
+	//  3    3011  3413 -- key inputs: p2 is 4027 (2) 2nd level collision
+	//  3    3187  3761 -- key inputs: p2 is 3423 (1), 2999 (1), 3881 (1), ...
+	//  3    3319  3833 -- key inputs: p2 is 1601 (1) 2nd level collision
+	//  3    4057  4003 -- key inputs: collisions in 1st level
+	//on command and macro sample set
+
+	int i=0;
+	unsigned long long v = 3319;
+
+	for (i=0; i < len; i++)
+		v = (v << 3) + v + buff[i];
+
+	return (v % HASHPRIM1);
+}
+
+static int
+next_hashtab_slot(const short int *HT, int k)
+{
+	int i=0, j, j2;
+
+	j = k % HASHPRIM1;
+	j2 = k % HASHPRIM2;
+	if (HT[j] == -1)
+		return j;
+
+	while (++i < hashdim) {
+		j = ( j + j2 ) & HASHTABMASK;
+		if (HT[j] == -1)
+			return j;
+	}
+
+	fprintf(stderr, "eda: hash table overflow (%d), no more free slot\n", i);
+	return (-1);
+}
+
+int
+init_hashtables(void)
+{
+	int i, j, k, clen;
+
+	cnf.fkey_hash = (short int *) MALLOC(sizeof(short int) * HASHTABSIZ);
+	if (cnf.fkey_hash == NULL) {
+		return -1;
+	}
+	cnf.name_hash = (short int *) MALLOC(sizeof(short int) * HASHTABSIZ);
+	if (cnf.name_hash == NULL) {
+		FREE(cnf.fkey_hash);
+		cnf.fkey_hash = NULL;
+		return -1;
+	}
+	for (i=0; i < HASHTABSIZ; i++) {
+		cnf.name_hash[i] = -1;
+		cnf.fkey_hash[i] = -1;
+	}
+
+	/* at this point we have exact MLEN */
+	hashdim = TLEN+MLEN;
+
+	/* insert all valid .fkey values */
+	for (i=0; i < TLEN ; i++) {
+		if (table[i].fkey != -1 && table[i].fkey != KEY_NONE) {
+			j = next_hashtab_slot(cnf.fkey_hash, table[i].fkey);
+			if (j < 0) return (-1);
+			cnf.fkey_hash[j] = i;
+		}
+	}
+	for (i=0; i < MLEN ; i++) {
+		if (macros[i].fkey != -1 && macros[i].fkey != KEY_NONE) {
+			j = next_hashtab_slot(cnf.fkey_hash, macros[i].fkey);
+			if (j < 0) return (-1);
+			cnf.fkey_hash[j] = TLEN+i;
+		}
+	}
+
+	/* insert all valid .name values */
+	for (i=0; i < TLEN ; i++) {
+		if (table[i].minlen > 0 && table[i].name[0] != '\0') {
+			clen = strlen(table[i].name);
+			for (k = table[i].minlen; k <= clen; k++) {
+				j = next_hashtab_slot(cnf.name_hash, hash_str2num(table[i].name, k));
+				if (j < 0) return (-1);
+				cnf.name_hash[j] = i;
+			}
+		}
+	}
+	for (i=0; i < MLEN ; i++) {
+		if (macros[i].name[0] != '\0') {
+			clen = strlen(macros[i].name);
+			j = next_hashtab_slot(cnf.name_hash, hash_str2num(macros[i].name, clen));
+			if (j < 0) return (-1);
+			cnf.name_hash[j] = TLEN+i;
+		}
+	}
+
+	return 0;
+}
+
+int
+hash_fkey (int ch)
+{
+	int i=0, j, j2;
+	int v = -1;
+
+	j = ch % HASHPRIM1;
+	j2 = ch % HASHPRIM2;
+	while (i < hashdim) {
+		v = cnf.fkey_hash[j];
+		if (v < 0)
+			break;
+		if (v < TLEN) {
+			if (table[v].fkey == ch) {
+				break;
+			}
+		} else {
+			if (macros[v-TLEN].fkey == ch) {
+				break;
+			}
+		}
+		i++;
+		j = ( j + j2 ) & HASHTABMASK;
+	}
+
+	return v;
+}
+
+int
+hash_name (const char *ibuff, int clen)
+{
+	int i=0, j, j2, k;
+	int v = -1;
+
+	k = hash_str2num(ibuff, clen);
+	j = k % HASHPRIM1;
+	j2 = k % HASHPRIM2;
+	while (i < hashdim) {
+		v = cnf.name_hash[j];
+		if (v < 0)
+			break;
+		if (v < TLEN) {
+			if (table[v].minlen >= 1 && clen >= table[v].minlen && strncmp(table[v].name, ibuff, clen) == 0) {
+				break;
+			}
+		} else {
+			if (strncmp(macros[v-TLEN].name, ibuff, clen) == 0) {
+				break;
+			}
+		}
+		i++;
+		j = ( j + j2 ) & HASHTABMASK;
+	}
+
+	return v;
+}
+
+#if 0
+static void
+hash_fkey_simulation(void)
+{
+	int i, ch, ki;
+	//int j;
+
+	for (i=0; i < TLEN ; i++) {
+		if (table[i].fkey != -1 && table[i].fkey != KEY_NONE) {
+			ch = table[i].fkey;
+			fprintf(stderr, "%d -> ", ch);
+			ki = hash_fkey(ch);
+			if (ki < 0) {
+				fprintf(stderr, "not found\n");
+			} else if (ki < TLEN) {
+				fprintf(stderr, "ki=%d %s\n", ki, (ki==i ? "ok" : "error"));
+			} else {
+				fprintf(stderr, "alien\n");
+			}
+		}
+	}
+
+	for (i=0; i < MLEN ; i++) {
+		if (macros[i].fkey != -1 && macros[i].fkey != KEY_NONE) {
+			ch = macros[i].fkey;
+			fprintf(stderr, "%d -> ", ch);
+			ki = hash_fkey(ch);
+			if (ki < 0) {
+				fprintf(stderr, "not found\n");
+			} else if (ki < TLEN) {
+				fprintf(stderr, "alien\n");
+			} else {
+				fprintf(stderr, "ki=%d %s\n", ki, (ki-TLEN==i ? "ok" : "error"));
+			}
+		}
+	}
+
+	//for (j=0; j < HASHTABSIZ; j++) {
+	//	if (cnf.fkey_hash[j] != -1) {
+	//		fprintf(stderr, "[%d]=%d\n", j, cnf.fkey_hash[j]);
+	//	}
+	//}
+}
+
+static void
+hash_name_simulation(void)
+{
+	int i, l, clen, ti;
+	char mybuff[40];
+	//int j;
+
+	for (i=0; i < TLEN ; i++) {
+		if (table[i].minlen > 0 && table[i].name[0] != '\0') {
+			clen = strlen(table[i].name);
+			for (l = table[i].minlen; l <= clen; l++) {
+				strncpy(mybuff, table[i].name, sizeof(mybuff));
+				mybuff[l] = '\0';
+				fprintf(stderr, "%s -> ", mybuff);
+				ti = hash_name(mybuff, l);
+				if (ti < 0) {
+					fprintf(stderr, "not found\n");
+				} else if (ti < TLEN) {
+					fprintf(stderr, "%s %s\n", table[ti].name, (ti==i ? "ok" : "error"));
+				} else {
+					fprintf(stderr, "alien\n");
+				}
+			}
+		}
+	}
+
+	for (i=0; i < MLEN; i++) {
+		if (macros[i].name[0] != '\0') {
+			clen = strlen(macros[i].name);
+			l = clen; {
+				strncpy(mybuff, macros[i].name, sizeof(mybuff));
+				mybuff[l] = '\0';
+				fprintf(stderr, "%s -> ", mybuff);
+				ti = hash_name(mybuff, l);
+				if (ti < 0) {
+					fprintf(stderr, "not found\n");
+				} else if (ti < TLEN) {
+					fprintf(stderr, "alien\n");
+				} else {
+					fprintf(stderr, "%s %s\n", macros[ti-TLEN].name, (ti-TLEN==i ? "ok" : "error"));
+				}
+			}
+		}
+	}
+
+	//for (j=0; j < HASHTABSIZ; j++) {
+	//	if (cnf.name_hash[j] != -1) {
+	//		fprintf(stderr, "[%d]=%d\n", j, cnf.name_hash[j]);
+	//	}
+	//}
+}
+#endif
