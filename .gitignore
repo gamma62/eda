@@ -19,6 +19,6 @@ src/eda
 # Misc
 *~
 eda*.tgz
-build.sh
+hgpull.sh
 github_
 

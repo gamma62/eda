@@ -1,4 +1,6 @@
 
+    - fixes: simple_parser on long lines; man pages in shell buffer (setsid)
+
 * 2015 preparation for the EDA edition "Summer '15 release 0.9.53"
     - frozen, no change except release, Changelog, github upload
 

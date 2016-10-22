@@ -557,14 +557,14 @@ int
 simple_parser (const char *dataline, int jump_mode)
 {
 	int ret=0, len, split;
-	char filename[FNAMESIZE];
+	char filename[FNAMESIZE+LINESIZE_INIT];
 	char patt0[TAGSTR_SIZE];
 	char patt1[TAGSTR_SIZE];
 	LINE *lx = NULL;
 	int linenum;
 
 	len = strlen(dataline);
-	if (len == 0 || len >= FNAMESIZE) {
+	if (len == 0 || len >= FNAMESIZE+LINESIZE_INIT) {
 		return (1);
 	}
 

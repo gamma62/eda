@@ -590,7 +590,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		} else {
 			close(2);			/* drop stderr */
 		}
-		if (opts & (OPT_IN_OUT | OPT_INTERACT)) {
+		if (opts & (OPT_IN_OUT | OPT_INTERACT | OPT_TTY)) {
 			dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
 		} else {
 			close(0);			/* no stdin */
@@ -600,16 +600,11 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		close(out_pipe[XWRITE]);
 		if (in_pipe[XREAD] != out_pipe[XWRITE])
 			close(in_pipe[XREAD]);
+		/* become session leader */
+		if (setsid() == -1)
+			perror("setsid");
 
-		if (opts & (OPT_INTERACT | OPT_TTY)) {
-			/* become session leader */
-			if (setsid() == -1)
-				perror("setsid");
-		}
 		if (opts & OPT_INTERACT) {
-			/* set controlling terminal */
-			if (ioctl(0, TIOCSCTTY, 1) == -1)
-				perror("ioctl TIOSCTTY");
 			/* try fixing wordwrap */
 			if (setenv("COLUMNS", "130", 1) == -1)
 				perror("setenv COLUMNS");
@@ -841,7 +836,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	}
 
 	/* common */
-	if ((opts & OPT_INTERACT) == 0) {
+	if ((opts & (OPT_INTERACT | OPT_TTY)) == 0) {
 		close(in_pipe[XWRITE]);
 		in_pipe[XWRITE] = 0;
 	}

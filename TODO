@@ -1,15 +1,22 @@
 
 BUGS:
 - session leader must be set in all cases, not only in ish buffer: 
-  in sh buffer does not work'man --ascii -P cat eda'
+  in sh buffer does not work 'man --ascii -P cat eda'
+fixed
 
-- /usr/local/share foud in edamcro in release
-  minor
+- simple_parser() was limited to input lines with max.256 bytes; find results were not parsed;
+fixed
+
+- /usr/local/share found in edamacro in the release package, should be /usr/share
+fixed
 
 - with files having cr/lf lines there is a design level bug:
   insert actions after file end will add characters before lf,
   that means: between cr and lf; thats bad
   deleol, join_line, and maybe the block level join tool also
+??
+
+---
 
 FEATURE: python error parser
   - ongoing: python -m py_compile script ; pyflakes script ; pylint -E script
@@ -18,18 +25,28 @@ FEATURE: hashtab for the commands and keyboard inputs
   - first part ready: perfect hash (all keys found slot in first round)
   - second: generate this during the build
 
-FEATURE: xml tag support
-- - tomatch for xml tag tokens, block folding, etc
+FEATURE: m1 command as 'more 1'
+  - expanding filter blocks up and down  
 
-FEATURE: R language ?
+operation restricted to current selection block
+  - like indent/unindent but only surrounding selection
+  - replace, comment, uncomment, ...
 
-FEATURE: Octave ?
+FEATURE: xml/html tag support
+  - tomatch for tag tokens, block folding, etc
 
-FEATURE: ??
-  - window split, like vim
+FEATURE: support indentation based structures ?
+  - like python
+  - in general: folding, function name, ...
 
-FEATURE: distributed eda ??
-  - separate eda instances communicate like one
-  - master selection, slave synch
+FEATURE: java, javascript, ... support ?
+
+FEATURE: R language support ?
+
+FEATURE: Octave support ?
+
+FEATURE: multi-window solution ?
+  - window split like vim or other tools (huge workload, small gain)
+  - separate active/passive eda instances
 
 --- oldies ---
