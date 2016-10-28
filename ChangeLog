@@ -1,4 +1,5 @@
 
+    - some python support, error parser, macros, modified macro run
     - fixes: simple_parser on long lines; man pages in shell buffer (setsid)
 
 * 2015 preparation for the EDA edition "Summer '15 release 0.9.53"

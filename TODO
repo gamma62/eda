@@ -14,16 +14,13 @@ fixed
   insert actions after file end will add characters before lf,
   that means: between cr and lf; thats bad
   deleol, join_line, and maybe the block level join tool also
-??
+wip
 
 ---
 
 FEATURE: python error parser
   - ongoing: python -m py_compile script ; pyflakes script ; pylint -E script
-
-FEATURE: hashtab for the commands and keyboard inputs
-  - first part ready: perfect hash (all keys found slot in first round)
-  - second: generate this during the build
+done
 
 FEATURE: m1 command as 'more 1'
   - expanding filter blocks up and down  
@@ -35,18 +32,14 @@ operation restricted to current selection block
 FEATURE: xml/html tag support
   - tomatch for tag tokens, block folding, etc
 
-FEATURE: support indentation based structures ?
+FEATURE: hashtab for the commands and keyboard inputs
+  - first part ready: perfect hash (all keys found slot in first round)
+  - second step: generate this during the build
+  --- much better: hashtab for key codes (fixed size table), balanced tree for commands and macros (frequent changes)
+push by side, hashtab branch
+
+FEATURE: more suupport for indentation based structures ?
   - like python
   - in general: folding, function name, ...
-
-FEATURE: java, javascript, ... support ?
-
-FEATURE: R language support ?
-
-FEATURE: Octave support ?
-
-FEATURE: multi-window solution ?
-  - window split like vim or other tools (huge workload, small gain)
-  - separate active/passive eda instances
 
 --- oldies ---

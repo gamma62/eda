@@ -625,6 +625,86 @@ simple_parser (const char *dataline, int jump_mode)
 }
 
 /*
+* python_parser - try to parse filename and linenum from the dataline, and jump to that position
+* various experimental patterns
+* returns 0 on success, 2 if the buffer is not open or scratch, 1 if lineno not found and -1 if pattern does not match
+*/
+int
+python_parser (const char *dataline)
+{
+	int ret=0, len;
+	char strz[FNAMESIZE+LINESIZE_INIT];
+	char patt0[TAGSTR_SIZE];
+	char patt1[TAGSTR_SIZE];
+	char patt2[TAGSTR_SIZE];
+	LINE *lx = NULL;
+	int linenum, origin, safeback;
+
+	len = strlen(dataline);
+	if (len == 0 || len >= FNAMESIZE+LINESIZE_INIT) {
+		return (1);
+	}
+
+	/* pyflakes ...
+	* /^<filename>:(\d+):/
+	*/
+	strncpy(patt0, "^[^:]+:(\\d+):", 100);
+
+	/* pylint -E ...
+	* /^E:(\d+),\d+:/
+	*/
+	strncpy(patt1, "^E:\\s*(\\d+),\\s*\\d+:", 100);
+
+	/* python -m py_compile ...
+	*  /^  File "<filename>", line (\d+)/
+	*/
+	strncpy(patt2, "^\\s*File\\s+\"[^\"]+\", line\\s+(\\d+)", 100);
+
+	if (len>2 && dataline[0] == '.' && dataline[1] == '/') {
+		dataline += 2;	/* cut useless prefix */
+		len -= 2;
+	}
+
+	strz[0] = '\0';
+	linenum = -1;
+	if (!regexp_match(dataline, patt0, 1, strz)) {
+		linenum = strtol(strz, NULL, 10);
+		PD_LOG(LOG_DEBUG, "patt0 --> :%d", linenum);
+	} else if (!regexp_match(dataline, patt1, 1, strz)) {
+		linenum = strtol(strz, NULL, 10);
+		PD_LOG(LOG_DEBUG, "patt1 --> :%d", linenum);
+	} else if (!regexp_match(dataline, patt2, 1, strz)) {
+		linenum = strtol(strz, NULL, 10);
+		PD_LOG(LOG_DEBUG, "patt2 --> :%d", linenum);
+	}
+
+	ret = -1;
+	if (linenum > 0) {
+		/* switch to the origin buffer, if possible
+		 */
+		ret = 2;
+		origin = CURR_FILE.origin;
+		if (origin >= 0 && origin < RINGSIZE && \
+		    (cnf.fdata[origin].fflag & FSTAT_OPEN) && \
+		    !(cnf.fdata[origin].fflag & FSTAT_SCRATCH))
+		{
+			safeback = cnf.ring_curr;
+			cnf.ring_curr = origin;
+			lx = lll_goto_lineno (cnf.ring_curr, linenum);
+			if (lx != NULL) {	/* maybe bottom */
+				set_position (cnf.ring_curr, linenum, lx);
+				ret = 0;
+			} else {
+				cnf.ring_curr = safeback;
+				ret = 1;
+			}
+		}
+	}
+
+	return (ret);
+}
+
+/*
 * diff_parser - parser for diff files of type subversion and cleartool
 */
 int
@@ -737,6 +817,9 @@ general_parser (void)
 	else if ((strncmp(CURR_FILE.fname, "*find*", 6) == 0) ||
 		(strncmp(CURR_FILE.fname, "*make*", 6) == 0)) {
 		simple_parser (dataline, SIMPLE_PARSER_JUMP);
+	}
+	else if (strncmp(CURR_FILE.fname, "*sh*", 4) == 0) {
+		python_parser (dataline);
 	}
 	else if (strncmp(CURR_FILE.fname, "*diff*", 6) == 0) {
 		diff_parser (dataline);
@@ -1355,7 +1438,7 @@ find_window_switch (void)
 	int ring_i;
 	int origin;
 	static int find_first=0;
-	const char *fname_once=NULL, *fname_other=NULL;
+	const char *fname_once=NULL, *fname_other=NULL, *fname_try=NULL;
 
 	/* jump from spec.buffer to file by origin */
 	if (strncmp(CURR_FILE.fname, "*find*", 6) == 0) {
@@ -1374,29 +1457,49 @@ find_window_switch (void)
 			cnf.ring_curr = origin;
 			find_first = 0;
 		}
+	} else if (strncmp(CURR_FILE.fname, "*sh*", 4) == 0) {
+		origin = CURR_FILE.origin;
+		if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
+			PD_LOG(LOG_DEBUG, "*sh* : spec.buffer %d --> file %d",
+				cnf.ring_curr, origin);
+			cnf.ring_curr = origin;
+			find_first = -1;
+		}
 
 	/* jump back to spec.buffer by checking them in order */
 	} else {
 		origin = cnf.ring_curr;
-		if (find_first) {
+		if (find_first == 1) {
 			fname_once="*find*";
 			fname_other="*make*";
-		} else {
+			fname_try="*sh*";
+		} else if (find_first == 0) {
 			fname_once="*make*";
 			fname_other="*find*";
+			fname_try="*sh*";
+		} else {
+			fname_once="*sh*";
+			fname_other="*find*";
+			fname_try="*make*";
 		}
 
 		ring_i = query_scratch_fname (fname_once);
 		if (ring_i == -1) {
 			ring_i = query_scratch_fname (fname_other);
+			if (ring_i == -1) {
+				ring_i = query_scratch_fname (fname_try);
+			}
 		}
 
 		if (ring_i != -1) {
 			/* in the ring */
-			PD_LOG(LOG_DEBUG, "%s %s : file %d --> spec.buffer %d",
-				fname_once, fname_other, origin, ring_i);
+			PD_LOG(LOG_DEBUG, "%s %s %s : from file %d --> spec.buffer %d",
+				fname_once, fname_other, fname_try, origin, ring_i);
 			cnf.ring_curr = ring_i;
 			CURR_FILE.origin = origin;
+		} else {
+			/* failed */
+			tracemsg("jump back to special buffer failed");
 		}
 	}
 

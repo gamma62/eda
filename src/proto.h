@@ -82,6 +82,7 @@ extern int lsdir (const char *dirpath);
 #define SIMPLE_PARSER_JUMP 0
 #define SIMPLE_PARSER_WINKIN 1
 extern int simple_parser (const char *dline, int jump_mode);
+extern int python_parser (const char *dline);
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */

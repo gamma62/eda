@@ -122,3 +122,31 @@ KEY_NONE	save_cmds
 	show_commands
 	drop_file
 .
+KEY_NONE	py
+#Description: set python environment
+	set indent space 4
+	set find_opts . -type f ( -name '*.py' ) -exec egrep -nH -w
+.
+KEY_NONE	allpy
+#Description: all python blocks, first level
+	filter_all /^(\s*(def|class) \w.*):|__main__/
+.
+# KEY_NONE	pyc
+# #Description: python check
+# 	shell_cmd python -m py_compile ^G
+# 	finish_in_fg
+# 	shell_cmd pyflakes ^G
+# 	finish_in_fg
+# 	shell_cmd pylint -E ^G
+# 	finish_in_fg
+# .
+KEY_M_LSQBRAC	alt_unindent
+#Description: s-f7 alternative unindent
+	unindent_left
+#	shift_left
+.
+KEY_M_RSQBRAC	alt_indent
+#Description: s-f8 alternative indent
+	indent_right
+#	shift_right
+.

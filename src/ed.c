@@ -149,14 +149,18 @@ run_macro_command (int mi, char *args_inbuff)
 {
 	int ii=0, ix=0, iy=0, jj=0, kk=0, xx=0, args_cnt=0, exec=0;
 	char dup_buffer[CMDLINESIZE];
-	char *args[MAXARGS];
+	char dup_fname[FNAMESIZE];
+	char *args[MAXARGS+1];
 	char *mptr;
 	char args_ready[CMDLINESIZE];
 
 	if ( !(macros[mi].mflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
+		strncpy(dup_fname, CURR_FILE.fname, FNAMESIZE);
+		dup_fname[FNAMESIZE-1] = '\0';
 		strncpy(dup_buffer, args_inbuff, CMDLINESIZE);
 		dup_buffer[CMDLINESIZE-1] = '\0';
-		args_cnt = parse_args (dup_buffer, args);
+		args[0] = args_inbuff;
+		args_cnt = parse_args (dup_buffer, args+1);
 
 		CMD_LOG(LOG_INFO, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
 			mi, macros[mi].name, macros[mi].fkey, args_inbuff, args_cnt);
@@ -176,15 +180,10 @@ run_macro_command (int mi, char *args_inbuff)
 						jj += 2;
 					} else if (mptr[jj] == '$' && mptr[jj+1] >= '0' && mptr[jj+1] <= '9') {
 						iy = mptr[jj+1] - '0';
-						if (iy > 0 && iy <= args_cnt) {
-							/* copy args[iy-1] */
-							for (xx=0; args[iy-1][xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
-								args_ready[kk++] = args[iy-1][xx];
-							}
-						} else if (iy == 0) {
-							/* copy whole args_inbuff */
-							for (xx=0; args_inbuff[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
-								args_ready[kk++] = args_inbuff[xx];
+						if (iy >= 0 && iy <= args_cnt) {
+							/* copy args[iy] */
+							for (xx=0; args[iy][xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
+								args_ready[kk++] = args[iy][xx];
 							}
 						} else {
 							/* fail, copy args literally */
@@ -194,8 +193,8 @@ run_macro_command (int mi, char *args_inbuff)
 						jj += 2;
 					} else if (mptr[jj] == '^' && mptr[jj+1] == 'G') {
 						/* copy (short) filename */
-						for (xx=0; CURR_FILE.fname[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
-							args_ready[kk++] = CURR_FILE.fname[xx];
+						for (xx=0; dup_fname[xx] != '\0' && kk < CMDLINESIZE-1; xx++) {
+							args_ready[kk++] = dup_fname[xx];
 						}
 						jj += 2;
 					} else {
