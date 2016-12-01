@@ -123,8 +123,9 @@ KEY_NONE	save_cmds
 	drop_file
 .
 KEY_NONE	py
-#Description: set python environment
+#Description: settings for python
 	set indent space 4
+	set tabsize 4
 	set find_opts . -type f ( -name '*.py' ) -exec egrep -nH -w
 .
 KEY_NONE	allpy
@@ -132,7 +133,7 @@ KEY_NONE	allpy
 	filter_all /^(\s*(def|class) \w.*):|__main__/
 .
 # KEY_NONE	pyc
-# #Description: python check
+# #Description: python check sample
 # 	shell_cmd python -m py_compile ^G
 # 	finish_in_fg
 # 	shell_cmd pyflakes ^G
@@ -140,6 +141,16 @@ KEY_NONE	allpy
 # 	shell_cmd pylint -E ^G
 # 	finish_in_fg
 # .
+KEY_NONE	js
+#Description: settings for javascript or java
+	set indent space 4
+	set tabsize 4
+	set find_opts . -type f ( -name '*.js' -o -name '*.java' ) -exec egrep -nH -w
+.
+KEY_NONE	ts
+#Description: tabsize setting
+	set tabsize $1
+.
 KEY_M_LSQBRAC	alt_unindent
 #Description: s-f7 alternative unindent
 	unindent_left

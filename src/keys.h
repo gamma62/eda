@@ -43,7 +43,6 @@
 	{ KN(KEY_C_E), },
 	{ KN(KEY_C_F), },
 	{ KN(KEY_C_G), },
-	{ KN(KEY_C_H), },
 	{ KN(KEY_C_J), },
 	{ KN(KEY_C_K), },
 	{ KN(KEY_C_L), },

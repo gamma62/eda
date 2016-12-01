@@ -65,10 +65,9 @@ n/a                   Ctrl-L           repeat_search
 ch.ange <arg>         n/a              change              
 tag [<arg>]           n/a              color_tag           
 tf                    Shift-F1         tag_focusline       
-hi.gh [<arg>]         Ctrl-H           highlight_word      
-n/a                   Ctrl-J           search_word         
+hi.gh                 Ctrl-J           highlight_word      
+n/a                   Ctrl-F           search_word         
 n/a                   Ctrl-K           tag_line_byword     
-n/a                   Ctrl-F           search_cmd_macro    
 mat.ch                F9               tomatch             
 fm.atch               Ctrl-F9          forcematch          
 fb.lock               Ctrl-F10         fold_block          

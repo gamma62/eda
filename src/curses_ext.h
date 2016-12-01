@@ -36,17 +36,8 @@
 			/* special characters with Ctrl- or Shift- */
 #define KEY_NONE	(0)	/* default, no-op value */
 
-
-#ifdef THE_BACKSPACE_C_H_CHEAT
-#ifdef KEY_BACKSPACE
-#undef KEY_BACKSPACE
-#endif
-#define KEY_BACKSPACE	0x7F	/* reserved */
-#else
-/* (no space before define!)
-*define KEY_BACKSPACE	reserved
-*/
-#endif /* THE_BACKSPACE_C_H_CHEAT */
+#define KEY_BACKSPACE	0x10F	/* reserved */
+#define KEY_ASCII_DEL	0x7F	/* reserved, ascii DEL */
 
 /* (no space before define!)
 *define KEY_IC		reserved
@@ -127,11 +118,7 @@
 #define KEY_C_E		0x05
 #define KEY_C_F		0x06
 #define KEY_C_G		0x07
-#ifndef THE_BACKSPACE_C_H_CHEAT
-#define KEY_C_H		0x08
-#else
-#define KEY_C_H		0x107	/* cheat */
-#endif /* THE_BACKSPACE_C_H_CHEAT */
+#define KEY_C_H		0x08	/* reserved: ^H (ascii BS) */
 #define KEY_C_I		0x09	/* reserved: ^I or KEY_TAB */
 #define KEY_C_J		0x0a
 #define KEY_C_K		0x0b
@@ -228,7 +215,7 @@
 #define KEY_M_RCURBRAC	(KEY_META | '}')
 #define KEY_M_TILDE	(KEY_META | '~')
 
-/* virtual keys; dynamic mapping in edaseq
+/* direct mapping for these, optionally
 * ---------------------------------------------
 */
 #define KEY_C_UP	(KEY_CTRL | 1)

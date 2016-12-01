@@ -1,6 +1,6 @@
 
 BUGS:
-- session leader must be set in all cases, not only in ish buffer: 
+- session leader must be set in all cases, not only in ish buffer:
   in sh buffer does not work 'man --ascii -P cat eda'
 fixed
 
@@ -11,34 +11,57 @@ fixed
 fixed
 
 - with files having cr/lf lines there is a design level bug:
-  insert actions after file end will add characters before lf,
-  that means: between cr and lf; thats bad
-  deleol, join_line, and maybe the block level join tool also
+  insert actions after lineend will add characters between cr and lf
+  thats bad; affected join_line, deleol, join_block and *_block
 wip
+
+- BackSpace, Ctrl-Up/Down,... over ssh are strange; robustness fix needed
+  no cheat, 0x08, 0x7f act like BackSpace;
+  the Ctrl-H becomes reserved (0x08) so search_cmd_macro() dropped, and
+  Ctrl-F => search_word(), Ctrl-J => highlight_word();
+  the dynamic mapping fixed: Ctrl-Up/Down,... can be sequence or fixed value;
+done
+
+- tomatch and folding does not ignore comments and strings
+  strings, continuation lines, escapes and comments by language...
+
+- diff processing?
 
 ---
 
 FEATURE: python error parser
-  - ongoing: python -m py_compile script ; pyflakes script ; pylint -E script
+  - python -m py_compile script ; pyflakes script ; pylint -E script
 done
 
 FEATURE: m1 command as 'more 1'
-  - expanding filter blocks up and down  
+  - expanding filter blocks up and down
+
+FEATURE: xml/html tag support
+  - tomatch for tag tokens, block folding, etc
 
 operation restricted to current selection block
   - like indent/unindent but only surrounding selection
   - replace, comment, uncomment, ...
 
-FEATURE: xml/html tag support
-  - tomatch for tag tokens, block folding, etc
+FEATURE: secret store, eda extension: my secrets with gpg
+  - cnf.gpgpassphrase[]=mysecret -- default:empty
+  - cnf.gpgfile[]=cluedo.gpg -- default:empty
+  - ##design/implementation missing
+  - read_phrase(buffer, secret=False)
+  - ##reading into special-buffer *gpg*, remember filename, ask for passphrase if empty
+  - gpg -d --yes --batch --passphrase=<phrase> <gpgfile> 2>/dev/null
+  - command: gde.crypt [alt.filename]
+  - ##write back / overwrite
+  - lines of *gpg* | gpg --yes --batch --passphrase=<phrase> -o <gpgfile> -c -
+  - command: gen.crypt [alt.filename]
 
+FEATURE: support indentation based structures ?
 FEATURE: hashtab for the commands and keyboard inputs
   - first part ready: perfect hash (all keys found slot in first round)
   - second step: generate this during the build
   --- much better: hashtab for key codes (fixed size table), balanced tree for commands and macros (frequent changes)
-push by side, hashtab branch
+postponed, hashtab branch
 
-FEATURE: more suupport for indentation based structures ?
   - like python
   - in general: folding, function name, ...
 

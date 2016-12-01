@@ -119,10 +119,11 @@ TABLE table[] = {
 	/* repeat_change() -- only from change() and event_handler() */
 	{ "tag",	-1, 3,			PN(color_tag),		0x11},
 	{ "tf",		KEY_S_F1, 2,		PN(tag_focusline),	0x00},
-	{ "high",	KEY_C_H, 2,		PN(highlight_word),	0x11},
-	{ "",		KEY_C_J, -1,		PN(search_word),	0x00},
+	/* KEY_C_H reserved */
+	{ "high",		KEY_C_J, 2,		PN(highlight_word),	0x00},
+
+	{ "",		KEY_C_F, -1,		PN(search_word),	0x00},
 	{ "",		KEY_C_K, -1,		PN(tag_line_byword),	0x00},
-	{ "",		KEY_C_F, -1,		PN(search_cmd_macro),	0x00},
 
 	/* brace match and folding */
 	{ "match",	KEY_F9, 3,		PN(tomatch),		0x00},

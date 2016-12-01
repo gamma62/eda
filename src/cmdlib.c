@@ -1002,38 +1002,6 @@ is_special (const char *special)
 }
 
 /*
-** search_cmd_macro - reset search command or start again with last search pattern,
-**	depending on the search status
-*/
-int
-search_cmd_macro (void)
-{
-	unsigned len=0;
-
-	if (CURR_FILE.fflag & FSTAT_TAG2) {
-		reset_search();
-	} else {
-		/* select cmdline */
-		CURR_FILE.fflag |= FSTAT_CMD;
-		len = strlen(CURR_FILE.search_expr);
-		reset_cmdline();
-		type_cmd("/");
-		if (len > 0) {
-			if (CURR_FILE.search_expr[0] == '/') {
-				type_cmd(CURR_FILE.search_expr+1);
-			} else {
-				type_cmd(CURR_FILE.search_expr);
-			}
-		}
-		/* clpos=1 -- that way it is easy to get earlier patterns by "prefix filter" */
-		cnf.clpos = 1;
-		cnf.cloff = 0;
-	}
-
-	return (0);
-}
-
-/*
 ** search_word - start immediate find search with the word under cursor
 */
 int
@@ -1063,6 +1031,8 @@ search_word (void)
 		/* lets run */
 		go_home();	/* don't leave this item */
 		search(pattern);
+	} else {
+		reset_search();
 	}
 	FREE(word); word = NULL;
 

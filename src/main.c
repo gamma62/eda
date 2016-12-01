@@ -168,6 +168,9 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	if (process_macrofile(cnf.noconfig)) {
 		leave("macro processing failed");
 	}
+	if (!cnf.noconfig) {
+		cnf.gstat |= GSTAT_FIXCR; /* only with normal configuration */
+	}
 
 	/* set signal handler */
 	memset(&sigAct, 0, sizeof (sigAct));
@@ -404,6 +407,7 @@ set_defaults(void)
 	cnf.tabsize = 8;
 	cnf.indentsize = (cnf.gstat & GSTAT_INDENT) ? 1 : 4;	/* 1 tab or 4 spaces */
 	cnf.pref = (cnf.gstat & GSTAT_PREFIX) ? PREFIXSIZE : 0;
+	cnf.gstat &= ~(GSTAT_FIXCR);	/* explicit off */
 
 	cnf.palette = 0;
 	cnf.trace = 0;		/* count of tracemsg[] lines */

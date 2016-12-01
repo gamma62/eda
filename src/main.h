@@ -110,7 +110,8 @@
 #define GSTAT_SAVE_INODE 0x00002000	/* save file with original inode, replace content; transparent for hardlink/symlink */
 #define GSTAT_LOCATE	0x00004000	/* use external or internal search method, default 0, external find/egrep */
 #define GSTAT_RECORD	0x00008000	/* macro recording flag */
-/*			0x00010000	*/
+#define GSTAT_FIXCR	0x00010000	/* fix CR and CR/LF in input stream */
+/*			0x00020000	*/
 
 #define TILDE		"~"
 #define TOP_MARK	"<<top>>\n"		/* pass LINESIZE_MIN */

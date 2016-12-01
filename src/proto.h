@@ -86,7 +86,6 @@ extern int python_parser (const char *dline);
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */
-extern int search_cmd_macro (void);			/* public, macro */
 extern int search_word (void);				/* public, macro */
 extern int tag_line_byword (void);			/* public, macro */
 extern int prefix_macro (void);				/* public, macro */

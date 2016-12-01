@@ -684,7 +684,7 @@ testaccess (struct stat *test)
 	return ta_return;
 }
 
-/* getxline_filter - fix inline CR, let pass CR/LF through and drop control chars
+/* getxline_filter - fix inline CR and CR/LF and drop control chars
 */
 static int
 getxline_filter(char *getbuff)
@@ -696,9 +696,11 @@ getxline_filter(char *getbuff)
 
 	while (getbuff[ir] != '\0') {
 		if (getbuff[ir] == '\n') {
-			if (ir > 0 && getbuff[ir-1] == '\r') {
-				getbuff[iw++] = '\r';
-				--changed;
+			if ((cnf.gstat & GSTAT_FIXCR) == 0) {
+				if (ir > 0 && getbuff[ir-1] == '\r') {
+					getbuff[iw++] = '\r';
+					--changed;
+				}
 			}
 			getbuff[iw++] = getbuff[ir];
 			break;
@@ -760,7 +762,6 @@ read_lines (FILE *fp, LINE **linep, int *lineno)
 			break;
 		}
 
-		/* fix inline CR, let pass CR/LF through and drop control chars */
 		changed = getxline_filter(getbuff);
 
 		if ((lx = append_line(lp, getbuff)) == NULL) {
@@ -1134,7 +1135,12 @@ reload_bydiff (void)
 	}
 
 	memset(ext_argstr, 0, sizeof(ext_argstr));
-	snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff - %s", CURR_FILE.fname);
+	if (cnf.gstat & GSTAT_FIXCR) {
+		/* diff should behave like getxline_filter */
+		snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff --strip-trailing-cr - %s", CURR_FILE.fname);
+	} else {
+		snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff - %s", CURR_FILE.fname);
+	}
 
 	ret = read_pipe ("*notused*", cnf.diff_path, ext_argstr, (OPT_NOSCRATCH | OPT_IN_OUT_REAL_ALL));
 	if (ret) {
@@ -1700,7 +1706,6 @@ read_file_line (const char *fname, int lineno)
 		FREE(getbuff); getbuff = NULL;
 	}
 
-	/* fix inline CR, let pass CR/LF through and drop control chars */
 	(void) getxline_filter(getbuff);
 
 	return getbuff;

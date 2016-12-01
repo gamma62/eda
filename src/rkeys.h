@@ -3,6 +3,7 @@
 	{ KN(KEY_TAB), },
 	{ KN(KEY_ESC), },
 	{ KN(KEY_BACKSPACE), },
+	{ KN(KEY_ASCII_DEL), },
 	{ KN(KEY_IC), },
 	{ KN(KEY_DC), },
 	{ KN(KEY_HOME), },
@@ -13,6 +14,7 @@
 	{ KN(KEY_RIGHT), },
 	{ KN(KEY_F12), },
 	{ KN(KEY_C_C), },
+	{ KN(KEY_C_H), },
 	{ KN(KEY_C_I), },
 	{ KN(KEY_C_M), },
 	{ KN(KEY_C_O), },
@@ -20,4 +22,4 @@
 	{ KN(KEY_C_Q), },
 	{ KN(KEY_C_S), },
 	{ KN(KEY_C_Z), },
-#define RESERVED_KEYS 21
+#define RESERVED_KEYS 23

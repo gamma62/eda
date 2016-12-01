@@ -296,63 +296,6 @@ process_esc_seq (const char *str, NODE *tree)
 		return (-1);
 	}
 
-	/* dynamic mapping -- get configured values */
-	if (strncmp(key_name, "KEY_C_UP", 8) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_up = key_val;
-			return (0);
-		}
-	} else if (strncmp(key_name, "KEY_C_DOWN", 10) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_down = key_val;
-			return (0);
-		}
-	} else if (strncmp(key_name, "KEY_C_LEFT", 10) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_left = key_val;
-			return (0);
-		}
-	} else if (strncmp(key_name, "KEY_C_RIGHT", 11) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_right = key_val;
-			return (0);
-		}
-	} else if (strncmp(key_name, "KEY_C_PPAGE", 11) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_ppage = key_val;
-			return (0);
-		}
-	} else if (strncmp(key_name, "KEY_C_NPAGE", 11) == 0) {
-		key_val = strtol(p, NULL, 16);
-		if (key_val < 255 || index_key_value(key_val) < KLEN) {
-			fprintf(stderr, "eda: process_esc_seq: key %s, value duplicate\n", key_name);
-			return (-1);
-		} else {
-			key_c_npage = key_val;
-			return (0);
-		}
-	}
-
 	/* validate key_name against valid names in keys[] to get key_val */
 	ki = index_key_string (key_name);
 	if (ki >= KLEN) {
@@ -373,6 +316,28 @@ process_esc_seq (const char *str, NODE *tree)
 		}
 		p = q;	/* skip to next */
 	}
+	if (lcount == 1 && leaves[0] != KEY_ESC) {
+		/* dynamic mapping */
+		if (strncmp(key_name, "KEY_C_UP", 8) == 0) {
+			key_c_up = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_C_DOWN", 10) == 0) {
+			key_c_down = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_C_LEFT", 10) == 0) {
+			key_c_left = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_C_RIGHT", 11) == 0) {
+			key_c_right = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_C_PPAGE", 11) == 0) {
+			key_c_ppage = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_C_NPAGE", 11) == 0) {
+			key_c_npage = leaves[0];
+			return (0);
+		}
+	}
 	if (leaves[0] != KEY_ESC) {
 		fprintf(stderr, "eda: process_esc_seq: first leaf must be %x\n", KEY_ESC);
 		return (-5);
@@ -383,11 +348,11 @@ process_esc_seq (const char *str, NODE *tree)
 	}
 
 	/*
-	* fprintf(stderr, "%s is 0x%04x: sequence of %d items: ", key_name, key_val, lcount);
-	* for (i=0;  i < lcount; i++) {
-	*	fprintf(stderr, "%02x ", leaves[i]);
-	* }
-	* fprintf(stderr, "\n");
+	*	fprintf(stderr, "%s is 0x%04x: sequence of %d items: ", key_name, key_val, lcount);
+	*	for (i=0;  i < lcount; i++) {
+	*		fprintf(stderr, "%02x ", leaves[i]);
+	*	}
+	*	fprintf(stderr, "\n");
 	*/
 
 	/* merge leaves[] to tree, node is the running pointer */

@@ -427,6 +427,8 @@ ed_cmdline (int ch)
 		switch (ch)
 		{
 		case KEY_BACKSPACE:
+		case KEY_C_H:
+		case KEY_ASCII_DEL:
 			if (cnf.clpos > 0) {
 				if (cnf.clpos > cnf.cmdline_len)
 					go2end_cmdline();
@@ -638,6 +640,8 @@ ed_text (int ch)
 
 	/* delete, split/join, add new */
 	case KEY_BACKSPACE:
+	case KEY_C_H:
+	case KEY_ASCII_DEL:
 		delback_char();
 		if (o_lncol > 0 && o_lncol < o_llen && o_lnoff == CURR_FILE.lnoff)
 			cnf.gstat |= GSTAT_UPDFOCUS;

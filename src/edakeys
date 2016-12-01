@@ -2,11 +2,11 @@
 # do not edit, save a copy to ~/.eda/ instead
 
 ### reference: reserved keys, these keys are hard-coded ###
-# KEY_RETURN       KEY_TAB          KEY_ESC          KEY_BACKSPACE    KEY_IC
-# KEY_DC           KEY_HOME         KEY_END          KEY_UP           KEY_DOWN
-# KEY_LEFT         KEY_RIGHT        KEY_F12          KEY_C_C          KEY_C_I
-# KEY_C_M          KEY_C_O          KEY_C_P          KEY_C_Q          KEY_C_S
-# KEY_C_Z
+# KEY_RETURN       KEY_TAB          KEY_ESC          KEY_BACKSPACE    KEY_ASCII_DEL
+# KEY_IC           KEY_DC           KEY_HOME         KEY_END          KEY_UP
+# KEY_DOWN         KEY_LEFT         KEY_RIGHT        KEY_F12          KEY_C_C
+# KEY_C_H          KEY_C_I          KEY_C_M          KEY_C_O          KEY_C_P
+# KEY_C_Q          KEY_C_S          KEY_C_Z
 
 ### reference: general keys, these keys can be added to one function ###
 # KEY_NONE         KEY_PPAGE        KEY_NPAGE        KEY_F1           KEY_F2
@@ -17,25 +17,25 @@
 # KEY_S_F12        KEY_C_F1         KEY_C_F2         KEY_C_F3         KEY_C_F4
 # KEY_C_F5         KEY_C_F6         KEY_C_F7         KEY_C_F8         KEY_C_F9
 # KEY_C_F10        KEY_C_F11        KEY_C_F12        KEY_C_A          KEY_C_B
-# KEY_C_D          KEY_C_E          KEY_C_F          KEY_C_G          KEY_C_H
-# KEY_C_J          KEY_C_K          KEY_C_L          KEY_C_N          KEY_C_R
-# KEY_C_T          KEY_C_U          KEY_C_V          KEY_C_W          KEY_C_X
-# KEY_C_Y          KEY_M_RETURN     KEY_M_SPACE      KEY_M_EXCLAM     KEY_M_DQUOTE
-# KEY_M_HASH       KEY_M_DOLLAR     KEY_M_PERCENT    KEY_M_AMPERSAND  KEY_M_SQUOTE
-# KEY_M_LPAREN     KEY_M_RPAREN     KEY_M_STAR       KEY_M_PLUS       KEY_M_COMMA
-# KEY_M_MINUS      KEY_M_DOT        KEY_M_SLASH      KEY_M_ZERO       KEY_M_ONE
-# KEY_M_TWO        KEY_M_THREE      KEY_M_FOUR       KEY_M_FIVE       KEY_M_SIX
-# KEY_M_SEVEN      KEY_M_EIGHT      KEY_M_NINE       KEY_M_COLON      KEY_M_SEMICOLON
-# KEY_M_LESSTHAN   KEY_M_EQUAL      KEY_M_GREATHAN   KEY_M_QMARK      KEY_M_AT
-# KEY_M_LSQBRAC    KEY_M_BACKSLASH  KEY_M_RSQBRAC    KEY_M_CARET      KEY_M_UNDERLINE
-# KEY_M_GRAVEACC   KEY_M_A          KEY_M_B          KEY_M_C          KEY_M_D
-# KEY_M_E          KEY_M_F          KEY_M_G          KEY_M_H          KEY_M_I
-# KEY_M_J          KEY_M_K          KEY_M_L          KEY_M_M          KEY_M_N
-# KEY_M_O          KEY_M_P          KEY_M_Q          KEY_M_R          KEY_M_S
-# KEY_M_T          KEY_M_U          KEY_M_V          KEY_M_W          KEY_M_X
-# KEY_M_Y          KEY_M_Z          KEY_M_LCURBRAC   KEY_M_BAR        KEY_M_RCURBRAC
-# KEY_M_TILDE      KEY_C_UP         KEY_C_DOWN       KEY_C_LEFT       KEY_C_RIGHT
-# KEY_C_PPAGE      KEY_C_NPAGE
+# KEY_C_D          KEY_C_E          KEY_C_F          KEY_C_G          KEY_C_J
+# KEY_C_K          KEY_C_L          KEY_C_N          KEY_C_R          KEY_C_T
+# KEY_C_U          KEY_C_V          KEY_C_W          KEY_C_X          KEY_C_Y
+# KEY_M_RETURN     KEY_M_SPACE      KEY_M_EXCLAM     KEY_M_DQUOTE     KEY_M_HASH
+# KEY_M_DOLLAR     KEY_M_PERCENT    KEY_M_AMPERSAND  KEY_M_SQUOTE     KEY_M_LPAREN
+# KEY_M_RPAREN     KEY_M_STAR       KEY_M_PLUS       KEY_M_COMMA      KEY_M_MINUS
+# KEY_M_DOT        KEY_M_SLASH      KEY_M_ZERO       KEY_M_ONE        KEY_M_TWO
+# KEY_M_THREE      KEY_M_FOUR       KEY_M_FIVE       KEY_M_SIX        KEY_M_SEVEN
+# KEY_M_EIGHT      KEY_M_NINE       KEY_M_COLON      KEY_M_SEMICOLON  KEY_M_LESSTHAN
+# KEY_M_EQUAL      KEY_M_GREATHAN   KEY_M_QMARK      KEY_M_AT         KEY_M_LSQBRAC
+# KEY_M_BACKSLASH  KEY_M_RSQBRAC    KEY_M_CARET      KEY_M_UNDERLINE  KEY_M_GRAVEACC
+# KEY_M_A          KEY_M_B          KEY_M_C          KEY_M_D          KEY_M_E
+# KEY_M_F          KEY_M_G          KEY_M_H          KEY_M_I          KEY_M_J
+# KEY_M_K          KEY_M_L          KEY_M_M          KEY_M_N          KEY_M_O
+# KEY_M_P          KEY_M_Q          KEY_M_R          KEY_M_S          KEY_M_T
+# KEY_M_U          KEY_M_V          KEY_M_W          KEY_M_X          KEY_M_Y
+# KEY_M_Z          KEY_M_LCURBRAC   KEY_M_BAR        KEY_M_RCURBRAC   KEY_M_TILDE
+# KEY_C_UP         KEY_C_DOWN       KEY_C_LEFT       KEY_C_RIGHT      KEY_C_PPAGE
+# KEY_C_NPAGE
 
 ### function <--> key binding, one to one except KEY_NONE ###
 go_page_up               KEY_PPAGE
@@ -92,10 +92,9 @@ incr_filter_cycle        KEY_M_BACKSLASH
 process_diff             KEY_NONE
 repeat_search            KEY_C_L
 tag_focusline            KEY_S_F1
-highlight_word           KEY_C_H
-search_word              KEY_C_J
+highlight_word           KEY_C_J
+search_word              KEY_C_F
 tag_line_byword          KEY_C_K
-search_cmd_macro         KEY_C_F
 tomatch                  KEY_F9
 forcematch               KEY_C_F9
 fold_block               KEY_C_F10
