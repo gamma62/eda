@@ -45,7 +45,7 @@
 #define SEARCHSTR_SIZE	200		/* size of storage for search expression */
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
-#define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement */
+#define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement, regexp_shorthands() */
 #define PALETTE_MAX	1
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
@@ -218,17 +218,17 @@
 
 /* some function and block header patterns for various file types
  */
-#define C_HEADER_PATTERN	"([:a-zA-Z0-9_]+)\\s*[(]"
-#define C_STRUCTURE_PATTERN	"^(struct|enum|union|class|namespace)\\s+(\\w*)|^typedef\\s+(struct|enum|union)\\s+(\\w*)"
-#define HEADER_PATTERN_END	"[)]\\s*[{]\\s*$"
+#define C_HEADER_PATTERN	"([:a-zA-Z0-9_]+)[[:blank:]]*[(]"
+#define C_STRUCTURE_PATTERN	"^(struct|enum|union|class|namespace)[[:blank:]]+([[:alpha:]]*)|^typedef[[:blank:]]+(struct|enum|union)[[:blank:]]+([[:alpha:]]*)"
+#define HEADER_PATTERN_END	"[)][[:blank:]]*[{][[:blank:]]*$"
 /**/
-#define PERL_HEADER_PATTERN	"^sub\\s+([:.a-zA-Z0-9_]+)"
-#define TCL_HEADER_PATTERN	"^proc\\s+([:.a-zA-Z0-9_]+)"
-#define SHELL_HEADER_PATTERN	"^function\\s+([a-zA-Z0-9_]+)|^([a-zA-Z0-9_]+)\\s*[(][)]"
-#define HEADER_PATTERN_END2	"\\s*[{]\\s*(#.*)?$"
+#define PERL_HEADER_PATTERN	"^sub[[:blank:]]+([:.a-zA-Z0-9_]+)"
+#define TCL_HEADER_PATTERN	"^proc[[:blank:]]+([:.a-zA-Z0-9_]+)"
+#define SHELL_HEADER_PATTERN	"^function[[:blank:]]+([a-zA-Z0-9_]+)|^([a-zA-Z0-9_]+)[[:blank:]]*[(][)]"
+#define HEADER_PATTERN_END2	"[[:blank:]]*[{][[:blank:]]*(#.*)?$"
 /**/
-#define PYTHON_HEADER_PATTERN	"^\\s*def\\s+(\\w+)"
-#define TEXT_HEADER_PATTERN	"^\\S+"
+#define PYTHON_HEADER_PATTERN	"^[[:blank:]]*def[[:blank:]]+([[:alpha:]]+)"
+#define TEXT_HEADER_PATTERN	"^[^[:blank:]]+"
 
 /* options for pipe i/o processing
 */

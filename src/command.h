@@ -119,9 +119,8 @@ TABLE table[] = {
 	/* repeat_change() -- only from change() and event_handler() */
 	{ "tag",	-1, 3,			PN(color_tag),		0x11},
 	{ "tf",		KEY_S_F1, 2,		PN(tag_focusline),	0x00},
-	/* KEY_C_H reserved */
-	{ "high",		KEY_C_J, 2,		PN(highlight_word),	0x00},
-
+	/* control-H reserved, cannot use KEY_C_H here */
+	{ "high",	KEY_C_J, 2,		PN(highlight_word),	0x11},
 	{ "",		KEY_C_F, -1,		PN(search_word),	0x00},
 	{ "",		KEY_C_K, -1,		PN(tag_line_byword),	0x00},
 

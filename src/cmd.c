@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <stdlib.h>
@@ -427,8 +424,6 @@ ed_cmdline (int ch)
 		switch (ch)
 		{
 		case KEY_BACKSPACE:
-		case KEY_C_H:
-		case KEY_ASCII_DEL:
 			if (cnf.clpos > 0) {
 				if (cnf.clpos > cnf.cmdline_len)
 					go2end_cmdline();
@@ -640,8 +635,6 @@ ed_text (int ch)
 
 	/* delete, split/join, add new */
 	case KEY_BACKSPACE:
-	case KEY_C_H:
-	case KEY_ASCII_DEL:
 		delback_char();
 		if (o_lncol > 0 && o_lncol < o_llen && o_lnoff == CURR_FILE.lnoff)
 			cnf.gstat |= GSTAT_UPDFOCUS;

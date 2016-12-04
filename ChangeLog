@@ -1,4 +1,6 @@
 
+    - started FreeBSD port, make and regexp compatibility changes
+    - lineending fixes, robust Backspace key detection
     - some python support, error parser, macros, modified macro run
     - fixes: simple_parser on long lines; man pages in shell buffer (setsid)
 

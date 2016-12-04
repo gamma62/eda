@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -485,22 +482,85 @@ void
 regexp_shorthands (const char *pattern, char *ext_pattern, int length)
 {
 	int i=0, j=0, opt=0;
+	const int maxlength=12;
 
-	for (i=0; pattern[i] != '\0' && j < length-7; i++) {
+	for (i=0; pattern[i] != '\0' && j < length-maxlength-1; i++) {
 		if (opt) {
 			/* the previous character was backslash */
-			if (pattern[i] == 'd') {
-				ext_pattern[j++] = '[';		/* [[:digit:]] */
-				ext_pattern[j++] = '0';
-				ext_pattern[j++] = '-';
-				ext_pattern[j++] = '9';
+			if (pattern[i] == 's') {
+				ext_pattern[j++] = '[';		/* [[:blank:]] */
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'b';
+				ext_pattern[j++] = 'l';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = 'n';
+				ext_pattern[j++] = 'k';
+				ext_pattern[j++] = ':';
 				ext_pattern[j++] = ']';
-			} else if (pattern[i] == 'D') { /* 6 chars, the max */
+				ext_pattern[j++] = ']';
+			} else if (pattern[i] == 'S') {
+				ext_pattern[j++] = '[';		/* [^[:blank:]] */
+				ext_pattern[j++] = '^';
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'b';
+				ext_pattern[j++] = 'l';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = 'n';
+				ext_pattern[j++] = 'k';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = ']';
+				ext_pattern[j++] = ']';
+			} else if (pattern[i] == 'd') {
+				ext_pattern[j++] = '[';		/* [[:digit:]] */
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'd';
+				ext_pattern[j++] = 'i';
+				ext_pattern[j++] = 'g';
+				ext_pattern[j++] = 'i';
+				ext_pattern[j++] = 't';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = ']';
+				ext_pattern[j++] = ']';
+			} else if (pattern[i] == 'D') {
 				ext_pattern[j++] = '[';		/* [^[:digit:]] */
 				ext_pattern[j++] = '^';
-				ext_pattern[j++] = '0';
-				ext_pattern[j++] = '-';
-				ext_pattern[j++] = '9';
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'd';
+				ext_pattern[j++] = 'i';
+				ext_pattern[j++] = 'g';
+				ext_pattern[j++] = 'i';
+				ext_pattern[j++] = 't';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = ']';
+				ext_pattern[j++] = ']';
+			} else if (pattern[i] == 'w') {
+				ext_pattern[j++] = '[';		/* [[:alpha:]] */
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = 'l';
+				ext_pattern[j++] = 'p';
+				ext_pattern[j++] = 'h';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = ']';
+				ext_pattern[j++] = ']';
+			} else if (pattern[i] == 'W') {
+				ext_pattern[j++] = '[';		/* [^[:alpha:]] */
+				ext_pattern[j++] = '^';
+				ext_pattern[j++] = '[';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = 'l';
+				ext_pattern[j++] = 'p';
+				ext_pattern[j++] = 'h';
+				ext_pattern[j++] = 'a';
+				ext_pattern[j++] = ':';
+				ext_pattern[j++] = ']';
 				ext_pattern[j++] = ']';
 			} else if (pattern[i] == 't') {
 				ext_pattern[j++] = '\t';
@@ -1147,10 +1207,10 @@ do_replacement (CHDATA *chp)
 {
 	int ret = 0;
 
-	REPL_LOG(LOG_DEBUG, "line %d --- from %d length %d -- replace length %d",
+	REPL_LOG(LOG_DEBUG, "line %d --- from %ld length %ld -- replace length %d",
 		chp->lineno,
-		chp->lncol + chp->pmatch[0].rm_so,
-		chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so,
+		(long)chp->lncol + chp->pmatch[0].rm_so,
+		(long)(chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so),
 		chp->rep_length);
 
 	ret = milbuff (chp->lx,

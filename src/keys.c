@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -173,6 +170,18 @@ key_handler (WINDOW *wind, NODE *seq_tree)
 			drop = 0;
 		}
 	}/* while */
+
+	/* postprocessing */
+	switch (ch)
+	{
+	case KEY_BACKSPACE:
+	case KEY_C_H:
+	case KEY_ASCII_DEL:
+		ch = KEY_BACKSPACE;
+		break;
+	default:
+		break;
+	}
 
 	return (ch);
 }

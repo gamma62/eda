@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -1263,7 +1260,7 @@ join_block (const char *separator)
 	while (lx->lflag & LSTAT_SELECT)
 	{
 		if (!regexec(&reg, lx->buff, 1, &pmatch, 0)) {
-			SELE_LOG(LOG_DEBUG, "match? lineno %d -- so:%d eo:%d", lineno, pmatch.rm_so, pmatch.rm_eo);
+			SELE_LOG(LOG_DEBUG, "match? lineno %d -- so:%ld eo:%ld", lineno, (long)pmatch.rm_so, (long)pmatch.rm_eo);
 			if (pmatch.rm_so >= 0 && (pmatch.rm_eo == 0 || pmatch.rm_so < pmatch.rm_eo)) {
 				break;	/* ok, match */
 			}

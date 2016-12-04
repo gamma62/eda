@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -96,6 +93,10 @@ editor (void)
 	cnf.bootup = 1;
 
 	event_handler ();
+
+	xterm_title("Terminal");
+	clear();
+	refresh();
 
 	endwin ();	/* End */
 	cnf.bootup = 0;

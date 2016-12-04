@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -222,7 +219,7 @@ prev_file (void)
 * returns valid ring index if found, -1 otherwise
 */
 int
-query_inode (ino64_t inode)
+query_inode (ino_t inode)
 {
 	int ri=0, ret = -1;
 

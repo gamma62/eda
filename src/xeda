@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #Usage:
 #	xeda [-i initialdir] [eda options] filename [+line] [filename [+line] ...]
 #	-i initialdir	change to initialdir before starting eda
@@ -29,6 +29,10 @@
 
 EDA=`which eda`
 [ -x "$EDA" ] || exit 1
+TERMEMULATOR=`which roxterm`
+[ -x "$TERMEMULATOR" ] || TERMEMULATOR=`which mate-terminal`
+[ -x "$TERMEMULATOR" ] || TERMEMULATOR=`which xfce4-terminal`
+[ -x "$TERMEMULATOR" ] || exit 1
 
 #args preprocessing
 declare FILENAMES
@@ -72,5 +76,5 @@ done
 if [ -z "$DISPLAY" ]; then
 	$EDA $OPTIONS "${FILENAMES[@]}"
 else
-	x-terminal-emulator -e $EDA $OPTIONS "${FILENAMES[@]}"
+	$TERMEMULATOR --tab -e $EDA $OPTIONS "${FILENAMES[@]}"
 fi

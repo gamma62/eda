@@ -1,3 +1,4 @@
+--- some notes about TODOs, plans, ideas ---
 
 BUGS:
 - session leader must be set in all cases, not only in ish buffer:
@@ -13,13 +14,15 @@ fixed
 - with files having cr/lf lines there is a design level bug:
   insert actions after lineend will add characters between cr and lf
   thats bad; affected join_line, deleol, join_block and *_block
-wip
+  design at last: lineending fix at read time ans set the line changed flag
+done
 
 - BackSpace, Ctrl-Up/Down,... over ssh are strange; robustness fix needed
   no cheat, 0x08, 0x7f act like BackSpace;
   the Ctrl-H becomes reserved (0x08) so search_cmd_macro() dropped, and
   Ctrl-F => search_word(), Ctrl-J => highlight_word();
   the dynamic mapping fixed: Ctrl-Up/Down,... can be sequence or fixed value;
+  pushed by the FreeeBSD port
 done
 
 - tomatch and folding does not ignore comments and strings
@@ -28,6 +31,12 @@ done
 - diff processing?
 
 ---
+
+FEATURE: FreeBSD port
+  - compilation, compatibility changes (make, cc, shell scripts)
+  - accept all backspace key variants
+  - regexp compatibility
+done
 
 FEATURE: python error parser
   - python -m py_compile script ; pyflakes script ; pylint -E script

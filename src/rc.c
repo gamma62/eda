@@ -20,9 +20,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -575,8 +572,8 @@ process_macrofile (int noconfig)
 		return 0;
 	}
 
-	regexp_shorthands ("^(KEY_[A-Z0-9_]+)\\s*(.*)", pattern_header, sizeof(pattern_header));
-	regexp_shorthands ("^\\t([a-zA-Z0-9_]+)\\s*(.*)", pattern_item, sizeof(pattern_item));
+	strncpy(pattern_header, "^(KEY_[A-Z0-9_]+)[[:blank:]]*(.*)", 100);
+	strncpy(pattern_item, "^\t([a-zA-Z0-9_]+)[[:blank:]]*(.*)", 100);
 
 	/* read in first available only */
 	strncpy(macfile[0], cnf.myhome, sizeof(macfile[0]));

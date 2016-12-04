@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <stdlib.h>
@@ -209,7 +206,7 @@ ringlist_parser (const char *dataline)
 	rx = bmx = -1;
 	if (regexp_match(dataline, "r=([0-9]+)", 1, xmatch) == 0) {
 		rx = atoi(xmatch);
-	} else if (regexp_match(dataline, "\\s+bookmark\\s+([0-9]+):", 1, xmatch) == 0) {
+	} else if (regexp_match(dataline, "[[:blank:]]+bookmark[[:blank:]]+([0-9]+):", 1, xmatch) == 0) {
 		bmx = atoi(xmatch);
 	}
 
@@ -648,17 +645,17 @@ python_parser (const char *dataline)
 	/* pyflakes ...
 	* /^<filename>:(\d+):/
 	*/
-	strncpy(patt0, "^[^:]+:(\\d+):", 100);
+	strncpy(patt0, "^[^:]+:([[:digit:]]+):", 100);
 
 	/* pylint -E ...
 	* /^E:(\d+),\d+:/
 	*/
-	strncpy(patt1, "^E:\\s*(\\d+),\\s*\\d+:", 100);
+	strncpy(patt1, "^E:[[:blank:]]*([[:digit:]]+),[[:blank:]]*[[:digit:]]+:", 100);
 
 	/* python -m py_compile ...
 	*  /^  File "<filename>", line (\d+)/
 	*/
-	strncpy(patt2, "^\\s*File\\s+\"[^\"]+\", line\\s+(\\d+)", 100);
+	strncpy(patt2, "^[[:blank:]]*File[[:blank:]]+\"[^\"]+\", line[[:blank:]]+([[:digit:]]+)", 100);
 
 	if (len>2 && dataline[0] == '.' && dataline[1] == '/') {
 		dataline += 2;	/* cut useless prefix */
@@ -1941,7 +1938,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	strncpy(pattern, "^[+]{3} (\\S+)\\t", 100);
+	strncpy(pattern, "^[+]{3} ([^[:blank:]]+)\t", 100);
 	if (regexp_match(CURR_LINE->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {
@@ -2035,7 +2032,7 @@ select_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	pattern = "^[+]{3} (\\S+)\\t";
+	pattern = "^[+]{3} ([^[:blank:]]+)\t";
 	if (regexp_match(lx->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {

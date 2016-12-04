@@ -19,9 +19,6 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
@@ -146,7 +143,7 @@ get_fname (char *path, unsigned maxsize, char **choices)
 	strncat(prop, "*", 2);
 
 	/* file or dir */
-	r = glob(prop, GLOB_ERR | GLOB_TILDE_CHECK | GLOB_MARK, NULL, &globbuf);
+	r = glob(prop, GLOB_ERR | GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
 
 	if (r==0) {		/* succesful completion */
 
@@ -230,7 +227,7 @@ glob_name (char *fname, unsigned maxsize)
 	maxsize = MIN(maxsize, FNAMESIZE);
 	fname[maxsize-1] = '\0';
 
-	glob(fname, GLOB_ERR | GLOB_TILDE_CHECK, NULL, &globbuf);
+	glob(fname, GLOB_ERR | GLOB_TILDE, NULL, &globbuf);
 	if (globbuf.gl_pathc == 1) {
 		/* ok */
 		fname[0] = '\0';
@@ -249,7 +246,7 @@ glob_name (char *fname, unsigned maxsize)
 			}
 			probe[sl] = '\0';	/* sl>=1 && sl<len */
 			/* again */
-			glob(probe, GLOB_ERR | GLOB_TILDE_CHECK | GLOB_MARK, NULL, &globbuf);
+			glob(probe, GLOB_ERR | GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
 			if (globbuf.gl_pathc == 1) {
 				/* path resolved */
 				probe[0] = '\0';

@@ -20,13 +20,11 @@
 * You should have received a copy of the GNU General Public License
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define _GNU_SOURCE
-#define _FILE_OFFSET_BITS 64
-#include <features.h>
 
 #include <config.h>
 #include <string.h>
 #include <stdio.h>
+#define __USE_XOPEN		/* for grantpt, ptsname from stdlib.h (Linux) */
 #include <stdlib.h>
 #include <unistd.h>		/* getuid, pipe, fork, close, execvp, fcntl */
 #include <sys/types.h>

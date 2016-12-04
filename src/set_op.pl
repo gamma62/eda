@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 # set_op.pl
 #
 # Copyright 2003-2016 Attila Gy. Molnar

@@ -112,7 +112,7 @@ KEY_M_TILDE		1b 7e
 # console
 #only F1-F12
 
-# dynamic mapping, optional, only for these
+# Linux, Ubuntu 16.04
 KEY_C_UP	0x236
 KEY_C_DOWN	0x20D
 KEY_C_LEFT	0x221
