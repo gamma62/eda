@@ -158,6 +158,9 @@ upd_statusline (void)
 	}
 
 	/* refresh */
+	if (cnf.gstat & GSTAT_TOUCHWIN) {
+		touchwin (cnf.wstatus);
+	}
 	wnoutrefresh (cnf.wstatus);
 
 	return;
@@ -170,9 +173,6 @@ upd_termtitle (void)
 {
 	static int last_ri = -1;
 	char xtbuff[FNAMESIZE+10];
-
-	if (!(cnf.gstat & GSTAT_AUTOTITLE))
-		return;
 
 	if (last_ri != cnf.ring_curr) {
 		last_ri = cnf.ring_curr;
@@ -219,6 +219,9 @@ upd_cmdline (void)
 	mvwaddnstr (cnf.wbase, 0, 0, obuff, cnf.maxx);
 
 	/* refresh */
+	if (cnf.gstat & GSTAT_TOUCHWIN) {
+		touchwin (cnf.wbase);
+	}
 	wnoutrefresh (cnf.wbase);
 
 	return;
@@ -268,6 +271,9 @@ upd_text_area (int focus_line_only)
 	/* if (CURR_FILE.focus > TEXTROWS-1) CURR_FILE.focus = TEXTROWS-1; */
 	focus = CURR_FILE.focus;
 	text_line (lp, lineno, focus, 1);
+	if (cnf.gstat & GSTAT_TOUCHWIN) {
+		touchline(cnf.wtext, focus, 1);
+	}
 
 	if (focus_line_only)
 	{
@@ -287,7 +293,10 @@ upd_text_area (int focus_line_only)
 					break;
 				focus--;
 				if (focus == old_focus) {
-					text_line (lp, lineno, focus, 0);
+					text_line (lp, lineno, old_focus, 0);
+					if (cnf.gstat & GSTAT_TOUCHWIN) {
+						touchline(cnf.wtext, old_focus, 1);
+					}
 					break;
 				}
 			}
@@ -311,7 +320,10 @@ upd_text_area (int focus_line_only)
 					break;
 				focus++;
 				if (focus == old_focus) {
-					text_line (lp, lineno, focus, 0);
+					text_line (lp, lineno, old_focus, 0);
+					if (cnf.gstat & GSTAT_TOUCHWIN) {
+						touchline(cnf.wtext, old_focus, 1);
+					}
 					break;
 				}
 			}
@@ -325,7 +337,7 @@ upd_text_area (int focus_line_only)
 
 	if (!focus_line_only)
 	{
-		/* update the lines above focus, upto top
+		/* update the lines above focus, upto top (bottom->up)
 		*/
 		lp = CURR_LINE;
 		lineno = CURR_FILE.lineno;
@@ -351,7 +363,7 @@ upd_text_area (int focus_line_only)
 			empty_line (focus);
 		}
 
-		/* update the lines below focus, upto bottom
+		/* update the lines below focus, upto bottom (top->down)
 		*/
 		lp = CURR_LINE;
 		lineno = CURR_FILE.lineno;
@@ -375,6 +387,10 @@ upd_text_area (int focus_line_only)
 		while (focus < TEXTROWS-1) {	/* empty lines down */
 			focus++;
 			empty_line (focus);
+		}
+
+		if (cnf.gstat & GSTAT_TOUCHWIN) {
+			touchwin (cnf.wtext);
 		}
 	}
 
@@ -913,6 +929,11 @@ disp_c_local_macros() {
 	init_pair (i, COLOR_ ## fg, COLOR_ ## bg); \
 	at[i] = COLOR_PAIR(i) | (mask);
 
+#define SET2COLOR(id, fg, bg, mask) \
+	i = id; \
+	init_pair (i, COLOR_ ## fg, -1); \
+	at[i] = COLOR_PAIR(i) | (mask);
+
 /*
 }
 ******************************************************************************/
@@ -926,8 +947,8 @@ init_colors (int palette)
 		palette = 0;
 	}
 
-	if (palette == 1) {		/* gnome-terminal tango or default palette */
-		tracemsg ("light background palette");
+	if (palette == 1) {		/* gnome-terminal and forks, tango palette */
+		tracemsg ("light background");
 
 		SETCOLOR(COLOR_NORMAL_TEXT, BLACK, WHITE, 0);
 		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, WHITE, A_BOLD);
@@ -942,20 +963,20 @@ init_colors (int palette)
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, WHITE, GREEN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); //not bold
 
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, CYAN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, WHITE, CYAN, 0);
 		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); // not bold
 
 		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
 		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
 		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
 		SETCOLOR(COLOR_SHADOW_TEXT, CYAN, WHITE, 0);
 
-	} else if (palette == 0) {	/* xterm, maybe gnome-terminal rxvt palette */
-		tracemsg ("dark background palette");
+	} else if (palette == 0) {	/* originally for xterm, green-on-black */
+		tracemsg ("dark background");
 
 		SETCOLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
 		SETCOLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
@@ -982,11 +1003,39 @@ init_colors (int palette)
 		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
 		SETCOLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
 
+	} else if (palette == 2) {	/* for terminals with transparent background */
+		tracemsg ("transparent");
+
+		SET2COLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
+		SET2COLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
+		SETCOLOR(COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
+		SETCOLOR(COLOR_SEARCH_TEXT, WHITE, RED, 0);
+
+		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_BOLD);
+		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLACK, A_BOLD);
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_REVERSE); // not bold
+		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, WHITE, RED, A_BOLD);
+
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
+
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, YELLOW, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, YELLOW, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
+		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
+
+		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
+		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
+		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
+		SET2COLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
 	}
 
-	wbkgd (cnf.wstatus,	' ' | at[COLOR_STATUSLINE_TEXT]);
-	wbkgd (cnf.wbase,	' ' | at[COLOR_CMDLINE_TEXT]);
-	wbkgd (cnf.wtext,	' ' | at[COLOR_NORMAL_TEXT]);
+	wbkgd (cnf.wstatus, ' ' | at[COLOR_STATUSLINE_TEXT]);
+	wbkgd (cnf.wbase, ' ' | at[COLOR_CMDLINE_TEXT]);
+	if (palette != 2)
+		wbkgd (cnf.wtext, ' ' | at[COLOR_NORMAL_TEXT]);
 
 	return;
 }

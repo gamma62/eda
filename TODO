@@ -1,4 +1,4 @@
---- some notes about TODOs, plans, ideas ---
+--- some NOTES about bugs, plans, ideas ---
 
 BUGS:
 - session leader must be set in all cases, not only in ish buffer:
@@ -25,10 +25,12 @@ done
   pushed by the FreeeBSD port
 done
 
+- ish does not work on FreeBSD
+fixed
+
 - tomatch and folding does not ignore comments and strings
   strings, continuation lines, escapes and comments by language...
-
-- diff processing?
+postponed
 
 ---
 
@@ -44,34 +46,26 @@ done
 
 FEATURE: m1 command as 'more 1'
   - expanding filter blocks up and down
+next time
 
 FEATURE: xml/html tag support
   - tomatch for tag tokens, block folding, etc
+important, later
 
 operation restricted to current selection block
   - like indent/unindent but only surrounding selection
   - replace, comment, uncomment, ...
+maybe
 
-FEATURE: secret store, eda extension: my secrets with gpg
-  - cnf.gpgpassphrase[]=mysecret -- default:empty
-  - cnf.gpgfile[]=cluedo.gpg -- default:empty
-  - ##design/implementation missing
-  - read_phrase(buffer, secret=False)
-  - ##reading into special-buffer *gpg*, remember filename, ask for passphrase if empty
-  - gpg -d --yes --batch --passphrase=<phrase> <gpgfile> 2>/dev/null
-  - command: gde.crypt [alt.filename]
-  - ##write back / overwrite
-  - lines of *gpg* | gpg --yes --batch --passphrase=<phrase> -o <gpgfile> -c -
-  - command: gen.crypt [alt.filename]
+FEATURE: support indentation based structured languages
+  - like python
+  - in general: folding, function name, ...
+maybe
 
-FEATURE: support indentation based structures ?
 FEATURE: hashtab for the commands and keyboard inputs
   - first part ready: perfect hash (all keys found slot in first round)
   - second step: generate this during the build
-  --- much better: hashtab for key codes (fixed size table), balanced tree for commands and macros (frequent changes)
+  - or runtime with key-tester and set parameters in config
 postponed, hashtab branch
-
-  - like python
-  - in general: folding, function name, ...
 
 --- oldies ---

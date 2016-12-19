@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2016-12-04" "0.9.53" ""
+.TH "EDAMACRO" "5" "2016-12-19" "0.9.53" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -580,7 +580,7 @@ switch the case of characters in the word under cursor
 .br
 
 .SS any other tools
-force_redraw mouse_support nop recording_switch reload_macros rotate_palette show_diff version 
+force_redraw mouse_support nop recording_switch reload_macros rotate_palette save_all show_diff version 
 .br
 .TP 14
 .B force_redraw
@@ -600,6 +600,9 @@ drop all macros and process macrofile again
 .TP 16
 .B rotate_palette
 change color palette setting in cycle
+.TP 10
+.B save_all
+save all files where necessary
 .TP 11
 .B show_diff
 diff file on disk with buffer; parameters like '-w -b' maybe added on command line

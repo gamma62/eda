@@ -58,12 +58,13 @@ editor (void)
 		fprintf(stderr, "terminal has no colors\n");
 		return;
 	} else {
+		use_default_colors();
 		start_color();
 	}
 	cbreak ();
 	noecho ();
 	nonl ();
-	typeahead (0); /* check stdin for typeahead, we used initscr() */
+	typeahead (-1);
 
 	getmaxyx (stdscr, cnf.maxy, cnf.maxx);
 	if (cnf.maxy < 1 || cnf.maxx < 1) {
@@ -94,7 +95,8 @@ editor (void)
 
 	event_handler ();
 
-	xterm_title("Terminal");
+	if (cnf.gstat & GSTAT_AUTOTITLE)
+		xterm_title("xterm");
 	clear();
 	refresh();
 
@@ -338,7 +340,8 @@ event_handler (void)
 		 */
 		if (ch != ERR) {
 			upd_statusline ();
-			upd_termtitle ();
+			if (cnf.gstat & GSTAT_AUTOTITLE)
+				upd_termtitle ();
 			if (cnf.trace > 0) {
 				UPD_LOG(LOG_DEBUG, "full update with trace in this cycle");
 				if (CURR_FILE.focus < cnf.trace+1)

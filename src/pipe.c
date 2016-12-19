@@ -24,7 +24,9 @@
 #include <config.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef __linux__
 #define __USE_XOPEN		/* for grantpt, ptsname from stdlib.h (Linux) */
+#endif
 #include <stdlib.h>
 #include <unistd.h>		/* getuid, pipe, fork, close, execvp, fcntl */
 #include <sys/types.h>
@@ -504,7 +506,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	int xx=0;
 	int chrw=-1;
 	int ptm, pts;
-	char slave[FNAMESIZE], *sp;
+	char *slave;
 
 	/* copy and parse args[] */
 	strncpy(token_str, ext_argstr, sizeof(token_str));
@@ -523,28 +525,26 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	cmd[sizeof(cmd)-1] = '\0';
 
 	if (opts & OPT_INTERACT) {
-		if ((ptm = open("/dev/ptmx", O_RDWR)) < 0) {
-			PIPE_LOG(LOG_ERR, "open /dev/ptmx failed (%s)", strerror(errno));
+		ptm = open("/dev/ptmx", O_RDWR);
+		if (ptm == -1)
+			ptm = posix_openpt(O_RDWR);
+
+		if (ptm == -1
+			|| grantpt(ptm) == -1
+			|| unlockpt(ptm) == -1
+			|| (slave = ptsname(ptm)) == NULL)
+		{
+			PIPE_LOG(LOG_ERR, "ptm open failed (%s)", strerror(errno));
 			return (-1);
 		}
-		if (grantpt(ptm) || unlockpt(ptm)) {
-			PIPE_LOG(LOG_ERR, "grantpt or unlockpt failed (%s)", strerror(errno));
-			close(ptm);
+
+		pts = open(slave, O_RDWR);
+		if (pts < 0) {
+			PIPE_LOG(LOG_ERR, "pts open failed (%s)", strerror(errno));
 			return (-1);
 		}
-		if ((sp = ptsname(ptm)) == NULL) {
-			PIPE_LOG(LOG_ERR, "ptsname failed (%s)", strerror(errno));
-			close(ptm);
-			return (-1);
-		}
-		strncpy(slave, sp, sizeof(slave));
-		slave[sizeof(slave)-1] = '\0';
-		if ((pts = open(slave, O_RDWR)) < 0) {
-			PIPE_LOG(LOG_ERR, "open slave [%s] failed (%s)", slave, strerror(errno));
-			close(ptm);
-			return (-1);
-		}
-		PIPE_LOG(LOG_DEBUG, "slave pty [%s] ptm %d pts %d", slave, ptm, pts);
+
+		PIPE_LOG(LOG_NOTICE, "slave [%s] ptm %d pts %d", slave, ptm, pts);
 		/* parent */
 		out_pipe[XREAD] = ptm;
 		in_pipe[XWRITE] = ptm;
@@ -965,7 +965,7 @@ readout_pipe (int ring_i)
 
 		cnf.ring_curr = ring_i;
 		got = read (cnf.fdata[ring_i].pipe_output, rb, LINESIZE_INIT);
-		if (got == -1) {
+		if (got == -1 || got == 0) { //0, FreeBSD defunct process
 			ret = 1; /* nothing read */
 			/* not a problem, check if alive */
 			if (++zombie >= ZOMBIE_DELAY) {

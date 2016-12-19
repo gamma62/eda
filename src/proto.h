@@ -162,6 +162,7 @@ extern int quit_others (void);				/* public */
 extern int file_file (void);				/* public */
 extern int quit_all (void);				/* public */
 extern int file_all (void);				/* public */
+extern int save_all (void);				/* public */
 extern int hide_file (void);				/* public */
 extern LINE *append_line (LINE *lp, const char *extbuff);
 extern LINE *insert_line_before (LINE *lp, const char *extbuff);

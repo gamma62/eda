@@ -1,6 +1,6 @@
 # Makefile for eda sources
 #
-# Copyright 2003-2015 Attila Gy. Molnar
+# Copyright 2003-2016 Attila Gy. Molnar
 #
 # This file is part of eda project.
 #
@@ -18,25 +18,26 @@
 # along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#
+#GNU make:
 # $@ - target
 # $^ - all source(s)
 # $< - 1st source
 # $? - newer source(s)
+#FreeBSD make:
+# ${.ALLSRC} or ${.IMPSRC} in suffix-transformation rules
 #
 
 include ../conf.make
 
-ARCH = $(shell uname -m)
-REV = $(shell cat ../REV 2>/dev/null || echo 0)
+ARCH = `uname -m`
+OS = `uname -s`
+OSREL = `uname -r`
+REV = `cat ../REV 2>/dev/null || echo 0`
 
-CC = gcc
-HARDENING = -g -O2 -fPIE \
-	-Wformat -Wformat-security
-CFLAGS = -W -Wall -D_FORTIFY_SOURCE=2 $(HARDENING) \
-	-Wshadow -Wpointer-arith -Wstrict-prototypes -I..
-LDFLAGS = $(HARDENING) -fPIE -pie -Wl,-z,relro -Wl,-z,now \
-	-rdynamic
+CC = cc
+CFLAGS = -W -Wall -g -O2 -fPIE -Wformat -Werror=format-security \
+	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I..
+LDFLAGS = -g -O2 -fPIE -pie
 
 HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
@@ -48,58 +49,51 @@ SRCS = $(OBJS:.o=.c)
 all: eda
 
 eda: $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -lncurses
+	$(CC) -o $@ $(OBJS) $(LDFLAGS) -lncurses
 
 install:
 	install -d -m 755  $(DESTDIR)$(prefix)/bin/
 	install -m 755 -p -s eda  $(DESTDIR)$(prefix)/bin/
-	install -m 755 -p xeda  $(DESTDIR)$(prefix)/bin/
 	install -d -m 755 -p  $(DESTDIR)$(sysconfdir)/eda/
 	install -m 644 -p edarc edakeys edaseq  $(DESTDIR)$(sysconfdir)/eda/
 	install -d -m 755  $(DESTDIR)$(datadir)/eda/
-	install -m 644 -p edarc edakeys edaseq edamacro sample.proj  $(DESTDIR)$(datadir)/eda/
-	install -m 755 -p set_op.pl  $(DESTDIR)$(datadir)/eda/
+	install -m 644 -p edarc edakeys edaseq.* edamacro sample.proj  $(DESTDIR)$(datadir)/eda/
+	install -m 755 -p xeda set_op.pl  $(DESTDIR)$(datadir)/eda/
 
 uninstall:
-	for f in eda xeda ; do \
+	for f in eda ; do \
 	  if test -f $(DESTDIR)$(prefix)/bin/$$f ; then rm -f $(DESTDIR)$(prefix)/bin/$$f ; fi ; \
 	done
 	for f in edarc edakeys edaseq ; do \
 	  if test -f $(DESTDIR)$(sysconfdir)/eda/$$f ; then rm -f $(DESTDIR)$(sysconfdir)/eda/$$f ; fi ; \
 	done
 	-rmdir $(DESTDIR)$(sysconfdir)/eda || true
-	for f in edarc edakeys edaseq edamacro sample.proj set_op.pl ; do \
+	for f in edarc edakeys edaseq.* edamacro sample.proj set_op.pl xeda ; do \
 	  if test -f $(DESTDIR)$(datadir)/eda/$$f ; then rm -f $(DESTDIR)$(datadir)/eda/$$f ; fi ; \
 	done
 	-rmdir $(DESTDIR)$(datadir)/eda || true
 
 clean:
-	-rm -f *.o *.i *~ core* eda tags
-
-ctags: tags
-
-tags: $(SRCS) $(HDRS)
-	-ctags *.c *.h ../*.h
+	-rm -f *.o *.i *~ eda
 
 # ------------------------------------
 
 main.o: main.c $(SRCS) $(HDRS)
-	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c main.c -o $@
 
 rc.o: rc.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c rc.c -o $@
 
 keys.o: keys.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c keys.c -o $@
 
 # ------------------------------------
 
-.SUFFIXES: .c .h .i .o
+.SUFFIXES: .i .o
 
-.c.o:
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-.c.i:
-	$(CC) -E -W -Wall -I.. -c -o $@ $<
+#.c.o:
+#	$(CC) $(CFLAGS) -o $@ -c $^
+#.c.i:
+#	$(CC) -E -W -Wall -I.. -o $@ -c $^
 
 # ------------------------------------

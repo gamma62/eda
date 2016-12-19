@@ -46,7 +46,7 @@
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
 #define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement, regexp_shorthands() */
-#define PALETTE_MAX	1
+#define PALETTE_MAX	2
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
 #define LINESIZE_MIN	0x001f		/* (2^5-1) incr/decr step for realloc() ==31 */
@@ -111,7 +111,8 @@
 #define GSTAT_LOCATE	0x00004000	/* use external or internal search method, default 0, external find/egrep */
 #define GSTAT_RECORD	0x00008000	/* macro recording flag */
 #define GSTAT_FIXCR	0x00010000	/* fix CR and CR/LF in input stream */
-/*			0x00020000	*/
+#define GSTAT_TOUCHWIN	0x00020000	/* force screen repaint (touchwin, touchline) */
+/*			0x00040000	*/
 
 #define TILDE		"~"
 #define TOP_MARK	"<<top>>\n"		/* pass LINESIZE_MIN */

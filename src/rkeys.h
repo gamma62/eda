@@ -17,9 +17,7 @@
 	{ KN(KEY_C_H), },
 	{ KN(KEY_C_I), },
 	{ KN(KEY_C_M), },
-	{ KN(KEY_C_O), },
-	{ KN(KEY_C_P), },
 	{ KN(KEY_C_Q), },
 	{ KN(KEY_C_S), },
 	{ KN(KEY_C_Z), },
-#define RESERVED_KEYS 23
+#define RESERVED_KEYS 21

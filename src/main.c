@@ -26,6 +26,9 @@
 #include <signal.h>
 #include <sys/types.h>		/* getpid */
 #include <sys/stat.h>
+#ifdef __FreeBSD__
+#include <termios.h>		/* tcgetsid() on FreeBSD */
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
@@ -49,6 +52,7 @@ const char long_version_string[] = "eda v." VERSION;
 static void sigh (int sig);
 static void leave (const char *reason);
 static void set_defaults (void);
+static void put_string_to_file (const char *filename, const char *string);
 
 /*
 * Set defaults, get args, set sighandler, start monitor.
@@ -69,6 +73,22 @@ main (int argc, char *argv[])
 		if (errno != EEXIST) {
 			leave("cannot create ~/.eda directory");
 		}
+	} else {
+		/* empty directory, add minimal set of files */
+		put_string_to_file("edamacro", "\
+KEY_F1	help\n\
+#Description: show the commands or cmds.txt\n\
+#	add_file ~/.eda/cmds.txt\n\
+	show_commands\n\
+.\n\
+KEY_S_F1	manual\n\
+#Description: show the eda manual\n\
+	shell_cmd man -P cat eda\n\
+	finish_in_fg\n\
+	go_top\n\
+.\n\
+### see eda(1) and edamacro(5) for further help; sample file installed under /usr/local/share/eda, by default\n\
+\n");
 	}
 
 	/*
@@ -382,17 +402,30 @@ set_defaults(void)
 	cnf.ppid = getppid();
 	cnf.sid = getsid(0);
 	cnf.pgid = getpgid(0);
-	/*
-	*	char *cterminal;
-	*	cterminal = ctermid(NULL);
-	*	ctermfd = open(cterminal, O_NOCTTY, O_RDONLY);
-	*	if (ctermfd > 0) {
-	*		//session id from controlling tty -- tcgetsid(ctermfd)
-	*		//terminal foreground process group from controlling tty -- tcgetpgrp(ctermfd)
-	*		close(ctermfd);
-	*	}
-	*/
-
+/*
+*	fprintf(stderr, "debug> pid %d ppid %d sid %d pgid %d\n",
+*		cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
+*	{
+*		char *cterminal;
+*		int ctermfd;
+*		cterminal = ctermid(NULL);
+*		fprintf(stderr, "debug> cterminal [%s]\n", cterminal);
+*		ctermfd = open(cterminal, O_NOCTTY|O_RDONLY);
+*		if (ctermfd < 0) {
+*			fprintf(stderr, "debug> open cterminal %d %s\n",
+*				errno, strerror(errno));
+*		} else {
+*			//session id from controlling tty -- tcgetsid(ctermfd)
+*			//terminal foreground process group from controlling tty -- tcgetpgrp(ctermfd)
+*			fprintf(stderr, "debug> ctermfd %d\n", ctermfd);
+*			fprintf(stderr, "debug> session id from controlling tty %d\n",
+*				tcgetsid(ctermfd));
+*			fprintf(stderr, "debug> terminal foreground process group from controlling tty %d\n",
+*				tcgetpgrp(ctermfd));
+*			close(ctermfd);
+*		}
+*	}
+*/
 	cnf.starttime = time(NULL);
 
 	/* global settings */
@@ -460,13 +493,12 @@ set_defaults(void)
 	strncpy(cnf.tags_file,	"./tags",		sizeof(cnf.tags_file));
 	strncpy(cnf.make_path,	"/usr/bin/make",	sizeof(cnf.make_path));
 	strncpy(cnf.make_opts,	"-f Makefile",		sizeof(cnf.make_opts));
-	strncpy(cnf.sh_path,	"/bin/bash",		sizeof(cnf.sh_path));
+	strncpy(cnf.sh_path,	"/bin/sh",		sizeof(cnf.sh_path));
 	strncpy(cnf.diff_path,	"/usr/bin/diff",	sizeof(cnf.diff_path));
 	for(i=0; i < 10; i++) {
 		cnf.vcs_tool[i][0] = '\0';
 		cnf.vcs_path[i][0] = '\0';
 	}
-
 
 	ptr = getenv("HOME");
 	if (ptr != NULL) {
@@ -587,6 +619,27 @@ record (const char *funcname, const char *parameter)
 			fflush(fp);
 			fclose(fp);
 		}
+	}
+
+	return;
+}
+
+/*
+* append string to file, file in ~/.eda/ or relative to
+*/
+static void
+put_string_to_file (const char *filename, const char *string)
+{
+	FILE *fp = NULL;
+	char fname[sizeof(cnf.myhome)+SHORTNAME];
+
+	strncpy(fname, cnf.myhome, sizeof(fname));
+	strncat(fname, filename, SHORTNAME);
+
+	if ((fp = fopen(fname, "a")) != NULL) {
+		fprintf(fp, "%s", string);
+		fflush(fp);
+		fclose(fp);
 	}
 
 	return;

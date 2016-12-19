@@ -114,7 +114,7 @@
 #define KEY_C_A		0x01
 #define KEY_C_B		0x02
 #define KEY_C_C		0x03	/* reserved: ^C */
-#define KEY_C_D		0x04
+#define KEY_C_D		0x04	/* (EOT) */
 #define KEY_C_E		0x05
 #define KEY_C_F		0x06
 #define KEY_C_G		0x07
@@ -125,14 +125,14 @@
 #define KEY_C_L		0x0c
 #define KEY_C_M		0x0d	/* reserved: ^M or KEY_RETURN */
 #define KEY_C_N		0x0e
-#define KEY_C_O		0x0f	/* reserved for cmdline history */
-#define KEY_C_P		0x10	/* reserved for cmdline history */
+#define KEY_C_O		0x0f	/* (history in MC) */
+#define KEY_C_P		0x10	/* (history in MC) */
 #define KEY_C_Q		0x11	/* reserved: ^Q */
 #define KEY_C_R		0x12
 #define KEY_C_S		0x13	/* reserved: ^S */
 #define KEY_C_T		0x14
 #define KEY_C_U		0x15
-#define KEY_C_V		0x16
+#define KEY_C_V		0x16	/* wait for special char? */
 #define KEY_C_W		0x17
 #define KEY_C_X		0x18
 #define KEY_C_Y		0x19

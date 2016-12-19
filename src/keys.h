@@ -47,6 +47,8 @@
 	{ KN(KEY_C_K), },
 	{ KN(KEY_C_L), },
 	{ KN(KEY_C_N), },
+	{ KN(KEY_C_O), },
+	{ KN(KEY_C_P), },
 	{ KN(KEY_C_R), },
 	{ KN(KEY_C_T), },
 	{ KN(KEY_C_U), },

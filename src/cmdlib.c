@@ -246,12 +246,12 @@ dirlist_parser (const char *dataline)
 	}
 
 /* yet another magic number - the begin of "filename item" in the directory listing */
-#define MAGIC53   53
+#define MAGIC55   55
 /* yet another magic number - the begin of "base directory" in the header */
 #define MAGIC12   12
 
 	dlen = strlen(dataline);
-	if (dlen <= MAGIC53) {
+	if (dlen <= MAGIC55) {
 		PD_LOG(LOG_ERR, "dataline %d is short, not usable!", dlen);
 		return (NULL);
 	}
@@ -261,7 +261,7 @@ dirlist_parser (const char *dataline)
 		return (NULL);
 	}
 
-	res = get_rest_of_line(&word, &wl, dataline, MAGIC53, dlen);
+	res = get_rest_of_line(&word, &wl, dataline, MAGIC55, dlen);
 	if (res || word == NULL) {
 		PD_LOG(LOG_ERR, "cannot get rest of line");
 		FREE(word); word=NULL;
@@ -321,7 +321,7 @@ one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
 	linkname[0] = '\0';
 
 /* yet another magic format string - the directory listing */
-#define MAGICFORMAT  "%04o %2d %6d %6d %12lld %s"
+#define MAGICFORMAT  "%04o %4d %6d %6d %12lld %s"
 
 	if (cnf.lsdir_opts & LSDIR_L) {
 		perm = test->st_mode & 07777;

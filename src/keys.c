@@ -39,6 +39,10 @@ extern CONFIG cnf;
 extern KEYS keys[];
 extern const int KLEN;
 extern const int RES_KLEN;
+extern TABLE table[];
+extern const int TLEN;
+extern MACROS *macros;
+extern int MLEN;
 /* extern int ESCDELAY; */
 
 MEVENT pointer;
@@ -456,7 +460,7 @@ key_test (void)
 		BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED |
 		BUTTON1_TRIPLE_CLICKED |
 		BUTTON2_CLICKED | BUTTON3_CLICKED);
-	int ch=0, ki=0, maxx=0, maxy=0;
+	int ch=0, ki=0, maxx=0, maxy=0, ti=0;
 
 	initscr ();	/* Begin */
 	cbreak ();
@@ -492,7 +496,22 @@ key_test (void)
 			} else {
 				ki = index_key_value(ch);
 				if (ki < KLEN) {
-					wprintw (stdscr, ">0x%02X=%s\n", ch, keys[ki].key_string);
+					wprintw (stdscr, ">0x%02X=%s", ch, keys[ki].key_string);
+					for (ti=0; ti < TLEN; ti++) {
+						if (table[ti].fkey == ch) {
+							wprintw (stdscr, " ... %s", table[ti].fullname);
+							break;
+						}
+					}
+					if (ti == TLEN && macros != NULL) {
+						for (ti=0; ti < MLEN; ti++) {
+							if (macros[ti].fkey == ch) {
+								wprintw (stdscr, " ... %s", macros[ti].name);
+								break;
+							}
+						}
+					}
+					wprintw (stdscr, "\n");
 				} else {
 					wprintw (stdscr, ">0x%02X=(unknown)\n", ch);
 				}

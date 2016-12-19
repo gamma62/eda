@@ -1,24 +1,25 @@
 # System-wide configuration file
 # do not edit, save a copy to ~/.eda/ instead
 
-# macro file for eda with commented samples, 
+# macro file for eda with commented samples,
 # details about syntax and functions in edamacro(5)
 #
 # ---sample
-#KEY_NONE	whynot
-#	go_up
-#	go_home
-#	keypress_enter
-#	go_up
-#	type_text	$0
-#	shell_cmd	date +fw%V
-#	switch_text_cmd
-#.
+# KEY_NONE	whynot
+# 	go_up
+# 	go_home
+# 	keypress_enter
+# 	go_up
+# 	type_text	^G : the buffer name
+# 	type_text	$0 : the whole input
+# 	shell_cmd	date +fw%V
+# 	switch_text_cmd
+# .
 # ---end sample
 #
 # Note:
 # to capture the end of a background process (like shell_cmd or filter_cmd) the macro must call
-#       finish_in_fg  
+#       finish_in_fg
 # to overwrite the selection lines pushed to filter_cmd use the function
 #       over_select
 #
@@ -26,18 +27,29 @@ KEY_C_Y		delline_alias
 #Description: alias for Alt-D
 	delline
 .
-KEY_NONE	symdiff
-#Description: symmetrical difference set operation on word sets, words in two separate line blocks
-	filter_cmd /usr/share/eda/set_op.pl --word --symdiff
+KEY_F1	help
+#Description: show the commands or cmds.txt
+#	add_file ~/.eda/cmds.txt
+	show_commands
 .
-KEY_NONE	union
-#Description: union set operation on word sets, words in two separate line blocks
-	filter_cmd /usr/share/eda/set_op.pl --word --union
+KEY_S_F1	manual
+#Description: show the eda manual
+	shell_cmd man -P cat eda
+	finish_in_fg
+	go_top
 .
-KEY_NONE	inter
-#Description: intersection set operation on word sets, words in two separate line blocks
-	filter_cmd /usr/share/eda/set_op.pl --word --inter
-.
+# KEY_NONE	symdiff
+# #Description: symmetrical difference set operation on word sets, words in two separate line blocks
+# 	filter_cmd /usr/local/share/eda/set_op.pl --word --symdiff
+# .
+# KEY_NONE	union
+# #Description: union set operation on word sets, words in two separate line blocks
+# 	filter_cmd /usr/local/share/eda/set_op.pl --word --union
+# .
+# KEY_NONE	inter
+# #Description: intersection set operation on word sets, words in two separate line blocks
+# 	filter_cmd /usr/local/share/eda/set_op.pl --word --inter
+# .
 KEY_NONE	:w
 #Description: alias for save
 	save_file
@@ -56,13 +68,13 @@ KEY_NONE	:qo
 .
 KEY_NONE	man
 #Description: open manual page
-	shell_cmd man --ascii -P cat $0
+	shell_cmd man -P cat $0
 	finish_in_fg
 	go_top
 .
 KEY_NONE	ps
-#Description: get the list of processes, ps -eHo ...
-	shell_cmd ps -eHo pid,ppid,user,tty,%cpu,%mem,nlwp,sid,pgid,cmd
+#Description: get the list of processes, ps -eHo, for example
+	shell_cmd ps -eHo pid,ppid,user,tty,%cpu,%mem,nlwp,sid,pgid,args
 .
 # KEY_NONE	cvs
 # #Description: alias to run any CVS command
@@ -111,7 +123,7 @@ KEY_NONE	ps
 # 	over_select
 # .
 KEY_NONE	save_cmds
-#Description: save the output of "cmds" to cmds.txt
+#Description: save the output of "cmds" to cmds.txt, example makro
 	show_commands
 	select_all
 	add_file cmds.txt
@@ -125,7 +137,6 @@ KEY_NONE	save_cmds
 KEY_NONE	py
 #Description: settings for python
 	set indent space 4
-	set tabsize 4
 	set find_opts . -type f ( -name '*.py' ) -exec egrep -nH -w
 .
 KEY_NONE	allpy
@@ -133,7 +144,7 @@ KEY_NONE	allpy
 	filter_all /^(\s*(def|class) \w.*):|__main__/
 .
 # KEY_NONE	pyc
-# #Description: python check sample
+# #Description: python check sample, example, using these tools
 # 	shell_cmd python -m py_compile ^G
 # 	finish_in_fg
 # 	shell_cmd pyflakes ^G
@@ -145,19 +156,9 @@ KEY_NONE	js
 #Description: settings for javascript or java
 	set indent space 4
 	set tabsize 4
-	set find_opts . -type f ( -name '*.js' -o -name '*.java' ) -exec egrep -nH -w
+	set find_opts . -type f ( -name '*.js' -o -name '*.java' -o -name '*.json' ) -exec egrep -nH -w
 .
 KEY_NONE	ts
 #Description: tabsize setting
 	set tabsize $1
-.
-KEY_M_LSQBRAC	alt_unindent
-#Description: s-f7 alternative unindent
-	unindent_left
-#	shift_left
-.
-KEY_M_RSQBRAC	alt_indent
-#Description: s-f8 alternative indent
-	indent_right
-#	shift_right
 .

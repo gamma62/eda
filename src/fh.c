@@ -437,6 +437,29 @@ file_all (void)
 }
 
 /*
+** save_all - save all files where necessary
+*/
+int
+save_all (void)
+{
+	int ri, current;
+	int ret=0;
+
+	current = cnf.ring_curr;
+	for (ri=0; ri < RINGSIZE && ret==0; ri++) {
+		cnf.ring_curr = ri;
+		if ((CURR_FILE.fflag & FSTAT_OPEN) && !(CURR_FILE.fflag & FSTAT_SPECW) && (CURR_FILE.fflag & FSTAT_CHANGE)) {
+			ret = save_file ("");
+			if (ret == 0)
+				cnf.trace = 0; /* do not display the "file saved" message */
+		}
+	}
+	cnf.ring_curr = current;
+
+	return(ret);
+}
+
+/*
 ** hide_file - hide regular file buffer, unhide any
 */
 int
@@ -965,8 +988,7 @@ scratch_buffer (const char *fname)
 		CURR_FILE.fflag |= FSTAT_CMD | FSTAT_OPEN | FSTAT_FMASK;
 	}
 
-	FH_LOG(LOG_NOTICE, "ret=%d, ri=%d (origin=%d) [%s] (top %d bottom %d)",
-		ret, ring_i, origin, fname, (CURR_FILE.top != NULL), (CURR_FILE.bottom != NULL));
+	FH_LOG(LOG_NOTICE, "ret=%d, ri=%d (origin=%d) [%s]", ret, ring_i, origin, fname);
 	return ret;
 }
 

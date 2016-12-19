@@ -398,12 +398,9 @@ ed_cmdline (int ch)
 	switch (ch)
 	{
 	case KEY_C_UP:
-	case KEY_C_O:
 		clhistory_prev();
 		break;
-
 	case KEY_C_DOWN:
-	case KEY_C_P:
 		clhistory_next();
 		break;
 
@@ -2096,11 +2093,9 @@ ed_common (int ch)
 		switch_text_cmd();
 		break;
 	case KEY_C_UP:		/* cmdline, get prev from the history */
-	case KEY_C_O:
 		clhistory_prev();
 		break;
 	case KEY_C_DOWN:	/* cmdline, get next from the history */
-	case KEY_C_P:
 		clhistory_next();
 		break;
 
