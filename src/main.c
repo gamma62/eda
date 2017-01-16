@@ -120,8 +120,6 @@ KEY_S_F1	manual\n\
 			cnf.noconfig = 1;
 			break;
 		case 'V':
-			//0.9.53 birthday message
-			printf ("EDA edition \"Summer '15 release 0.9.53\"\n");
 			printf ("%s\n", long_version_string);
 			printf ("\n\
 Copyright 2003-2016 Attila Gy. Molnar.\n\

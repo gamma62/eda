@@ -1,4 +1,6 @@
 
+* 2017, january, release 0.9.83
+
     - ptm/pts fix on FreeBSD for interactive shell (ish) and minimum config for the very first run
     - cmds.txt for help and keyboard shortcuts reorganized (better interop with other tools)
     - transparent background added as option
