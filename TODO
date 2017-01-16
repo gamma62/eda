@@ -30,7 +30,7 @@ fixed
 
 - tomatch and folding does not ignore comments and strings
   strings, continuation lines, escapes and comments by language...
-postponed
+postponed, strings and comments are deeply lang. dependent
 
 ---
 
@@ -46,7 +46,9 @@ done
 
 FEATURE: m1 command as 'more 1'
   - expanding filter blocks up and down
-next time
+done
+
+---
 
 FEATURE: xml/html tag support
   - tomatch for tag tokens, block folding, etc

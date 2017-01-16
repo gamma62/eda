@@ -111,6 +111,7 @@ TABLE table[] = {
 	{ "il2",	KEY_NONE, 3,		PN(incr2_filter_level),	0x00},
 	{ "dl2",	KEY_NONE, 3,		PN(decr2_filter_level),	0x00},
 	{ "",		KEY_M_BACKSLASH, -1,	PN(incr_filter_cycle),	0x00},
+	{ "m1",		-1, 2,			PN(filter_m1),		0x00},
 
 	/* search, change, highlight, regexp tools */
 	{ "/",		-1, 1,			PN(search),		0x01},

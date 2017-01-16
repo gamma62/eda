@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2016-12-19" "0.9.53" ""
+.TH "EDAMACRO" "5" "2017-01-16" "0.9.53" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -159,7 +159,7 @@ scroll the screen that focus line will be vertically centered
 .br
 
 .SS file I/O and switching buffers
-add_file reload_file reload_bydiff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all hide_file
+add_file reload_file reload_bydiff show_diff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all save_all hide_file
 .br
 .TP 10
 .B add_file
@@ -170,6 +170,9 @@ read file from disk and replace lines in regular buffer
 .TP 15
 .B reload_bydiff
 reload regular file from disk smoothly based on content differences, keep line attributes, bookmarks, tagging where possible
+.TP 11
+.B show_diff
+diff file on disk with buffer; parameters like '-w -b' maybe added on command line
 .TP 11
 .B prev_file
 switch to previous buffer in the ring, skip hidden unless others closed
@@ -197,12 +200,15 @@ drop all buffers unconditionally and leave the program
 .TP 10
 .B file_all
 save all files where necessary and leave the program
+.TP 10
+.B save_all
+save all files where necessary
 .TP 11
 .B hide_file
 hide regular file buffer, unhide any
 .br
 
-.SS editing lines:
+.SS editing lines: split line (Enter), join lines (Delete, Backspace, deleol)
 deleol del2bol delline duplicate delete_lines strip_lines
 .br
 .TP 8
@@ -225,8 +231,8 @@ delete all or selected lines, parameter must be "all" or "selection"
 strip trailing whitechars (space, tab, CR) from the lines, according to the parameter, either "all" or "selection"
 .br
 
-.SS line selection based functions
-line_select reset_select select_all cp_select mv_select rm_select go_select_first go_select_last unindent_left indent_right shift_left shift_right over_select
+.SS line based selection functions
+line_select reset_select cp_select mv_select rm_select go_select_first go_select_last select_all over_select unindent_left indent_right shift_left shift_right 
 .br
 .TP 13
 .B line_select
@@ -234,9 +240,6 @@ select line, set border line of range of selected lines, any further calls exten
 .TP 14
 .B reset_select
 reset line selection
-.TP 12
-.B select_all
-select all visible lines in current buffer without changing filter bits
 .TP 11
 .B cp_select
 copy visible selection lines to current file after focus line, newly added lines will be the new selection
@@ -252,6 +255,12 @@ move the focus to the first visible line of selection
 .TP 16
 .B go_select_last
 move the focus to the last visible line of selection
+.TP 12
+.B select_all
+select all visible lines in current buffer without changing filter bits
+.TP 13
+.B over_select
+overwrite visible selection lines with the ones from "*sh*" buffer, command must be launched from the "*sh*" buffer
 .TP 15
 .B unindent_left
 shift characters of (visible) selection lines to the left, as long as the first character is whitechar
@@ -264,9 +273,6 @@ shift characters of (visible) selection lines to the left, until the line is not
 .TP 13
 .B shift_right
 shift characters of (visible) selection lines to the right, the first character will be duplicated if the line is not empty
-.TP 13
-.B over_select
-overwrite visible selection lines with the ones from "*sh*" buffer, command must be launched from the "*sh*" buffer
 .br
 
 .SS multiline selection operations
@@ -330,16 +336,8 @@ decrement filter level and duplicate filter bits also
 increment filter level in cycle
 .br
 
-.SS special tool to process diff outputs (patches)
-process_diff
-.br
-.TP 14
-.B process_diff
-process the unified diff output, make preparation to review additions and changes of target files
-.br
-
 .SS search, change, highlight, regexp tools
-search repeat_search change color_tag tag_focusline highlight_word search_word tag_line_byword search_cmd_macro
+search repeat_search change color_tag tag_focusline highlight_word search_word tag_line_byword
 .br
 .TP 8
 .B search
@@ -365,9 +363,6 @@ start immediate find search with the word under cursor
 .TP 17
 .B tag_line_byword
 mark lines with color containing the word under cursor (tagging the lines)
-.TP 18
-.B search_cmd_macro
-
 .br
 
 .SS brace match and folding
@@ -421,29 +416,40 @@ start make with optional arguments and catch output, set arguments on commandlin
 start VCS command with arguments (does not fork to background), the first argument must be the name of the vcs tool itself, the rest are the optional parameters
 .br
 
-.SS changing buffer type
-is_special
+.SS Special tool to process diff outputs (patches)
+process_diff
+.br
+.TP 14
+.B process_diff
+process the unified diff output, make preparation to review additions and changes of target files
+.br
+
+.SS using external filters
+filter_cmd filter_shadow_cmd
 .br
 .TP 12
-.B is_special
-show buffer type or set buffer type, regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools) regular filenames can be changed to equivalent name of same inode
+.B filter_cmd
+start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
+.TP 19
+.B filter_shadow_cmd
+start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines, or all lines if no selection, set child process arguments on commandline, for example "|| a2ps -1 -f8"
 .br
 
 .SS multifile search tools
-locate_find_switch multisearch_cmd find_cmd locate_cmd find_window_switch fw_option_switch fsearch_path_macro fsearch_args_macro
+find_cmd locate_cmd locate_find_switch multisearch_cmd find_window_switch fw_option_switch fsearch_path_macro fsearch_args_macro
 .br
-.TP 20
-.B locate_find_switch
-switch between external (find) or internal (locate) search method, for multiple file search
-.TP 17
-.B multisearch_cmd
-multiple file search with external or internal method, depending on the locate switch setting, external by default
 .TP 10
 .B find_cmd
 start find/egrep process with given pattern and catch output, set arguments on commandline and options in find_opts resource
 .TP 12
 .B locate_cmd
 start internal search with given pattern, search in open regular buffers only
+.TP 20
+.B locate_find_switch
+switch between external (find) or internal (locate) search method, for multiple file search
+.TP 17
+.B multisearch_cmd
+multiple file search with external or internal method, depending on the locate switch setting, external by default
 .TP 20
 .B find_window_switch
 jump to the file search, usually find, output window or back
@@ -458,19 +464,8 @@ change the path elements of the find command, and show the find_opts setting
 change the name patterns of find command, and show the find_opts setting
 .br
 
-.SS using external filters
-filter_cmd filter_shadow_cmd
-.br
-.TP 12
-.B filter_cmd
-start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
-.TP 19
-.B filter_shadow_cmd
-start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines, or all lines if no selection, set child process arguments on commandline, for example "|| a2ps -1 -f8"
-.br
-
 .SS resources, keys, macros, projects
-set load_rcfile load_keyfile load_macrofile save_project
+set load_rcfile load_keyfile load_macrofile reload_macros save_project
 .br
 .TP 5
 .B set
@@ -484,20 +479,51 @@ open ~/.eda/edakeys file with user defined symbolic key names, changes in the fi
 .TP 16
 .B load_macrofile
 load_macrofile - open ~/.eda/edamacro file with user defined macros, changes in the file are activated at next run
+.TP 15
+.B reload_macros
+drop all macros and process macrofile again
 .TP 14
 .B save_project
 save project file in the ~/.eda/ directory, last used project name can be omitted
 .br
 
-.SS directory and buffer list, bookmarks, commands list
-list_buffers lsdir_cmd bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 show_commands
+.SS changing buffer type
+is_special
 .br
+.TP 12
+.B is_special
+show buffer type or set buffer type, regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools) regular filenames can be changed to equivalent name of same inode
+.br
+
+.SS Buffer views and UI changes, directory and buffer lists
+rotate_palette prefix_macro smartind_macro shadow_macro list_buffers lsdir_cmd force_redraw
+.br
+.TP 16
+.B rotate_palette
+change color palette setting in cycle
+.TP 14
+.B prefix_macro
+set on/off the prefix of the lines
+.TP 16
+.B smartind_macro
+set on/off the smartindent setting
+.TP 14
+.B shadow_macro
+set on/off the shadow marker (hidden lines counter)
 .TP 14
 .B list_buffers
 open a special buffer with a list of open files and bookmarks
 .TP 11
 .B lsdir_cmd
 create directory listing in special buffer for easy navigation and opening, argument must be a directory
+.TP 14
+.B force_redraw
+force the screen redraw of current buffer
+.br
+
+.SS Bookmarks, set and jump (Alt-0 sets next free, jump shows preview)
+bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 
+.br
 .TP 8
 .B bm_set
 add bookmark to current file and line position, the parameter maybe the bookmark number (1...9) or if omitted, the first free number is selected
@@ -531,34 +557,11 @@ jump to 8th bookmark if possible, show bookmark info in notification before jump
 .TP 10
 .B bm_jump9
 jump to 9th bookmark if possible, show bookmark info in notification before jump
-.TP 15
-.B show_commands
-show table of commands, keyboard shortcuts and function names for macros
 .br
 
-.SS only for macros and external processes
-finish_in_fg stop_bg_process
+.SS Export/insert, view block name,  helper functions
+view_bname ins_bname ins_varname ins_filename cp_text2cmd word_case
 .br
-.TP 14
-.B finish_in_fg
-finish reading output of external process in foreground, read from pipe until process finished
-.TP 17
-.B stop_bg_process
-stop running background process of current buffer
-.br
-
-.SS various macro like and helper functions
-prefix_macro smartind_macro shadow_macro view_bname ins_bname ins_varname ins_filename cp_text2cmd word_case
-.br
-.TP 14
-.B prefix_macro
-set on/off the prefix of the lines
-.TP 16
-.B smartind_macro
-set on/off the smartindent setting
-.TP 14
-.B shadow_macro
-set on/off the shadow marker (hidden lines counter)
 .TP 12
 .B view_bname
 view block/function name in notification, try even from make and find buffers
@@ -579,36 +582,18 @@ copy current line from text area to the command line, overwrite rest of line
 switch the case of characters in the word under cursor
 .br
 
-.SS any other tools
-force_redraw mouse_support nop recording_switch reload_macros rotate_palette save_all show_diff version 
+.SS Only for macros and external processes
+finish_in_fg stop_bg_process
 .br
 .TP 14
-.B force_redraw
-force the screen redraw of current buffer
-.TP 15
-.B mouse_support
-switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
-.TP 5
-.B nop
-no operation, does nothing, only for testing
-.TP 18
-.B recording_switch
-switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
-.TP 15
-.B reload_macros
-drop all macros and process macrofile again
-.TP 16
-.B rotate_palette
-change color palette setting in cycle
-.TP 10
-.B save_all
-save all files where necessary
-.TP 11
-.B show_diff
-diff file on disk with buffer; parameters like '-w -b' maybe added on command line
-.TP 9
-.B version
-show the version string
+.B finish_in_fg
+finish reading output of external process in foreground, read from pipe until process finished
+.TP 17
+.B stop_bg_process
+stop running background process of current buffer
+.br
+
+.SS anything else
 .br
 
 .SH "INTERACTIVE COMMANDS"

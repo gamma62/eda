@@ -191,6 +191,7 @@ extern int prev_lp (int ri, LINE **linep_p, int *count);
 extern int filter_all (const char *expr);		/* public, macro */
 extern int filter_more (const char *expr);		/* public, macro */
 extern int filter_less (const char *expr);		/* public, macro */
+extern int filter_m1 (void);				/* public */
 extern int filter_base (int action, const char *expr);
 extern int filter_func (int action, int fmask);
 extern char *block_name (int ri);

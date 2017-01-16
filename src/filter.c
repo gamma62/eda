@@ -138,6 +138,85 @@ filter_less (const char *expr)
 	return (filter_base(FILTER_LESS, expr));
 } /* filter_less */
 
+/*
+** filter_m1 - make 1 line more visible around sequences of visible lines
+**	(expand unhidden ranges)
+*/
+int
+filter_m1 (void)
+{
+	int prev, masked;
+	int fmask;
+	LINE *lx;
+
+	/* activate filter */
+	CURR_FILE.fflag |= FMASK(CURR_FILE.flevel);
+	fmask = FMASK(CURR_FILE.flevel);
+
+	lx = CURR_FILE.top->next;
+	prev = (lx->lflag & fmask);
+
+	while (TEXT_LINE(lx)) {
+		masked = (lx->lflag & fmask);
+		if (prev != masked) {
+			if (masked) {
+				lx->lflag &= ~fmask;
+			} else {
+				lx->prev->lflag &= ~fmask;
+			}
+		}
+		prev = masked;
+		lx = lx->next;
+	}
+
+	return (0);
+}
+
+#if 0
+//
+// filter_l1 - make 1 line less visible around sequences of hidden lines
+//	(expand hidden ranges, focus line moves down, maybe)
+//
+int
+filter_l1 (void)
+{
+	int prev, masked, cnt;
+	int fmask;
+	LINE *lx;
+
+	/* activate filter */
+	CURR_FILE.fflag |= FMASK(CURR_FILE.flevel);
+	fmask = FMASK(CURR_FILE.flevel);
+
+	lx = CURR_FILE.top->next;
+	prev = (lx->lflag & fmask);
+
+	while (TEXT_LINE(lx)) {
+		masked = (lx->lflag & fmask);
+		if (prev != masked) {
+			if (masked) {
+				lx->prev->lflag |= fmask;
+			} else {
+				lx->lflag |= fmask;
+			}
+		}
+		prev = masked;
+		lx = lx->next;
+	}
+
+	/* skip to next if CURR_LINE is masked, and pull focus line
+	 */
+	if (CURR_LINE->lflag & fmask) {
+		next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
+		CURR_FILE.lineno += cnt;
+		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
+	}
+	update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
+
+	return (0);
+}
+#endif
+
 /* ------------------------------------------------------------------ */
 
 /*
