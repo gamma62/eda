@@ -44,7 +44,7 @@ list_buffers (void)
 	char one_line[CMDLINESIZE*2];
 	struct tm *tm_p=NULL;
 	char mtime_buff[40];
-	int ret=1, bm_i, cnt;
+	int ret=1, bm_i;
 	int origin = cnf.ring_curr;
 
 	/* open or reopen? */
@@ -69,64 +69,58 @@ list_buffers (void)
 	lno_read = 0;
 	memset(one_line, 0, sizeof(one_line));
 	for (ri=0; ret==0 && ri<RINGSIZE; ri++) {
-		if (cnf.fdata[ri].fflag & FSTAT_OPEN)
-		{
-			/* base data
-			*/
-			if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-				snprintf(one_line, sizeof(one_line)-1, "r=%d %s (origin:%d) %s%s%s%s%s #lines %d\n",
-					ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin,
-					(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
-					(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
-					(cnf.fdata[ri].fflag & FSTAT_CHMASK) ? "r/o " : "",
-					(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "interactive " : "",
-					(cnf.fdata[ri].pipe_output != 0) ? "running " : "",
-					cnf.fdata[ri].num_lines);
-			} else {
-				tm_p = localtime(&cnf.fdata[ri].stat.st_mtime);
-				strftime(mtime_buff, 39, "%Y-%m-%d %H:%M:%S", tm_p);
-				mtime_buff[39] = '\0';
-				snprintf(one_line, sizeof(one_line)/2, "r=%d %s %s %s%s%s #lines %d ",
-					ri, cnf.fdata[ri].fname,
-					(cnf.fdata[ri].fflag & FSTAT_RO) ? "R/O" : "R/W",
-					(cnf.fdata[ri].fflag & FSTAT_CHANGE) ? "Mod " : "",
-					(cnf.fdata[ri].fflag & FSTAT_EXTCH) ? "Ext.Mod " : "",
-					(cnf.fdata[ri].fflag & FSTAT_HIDDEN) ? "HIDDEN " : "",
-					cnf.fdata[ri].num_lines);
-				cnt = strlen(one_line);
-				/**/
-				snprintf(one_line+cnt, sizeof(one_line)/2, "line:%d [%s/%s]%s %s\n",
-					cnf.fdata[ri].lineno,
-					cnf.fdata[ri].dirname, cnf.fdata[ri].basename,
-					(cnf.fdata[ri].fflag & FSTAT_EXTCH) ? " !!changed on disk!!" : "",
-					mtime_buff);
-			}
+		if (!(cnf.fdata[ri].fflag & FSTAT_OPEN))
+			continue;
 
-			if ((lx = append_line (lp, one_line)) != NULL) {
-				lno_read++;
-				lp=lx;
-			} else {
-				ret = 2;
-				break;
-			}
+		/* base data
+		*/
+		if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
+			snprintf(one_line, sizeof(one_line)-1, "r=%d [%s] origin:%d flags:%s%s%s%s%s lines:%d\n",
+				ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin,
+				(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
+				(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
+				(cnf.fdata[ri].fflag & FSTAT_CHMASK) ? "r/o " : "",
+				(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "interactive " : "",
+				(cnf.fdata[ri].pipe_output != 0) ? "running " : "",
+				cnf.fdata[ri].num_lines);
+		} else {
+			tm_p = localtime(&cnf.fdata[ri].stat.st_mtime);
+			strftime(mtime_buff, 39, "%Y-%m-%d %H:%M:%S", tm_p);
+			mtime_buff[39] = '\0';
+			snprintf(one_line, sizeof(one_line)/2, "r=%d [%s] flags:%s%s%s%s lines:%d [%s] [%s] mtime %s\n",
+				ri, cnf.fdata[ri].fname,
+				(cnf.fdata[ri].fflag & FSTAT_RO) ? "R/O " : "R/W ",
+				(cnf.fdata[ri].fflag & FSTAT_CHANGE) ? "Mod " : "",
+				(cnf.fdata[ri].fflag & FSTAT_EXTCH) ? "Ext.Mod " : "",
+				(cnf.fdata[ri].fflag & FSTAT_HIDDEN) ? "HIDDEN " : "",
+				cnf.fdata[ri].num_lines,
+				cnf.fdata[ri].dirname, cnf.fdata[ri].basename,
+				mtime_buff);
+		}
 
-			/* optional: bookmarks
-			*/
-			for (bm_i=1; bm_i < 10; bm_i++) {
-				if (ri == cnf.bookmark[bm_i].ring) {
-					snprintf(one_line, sizeof(one_line)-1, "\tbookmark %d: %s\n",
-						bm_i, cnf.bookmark[bm_i].sample);
-					if ((lx = append_line (lp, one_line)) != NULL) {
-						lno_read++;
-						lp=lx;
-					} else {
-						ret = 2;
-						break;
-					}
+		if ((lx = append_line (lp, one_line)) != NULL) {
+			lno_read++;
+			lp=lx;
+		} else {
+			ret = 2;
+			break;
+		}
+
+		/* optional: bookmarks
+		*/
+		for (bm_i=1; bm_i < 10; bm_i++) {
+			if (ri == cnf.bookmark[bm_i].ring) {
+				snprintf(one_line, sizeof(one_line)-1, "\tbookmark %d: %s\n",
+					bm_i, cnf.bookmark[bm_i].sample);
+				if ((lx = append_line (lp, one_line)) != NULL) {
+					lno_read++;
+					lp=lx;
+				} else {
+					ret = 2;
+					break;
 				}
 			}
-
-		}/* if fdata... */
+		}
 	}/* for ri... */
 
 	if (ret==0) {

@@ -66,12 +66,11 @@ set_usage (int show_what)
 			(cnf.gstat & GSTAT_SMARTIND) ? 1 : 0,
 			(cnf.gstat & GSTAT_MOVES) ? 1 : 0,
 			(cnf.gstat & GSTAT_CASES) ? 1 : 0);
-		tracemsg ("autotitle %d backup_nokeep %d close_over %d save_inode %d touchwin %d",
+		tracemsg ("autotitle %d backup_nokeep %d close_over %d save_inode %d",
 			(cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0,
 			(cnf.gstat & GSTAT_NOKEEP) ? 1 : 0,
 			(cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0,
-			(cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0,
-			(cnf.gstat & GSTAT_TOUCHWIN) ? 1 : 0);
+			(cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
 		tracemsg ("indent %s %d  tabsize %d",
 			(cnf.gstat & GSTAT_INDENT) ? "tab" : "space",
 			cnf.indentsize,
@@ -88,7 +87,7 @@ set_usage (int show_what)
 	} else if (show_what == SHOW_USAGE) {
 		tracemsg ("set {prefix | shadow | smartindent | move_reset | case_sensitive} {on|off}");
 		tracemsg ("set {tabsize COUNT} | {indent {tab|space} COUNT}");
-		tracemsg ("set {autotitle | backup_nokeep | close_over | save_inode | touchwin} {yes|no}");
+		tracemsg ("set {autotitle | backup_nokeep | close_over | save_inode } {yes|no}");
 		tracemsg ("set {find_opts OPTIONS}");
 		tracemsg ("set {make_opts OPTS}");
 		tracemsg ("set {tags_file FILE}");
@@ -228,10 +227,6 @@ set (const char *argz)
 	} else if (strncmp(token, "save_inode", 10)==0) {
 		SET_CHECK_B( GSTAT_SAVE_INODE );
 		if (cnf.bootup) tracemsg ("save_inode %d", (cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
-
-	} else if (strncmp(token, "touchwin", 8)==0) {
-		SET_CHECK_B( GSTAT_TOUCHWIN );
-		if (cnf.bootup) tracemsg ("touchwin %d", (cnf.gstat & GSTAT_TOUCHWIN) ? 1 : 0);
 
 	} else if (strncmp(token, "tabsize", 4)==0) {
 		/* decimal */
@@ -818,7 +813,7 @@ process_project (int noconfig)
 			if ((len >= length[1]) && (strncmp(str, PROJECT_FILES, length[1]) == 0)) {
 				section = 2;
 				continue;
-			} else if ((len > length[0]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
+			} else if ((len > length[2]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
 				ptr = str+length[2];
 				len -= length[2];
 				if (len > 1)

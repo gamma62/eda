@@ -1,4 +1,4 @@
-# Makefile for eda sources
+# Makefile (GNU make syntax) for eda sources
 #
 # Copyright 2003-2016 Attila Gy. Molnar
 #
@@ -18,28 +18,29 @@
 # along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#GNU make:
-# $@ - target
-# $^ - all source(s)
-# $< - 1st source
-# $? - newer source(s)
-#FreeBSD make:
-# ${.ALLSRC} or ${.IMPSRC} in suffix-transformation rules
-#
-
 include ../conf.make
-
-ARCH = `uname -m`
-OS = `uname -s`
-OSREL = `uname -r`
-REV = `cat ../REV 2>/dev/null || echo 0`
-
 CC = cc
-CFLAGS = -W -Wall -g -O2 -fPIE -Wformat -Werror=format-security \
-	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I..
-LDFLAGS = -g -O2 -fPIE -pie
 
-HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
+ARCH = $(shell uname -m)
+OS = $(shell uname -s)
+REV = $(shell cat ../REV 2>/dev/null || echo 0)
+
+ifeq ($(OS),Linux)
+CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
+	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
+	-DGNU_SOURCES
+LDFLAGS = -lncurses  
+endif
+
+ifeq ($(OS),FreeBSD)
+CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
+	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
+	-I/usr/local/include -I/usr/local/include/ncurses \
+	-D_BSD_TYPES -D__BSD_VISIBLE -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600
+LDFLAGS = -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lncurses  
+endif
+
+HDRS = main.h curses_ext.h command.h proto.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
@@ -49,13 +50,14 @@ SRCS = $(OBJS:.o=.c)
 all: eda
 
 eda: $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LDFLAGS) -lncurses
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
 install:
 	install -d -m 755  $(DESTDIR)$(prefix)/bin/
 	install -m 755 -p -s eda  $(DESTDIR)$(prefix)/bin/
 	install -d -m 755 -p  $(DESTDIR)$(sysconfdir)/eda/
-	install -m 644 -p edarc edakeys edaseq  $(DESTDIR)$(sysconfdir)/eda/
+	install -m 644 -p edarc edakeys  $(DESTDIR)$(sysconfdir)/eda/
+	install -m 644 -p edaseq.$(OS)  $(DESTDIR)$(sysconfdir)/eda/edaseq
 	install -d -m 755  $(DESTDIR)$(datadir)/eda/
 	install -m 644 -p edarc edakeys edaseq.* edamacro sample.proj  $(DESTDIR)$(datadir)/eda/
 	install -m 755 -p xeda set_op.pl  $(DESTDIR)$(datadir)/eda/

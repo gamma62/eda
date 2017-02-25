@@ -28,9 +28,6 @@ close_over	yes
 # set to "no", if you want to unlink file before save
 save_inode	yes
 
-# force terminal screen repaint, disable optimization
-touchwin	0
-
 #indent		space	4
 indent		tab	1
 tabsize		8

@@ -92,7 +92,7 @@ upd_statusline (void)
 		CURR_FILE.lineno, CURR_FILE.curpos, hexa);
 	lenright = strlen(obuff_right);
 
-	/* filename and attributes */
+	/* middle, attributes after filename */
 	if (CURR_FILE.fflag & FSTAT_SPECW) {
 		if (CURR_FILE.fflag & FSTAT_CHMASK) {
 			obuff_rest[lenrest++] = ' ';
@@ -150,17 +150,14 @@ upd_statusline (void)
 	lenright++;
 	mvwprintw (cnf.wstatus, 0, cnf.maxx-lenright, " %s", obuff_right);
 
+	/* middle, filename before attributes, 10 bytes minimum */
 	if (lenrest+10 < cnf.maxx-lenleft-lenright) {
-		/* at least 10 bytes for fname */
 		lenrest = cnf.maxx-lenleft-lenright;
 		mvwprintw (cnf.wstatus, 0, lenleft, "%s",
 			center_fname ((CURR_FILE.fname), obuff_rest, lenrest));
 	}
 
 	/* refresh */
-	if (cnf.gstat & GSTAT_TOUCHWIN) {
-		touchwin (cnf.wstatus);
-	}
 	wnoutrefresh (cnf.wstatus);
 
 	return;
@@ -219,9 +216,6 @@ upd_cmdline (void)
 	mvwaddnstr (cnf.wbase, 0, 0, obuff, cnf.maxx);
 
 	/* refresh */
-	if (cnf.gstat & GSTAT_TOUCHWIN) {
-		touchwin (cnf.wbase);
-	}
 	wnoutrefresh (cnf.wbase);
 
 	return;
@@ -271,9 +265,6 @@ upd_text_area (int focus_line_only)
 	/* if (CURR_FILE.focus > TEXTROWS-1) CURR_FILE.focus = TEXTROWS-1; */
 	focus = CURR_FILE.focus;
 	text_line (lp, lineno, focus, 1);
-	if (cnf.gstat & GSTAT_TOUCHWIN) {
-		touchline(cnf.wtext, focus, 1);
-	}
 
 	if (focus_line_only)
 	{
@@ -294,9 +285,6 @@ upd_text_area (int focus_line_only)
 				focus--;
 				if (focus == old_focus) {
 					text_line (lp, lineno, old_focus, 0);
-					if (cnf.gstat & GSTAT_TOUCHWIN) {
-						touchline(cnf.wtext, old_focus, 1);
-					}
 					break;
 				}
 			}
@@ -321,9 +309,6 @@ upd_text_area (int focus_line_only)
 				focus++;
 				if (focus == old_focus) {
 					text_line (lp, lineno, old_focus, 0);
-					if (cnf.gstat & GSTAT_TOUCHWIN) {
-						touchline(cnf.wtext, old_focus, 1);
-					}
 					break;
 				}
 			}
@@ -351,12 +336,14 @@ upd_text_area (int focus_line_only)
 				if (focus==0)
 					break;
 			}
-			/* hide TOP mark */
-			if (lp->lflag & LSTAT_TOP) {
-				break;
-			}
 			focus--;
-			text_line (lp, lineno, focus, 0);
+			if (lp->lflag & LSTAT_TOP) {
+				/* hide TOP mark */
+				empty_line (focus);
+				break;
+			} else {
+				text_line (lp, lineno, focus, 0);
+			}
 		}
 		while (focus > 0) {	/* empty lines up */
 			focus--;
@@ -377,20 +364,18 @@ upd_text_area (int focus_line_only)
 				if (focus==TEXTROWS-1)
 					break;
 			}
-			/* hide EOF mark */
-			if (lp->lflag & LSTAT_BOTTOM) {
-				break;
-			}
 			focus++;
-			text_line (lp, lineno, focus, 0);
+			if (lp->lflag & LSTAT_BOTTOM) {
+				/* hide EOF mark */
+				empty_line (focus);
+				break;
+			} else {
+				text_line (lp, lineno, focus, 0);
+			}
 		}
 		while (focus < TEXTROWS-1) {	/* empty lines down */
 			focus++;
 			empty_line (focus);
-		}
-
-		if (cnf.gstat & GSTAT_TOUCHWIN) {
-			touchwin (cnf.wtext);
 		}
 	}
 

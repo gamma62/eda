@@ -24,7 +24,11 @@
 
 #include <config.h>
 #include <stdio.h>
-#include <curses.h>	/* includes stdarg.h */
+#ifdef __FreeBSD__
+#include <ncurses/curses.h>	/* includes stdarg.h */
+#else
+#include <curses.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <regex.h>
@@ -111,8 +115,7 @@
 #define GSTAT_LOCATE	0x00004000	/* use external or internal search method, default 0, external find/egrep */
 #define GSTAT_RECORD	0x00008000	/* macro recording flag */
 #define GSTAT_FIXCR	0x00010000	/* fix CR and CR/LF in input stream */
-#define GSTAT_TOUCHWIN	0x00020000	/* force screen repaint (touchwin, touchline) */
-/*			0x00040000	*/
+/*			0x00020000	*/
 
 #define TILDE		"~"
 #define TOP_MARK	"<<top>>\n"		/* pass LINESIZE_MIN */
@@ -415,9 +418,11 @@ struct config_tag
 
 	char _home[FNAMESIZE];
 	char _pwd[FNAMESIZE];
+	char _altpwd[FNAMESIZE];
 	char myhome[FNAMESIZE];
 	int l1_home;
 	int l1_pwd;
+	int l2_altpwd;
 	int l2_myhome;
 
 	BOOKMARK bookmark[10];	/* set bookmarks by back reference from the LINE */

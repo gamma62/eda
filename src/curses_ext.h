@@ -22,6 +22,12 @@
 #ifndef _CURSES_EXT_H_
 #define _CURSES_EXT_H_
 
+#ifdef __FreeBSD__
+#include <ncurses/curses.h>
+#else
+#include <curses.h>
+#endif
+
 /* all KEY_*** defines are going into keys[] 
  * except "reserved: internal use only" (see also headers.sh)
  * reserved keys could be appended to keys[]
@@ -36,7 +42,9 @@
 			/* special characters with Ctrl- or Shift- */
 #define KEY_NONE	(0)	/* default, no-op value */
 
-#define KEY_BACKSPACE	0x10F	/* reserved */
+#ifndef KEY_BACKSPACE
+#define KEY_BACKSPACE	0x10F	/* reserved (maybe 0x107 aka 0407) */
+#endif
 #define KEY_ASCII_DEL	0x7F	/* reserved, ascii DEL */
 
 /* (no space before define!)
@@ -118,7 +126,7 @@
 #define KEY_C_E		0x05
 #define KEY_C_F		0x06
 #define KEY_C_G		0x07
-#define KEY_C_H		0x08	/* reserved: ^H (ascii BS) */
+#define KEY_C_H		0x08	/* reserved: ^H (ascii BS) see also BACKSP */
 #define KEY_C_I		0x09	/* reserved: ^I or KEY_TAB */
 #define KEY_C_J		0x0a
 #define KEY_C_K		0x0b

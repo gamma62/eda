@@ -335,6 +335,17 @@ event_handler (void)
 			MAIN_LOG(LOG_ERR, "text window has very few lines (%d)", TEXTROWS);
 		}
 
+		if (cnf.clpos-cnf.cloff > TEXTCOLS-1 || cnf.clpos-cnf.cloff < 0) {
+			MAIN_LOG(LOG_ERR, "bad command line cursor position : clpos=%d cloff=%d",
+				cnf.clpos, cnf.cloff);
+				cnf.clpos = cnf.cloff = 0;
+		}
+		if (CURR_FILE.curpos-CURR_FILE.lnoff > TEXTCOLS-1 || CURR_FILE.curpos-CURR_FILE.lnoff < 0) {
+			MAIN_LOG(LOG_ERR, "bad text cursor position : curpos=%d lnoff=%d",
+				CURR_FILE.curpos, CURR_FILE.lnoff);
+			CURR_FILE.curpos = CURR_FILE.lnoff = 0;
+		}
+
 		/*
 		 * regular screen update (REFRESH_EVENT used to force update)
 		 */
@@ -372,25 +383,9 @@ event_handler (void)
 		 * wait for input, do cursor reposition
 		 */
 		if (CURR_FILE.fflag & FSTAT_CMD) {
-			if (cnf.clpos-cnf.cloff > TEXTCOLS-1 || cnf.clpos-cnf.cloff < 0) {
-				CMD_LOG(LOG_ERR, "bad command line cursor position : clpos=%d cloff=%d -- fixing",
-					cnf.clpos, cnf.cloff);
-				if (cnf.clpos-cnf.cloff > TEXTCOLS-1)
-					cnf.clpos = cnf.cloff + TEXTCOLS-1;
-				else if (cnf.clpos-cnf.cloff < 0)
-					cnf.clpos = cnf.cloff;
-			}
 			wmove (cnf.wbase, 0, cnf.clpos-cnf.cloff);
 			ch = key_handler (cnf.wbase, cnf.seq_tree);
 		} else {
-			if (CURR_FILE.curpos-CURR_FILE.lnoff > TEXTCOLS-1 || CURR_FILE.curpos-CURR_FILE.lnoff < 0) {
-				CMD_LOG(LOG_ERR, "bad text cursor position : curpos=%d lnoff=%d -- fixing",
-					CURR_FILE.curpos, CURR_FILE.lnoff);
-				if (CURR_FILE.curpos-CURR_FILE.lnoff > TEXTCOLS-1)
-					CURR_FILE.curpos = CURR_FILE.lnoff + TEXTCOLS-1;
-				else if (CURR_FILE.curpos-CURR_FILE.lnoff < 0)
-					CURR_FILE.curpos = CURR_FILE.lnoff;
-			}
 			wmove (cnf.wtext, CURR_FILE.focus, cnf.pref+CURR_FILE.curpos-CURR_FILE.lnoff);
 			ch = key_handler (cnf.wtext, cnf.seq_tree);
 		}

@@ -39,6 +39,7 @@ extern CONFIG cnf;
 /* local proto */
 static void work_uptime (const char *headline);
 static int next_ri (void);
+static int abbrev_filename (char *gname);
 static int check_dirname (const char *gname);
 static int getxline_filter(char *getbuff);
 static int parse_diff_header (const char *ptr, int ra[5]);
@@ -306,6 +307,7 @@ add_file (const char *fname)
 			if (ri != -1) {
 				/* inode found in the ring, switch to buffer */
 				if (strncmp(gname, cnf.fdata[ri].fname, sizeof(gname))) {
+					// not the same name, warning
 					FH_LOG(LOG_NOTICE, "[%s] inode=%ld -> already opened: ri:%d [%s]",
 						gname, (long)test.st_ino, ri, cnf.fdata[ri].fname);
 					tracemsg ("[%s] already open", gname);
@@ -316,6 +318,7 @@ add_file (const char *fname)
 				ret = 0;
 			} else {
 				/* inode not found, open it in new buffer */
+				abbrev_filename(gname);
 				ret = read_file(gname, &test);
 			}
 		} else {
@@ -326,6 +329,7 @@ add_file (const char *fname)
 		int saved_errno = errno;
 		if ((errno == ENOENT) && (check_dirname(gname) == 0)) {
 			/* scratch file, but seems to be Ok */
+			abbrev_filename(gname);
 			ret = scratch_buffer(gname);
 			/* place cursor into text area */
 			CURR_FILE.fflag &= ~FSTAT_CMD;
@@ -523,6 +527,34 @@ insert_line_before (LINE *lp, const char *extbuff)
 	}
 
 	return (lx);
+}
+
+/*
+* abbrev_filename - abbreviate filename if it is absolute path, use cnf._pwd
+* return 0 if Ok
+*/
+static int
+abbrev_filename (char *gname)
+{
+	int i, j;
+
+	if (gname[0] != '/') {
+		;
+	} else if (cnf.l1_pwd > 0 && strncmp(gname, cnf._pwd, cnf.l1_pwd) == 0) {
+		for (i=0, j=cnf.l1_pwd+1; gname[j] != '\0'; j++) {
+			gname[i++] = gname[j];
+		}
+		gname[i] = '\0';
+		FH_LOG(LOG_NOTICE, "PWD [%s] abbrev. to [%s]", cnf._pwd, gname);
+	} else if (cnf.l2_altpwd > 0 && strncmp(gname, cnf._altpwd, cnf.l2_altpwd) == 0) {
+		for (i=0, j=cnf.l2_altpwd+1; gname[j] != '\0'; j++) {
+			gname[i++] = gname[j];
+		}
+		gname[i] = '\0';
+		FH_LOG(LOG_NOTICE, "alt.PWD [%s] abbrev. to [%s]", cnf._altpwd, gname);
+	}
+
+	return 0;
 }
 
 /*

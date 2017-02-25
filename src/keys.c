@@ -28,7 +28,6 @@
 #include "curses_ext.h"
 #include "main.h"	/* includes <stdio.h> */
 #include "proto.h"
-#include "curses_ext.h"
 
 #ifndef CONFPATH
 #define CONFPATH	"/etc/eda"

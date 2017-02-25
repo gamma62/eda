@@ -24,9 +24,6 @@
 #include <config.h>
 #include <string.h>
 #include <stdio.h>
-#ifdef __linux__
-#define __USE_XOPEN		/* for grantpt, ptsname from stdlib.h (Linux) */
-#endif
 #include <stdlib.h>
 #include <unistd.h>		/* getuid, pipe, fork, close, execvp, fcntl */
 #include <sys/types.h>
@@ -103,15 +100,13 @@ ishell_cmd (const char *ext_cmd)
 		head[i++] = '*';
 		if (ext_cmd[0] == 0x27) {
 			snprintf(ext_argstr, se-1, "sh -c %s", ext_cmd);
-			i=0; j=1;
-			while (i < sh-2 && ext_cmd[j] != 0x27 && ext_cmd[j] != '\0')
-				head[i++] = ext_cmd[j++];
+			j=1;
 		} else {
 			snprintf(ext_argstr, se-1, "sh -c '%s'", ext_cmd);
-			i=0; j=0;
-			while (i < sh-2 && ext_cmd[j] != '\0')
-				head[i++] = ext_cmd[j++];
+			j=0;
 		}
+		while (i < sh-2 && ext_cmd[j] != '\0' && ext_cmd[j] != ' ' && ext_cmd[j] != 0x27)
+			head[i++] = ext_cmd[j++];
 		head[i++] = '*';
 		head[i++] = '\0';
 
@@ -139,7 +134,7 @@ make_cmd (const char *ext_cmd)
 	}
 
 	/* make w/ or w/o options */
-	snprintf(ext_argstr, sizeof(ext_argstr)-1, "make %s %s", cnf.make_opts, ext_cmd);
+	snprintf(ext_argstr, sizeof(ext_argstr)-1, "%s %s %s", cnf.make_path, cnf.make_opts, ext_cmd);
 
 	ret = read_pipe ("*make*", cnf.make_path, ext_argstr, OPT_REDIR_ERR);
 

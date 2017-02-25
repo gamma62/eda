@@ -503,27 +503,43 @@ set_defaults(void)
 		strncpy(cnf._home, ptr, sizeof(cnf._home));
 		cnf._home[sizeof(cnf._home)-1] = '\0';
 	} else {
+		fprintf(stderr, "getenv HOME failed (%s)\n", strerror(errno));
+		/* fallback */
 		cnf._home[0] = '~';
-		cnf._home[1] = '/';
-		cnf._home[2] = '\0';
+		cnf._home[1] = '\0';
 		if (glob_name(cnf._home, sizeof(cnf._home))) {
 			cnf._home[0] = '\0';
 			fprintf(stderr, "get home dir failed (%s)\n", strerror(errno));
 		}
 	}
-	/* donot trust on (nonstatic) environment variables, like PWD
-	*/
+
 	if (getcwd(cnf._pwd, sizeof(cnf._pwd)-1) == NULL) {
 		cnf._pwd[0] = '\0';
 		fprintf(stderr, "getcwd failed (%s)\n", strerror(errno));
+	}
+	/* optional alternative */
+	ptr = getenv("PWD");
+	if (ptr != NULL) {
+		strncpy(cnf._altpwd, ptr, sizeof(cnf._altpwd));
+		cnf._home[sizeof(cnf._altpwd)-1] = '\0';
+	} else {
+		cnf._altpwd[0] = '\0';
+		fprintf(stderr, "getenv PWD failed (%s)\n", strerror(errno));
 	}
 
 	strncpy(cnf.myhome, cnf._home, sizeof(cnf.myhome));
 	cnf.myhome[sizeof(cnf.myhome)-10] = '\0';
 	strncat(cnf.myhome, "/.eda/", 10);
+
 	cnf.l1_home = strlen(cnf._home);
 	cnf.l1_pwd = strlen(cnf._pwd);
+	cnf.l2_altpwd = strlen(cnf._altpwd);
 	cnf.l2_myhome = strlen(cnf.myhome);
+
+	if (cnf.l1_pwd == cnf.l2_altpwd && strncmp(cnf._pwd, cnf._altpwd, cnf.l1_pwd) == 0) {
+		cnf._altpwd[0] = '\0';
+		cnf.l2_altpwd = 0;
+	}
 
 	for(i=0; i < sizeof(cnf.log) / sizeof(cnf.log[0]); i++) {
 		cnf.log[i] = 0;
