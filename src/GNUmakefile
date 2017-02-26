@@ -40,7 +40,7 @@ CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
 LDFLAGS = -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lncurses  
 endif
 
-HDRS = main.h curses_ext.h command.h proto.h
+HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
