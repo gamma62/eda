@@ -634,6 +634,7 @@ python_parser (const char *dataline)
 	char patt0[TAGSTR_SIZE];
 	char patt1[TAGSTR_SIZE];
 	char patt2[TAGSTR_SIZE];
+	char patt3[TAGSTR_SIZE];
 	LINE *lx = NULL;
 	int linenum, origin, safeback;
 
@@ -654,8 +655,10 @@ python_parser (const char *dataline)
 
 	/* python -m py_compile ...
 	*  /^  File "<filename>", line (\d+)/
+	*  /.* <filename>, line (\d+)$/
 	*/
 	strncpy(patt2, "^[[:blank:]]*File[[:blank:]]+\"[^\"]+\", line[[:blank:]]+([[:digit:]]+)", 100);
+	strncpy(patt3, "\\([^,]+, line[[:blank:]]+([[:digit:]]+)\\)$", 100);
 
 	if (len>2 && dataline[0] == '.' && dataline[1] == '/') {
 		dataline += 2;	/* cut useless prefix */
@@ -673,6 +676,9 @@ python_parser (const char *dataline)
 	} else if (!regexp_match(dataline, patt2, 1, strz)) {
 		linenum = strtol(strz, NULL, 10);
 		PD_LOG(LOG_DEBUG, "patt2 --> :%d", linenum);
+	} else if (!regexp_match(dataline, patt3, 1, strz)) {
+		linenum = strtol(strz, NULL, 10);
+		PD_LOG(LOG_DEBUG, "patt3 --> :%d", linenum);
 	}
 
 	ret = -1;

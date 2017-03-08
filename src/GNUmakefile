@@ -28,7 +28,7 @@ REV = $(shell cat ../REV 2>/dev/null || echo 0)
 ifeq ($(OS),Linux)
 CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
-	-DGNU_SOURCES
+	-D_GNU_SOURCE
 LDFLAGS = -lncurses  
 endif
 

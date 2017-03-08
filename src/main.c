@@ -521,7 +521,7 @@ set_defaults(void)
 	ptr = getenv("PWD");
 	if (ptr != NULL) {
 		strncpy(cnf._altpwd, ptr, sizeof(cnf._altpwd));
-		cnf._home[sizeof(cnf._altpwd)-1] = '\0';
+		cnf._altpwd[sizeof(cnf._altpwd)-1] = '\0';
 	} else {
 		cnf._altpwd[0] = '\0';
 		fprintf(stderr, "getenv PWD failed (%s)\n", strerror(errno));
@@ -529,8 +529,13 @@ set_defaults(void)
 
 	strncpy(cnf.myhome, cnf._home, sizeof(cnf.myhome));
 	cnf.myhome[sizeof(cnf.myhome)-10] = '\0';
+	/* the HOME is maybe a symlink, get the real path into cnf._home */
+	if ((chdir(cnf.myhome) == -1)
+	|| (getcwd(cnf._home, sizeof(cnf._home)-1) == NULL) || (chdir(cnf._pwd) == -1)) {
+		leave("chdir failed");
+	}
+	/* the homedir of eda */
 	strncat(cnf.myhome, "/.eda/", 10);
-
 	cnf.l1_home = strlen(cnf._home);
 	cnf.l1_pwd = strlen(cnf._pwd);
 	cnf.l2_altpwd = strlen(cnf._altpwd);

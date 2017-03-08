@@ -1,6 +1,11 @@
 --- some NOTES about bugs, plans, ideas ---
 
 BUGS:
+- alternative (symlink) HOME path for to abbreviate xterm title,
+  new patterns for python parser, edaseq entries for mate-terminal,
+  GNU and BSD makefiles and compiler settings
+done
+
 - session leader must be set in all cases, not only in ish buffer:
   in sh buffer does not work 'man --ascii -P cat eda'
 fixed
