@@ -266,7 +266,9 @@ clhistory_prev (void)
 		}
 	} else {
 		/* no filter */
-		cnf.clhistory =  cnf.clhistory->prev;
+		if (cnf.clhistory->prev != NULL) {
+			cnf.clhistory = cnf.clhistory->prev;
+		}
 	}
 	HIST_LOG(LOG_DEBUG, "---clhistory after skip to prev [%s]", cnf.clhistory->buff);
 
@@ -310,7 +312,6 @@ clhistory_next (void)
 		reset_clhistory();
 	}
 
-
 	HIST_LOG(LOG_DEBUG, "+++clhistory before skip [%s] ...", cnf.clhistory->buff);
 
 	/* skip to next... with prefix filtering
@@ -332,8 +333,10 @@ clhistory_next (void)
 			try =  try->next;
 		}
 	} else {
-		/* no filter */
-		cnf.clhistory =  cnf.clhistory->next;
+		/* no filter -- do not segfault */
+		if (cnf.clhistory->next != NULL) {
+			cnf.clhistory = cnf.clhistory->next;
+		}
 	}
 	HIST_LOG(LOG_DEBUG, "+++clhistory after skip to next [%s]", cnf.clhistory->buff);
 

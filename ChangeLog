@@ -1,4 +1,6 @@
 
+    - config file updates (edarc, edaseq, edamacro); cmdline history bugfix; python error parser; get real HOME path
+
 * 2017, january, release 0.9.83
 
     - ptm/pts fix on FreeBSD for interactive shell (ish) and minimum config for the very first run

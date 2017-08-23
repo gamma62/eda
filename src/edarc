@@ -51,12 +51,13 @@ make_path	/usr/bin/make
 make_opts	-w
 
 # mandatory tools
-sh_path		/bin/bash
+sh_path		/bin/sh
 diff_path	/usr/bin/diff
 
-# some filter examples, recommended tools
+# some filter examples
 #a2ps -1 -f8 -R -Egnuc -T4
-#a2ps -1 -f10 -r
+#a2ps -1 -f10 -r -s simplex -t "title" -B -b "header" -P xerox535
+#a2ps -1 -f10 --no-header --sides=duplex
 #indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -
 #indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
 #indent -gnu -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -cp0 -bli0 -npsl -

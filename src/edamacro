@@ -141,7 +141,7 @@ KEY_NONE	py
 .
 KEY_NONE	allpy
 #Description: all python blocks, first level
-	filter_all /^(\s*(def|class) \w.*):|__main__/
+	filter_all /^(\s*(def|class) (_|\w).*):|__main__/
 .
 # KEY_NONE	pyc
 # #Description: python check sample, example, using these tools
