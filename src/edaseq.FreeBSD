@@ -1,131 +1,39 @@
 # System-wide configuration file
 # do not edit, save a copy to ~/.eda/ instead
 
-# key sequencies, to recognise function-key and meta-key combinations
-# run 'eda -k' and adjust this file accordingly
+# escape char sequencies to recognize compound keys
+# run 'eda -k' to check the setting
+# meta character come with ESC, do not need to add them
 
 # line format:
 #keyname<TABs>1b<SPACE><char>[<SPACE><char>...]
 #char: hexadecimal value
 
-# console, meta comes with ESC
-KEY_M_RETURN		1b 0d
-#
-KEY_M_SPACE		1b 20
-KEY_M_EXCLAM		1b 21
-KEY_M_DQUOTE		1b 22
-KEY_M_HASH		1b 23
-KEY_M_DOLLAR		1b 24
-KEY_M_PERCENT		1b 25
-KEY_M_AMPERSAND		1b 26
-KEY_M_SQUOTE		1b 27
-KEY_M_LPAREN		1b 28
-KEY_M_RPAREN		1b 29
-KEY_M_STAR		1b 2a
-KEY_M_PLUS		1b 2b
-KEY_M_COMMA		1b 2c
-KEY_M_MINUS		1b 2d
-KEY_M_DOT		1b 2e
-KEY_M_SLASH		1b 2f
-KEY_M_ZERO		1b 30
-KEY_M_ONE		1b 31
-KEY_M_TWO		1b 32
-KEY_M_THREE		1b 33
-KEY_M_FOUR		1b 34
-KEY_M_FIVE		1b 35
-KEY_M_SIX		1b 36
-KEY_M_SEVEN		1b 37
-KEY_M_EIGHT		1b 38
-KEY_M_NINE		1b 39
-KEY_M_COLON		1b 3a
-KEY_M_SEMICOLON		1b 3b
-KEY_M_LESSTHAN		1b 3c
-KEY_M_EQUAL		1b 3d
-KEY_M_GREATHAN		1b 3e
-KEY_M_QMARK		1b 3f
-#
-KEY_M_AT		1b 40
-KEY_M_A			1b 41
-KEY_M_B			1b 42
-KEY_M_C			1b 43
-KEY_M_D			1b 44
-KEY_M_E			1b 45
-KEY_M_F			1b 46
-KEY_M_G			1b 47
-KEY_M_H			1b 48
-KEY_M_I			1b 49
-KEY_M_J			1b 4a
-KEY_M_K			1b 4b
-KEY_M_L			1b 4c
-KEY_M_M			1b 4d
-KEY_M_N			1b 4e
-KEY_M_O			1b 4f
-KEY_M_P			1b 50
-KEY_M_Q			1b 51
-KEY_M_R			1b 52
-KEY_M_S			1b 53
-KEY_M_T			1b 54
-KEY_M_U			1b 55
-KEY_M_V			1b 56
-KEY_M_W			1b 57
-KEY_M_X			1b 58
-KEY_M_Y			1b 59
-KEY_M_Z			1b 5a
-KEY_M_LSQBRAC		1b 5b
-KEY_M_BACKSLASH		1b 5c
-KEY_M_RSQBRAC		1b 5d
-KEY_M_CARET		1b 5e
-KEY_M_UNDERLINE		1b 5f
-##
-KEY_M_GRAVEACC		1b 60
-KEY_M_A			1b 61
-KEY_M_B			1b 62
-KEY_M_C			1b 63
-KEY_M_D			1b 64
-KEY_M_E			1b 65
-KEY_M_F			1b 66
-KEY_M_G			1b 67
-KEY_M_H			1b 68
-KEY_M_I			1b 69
-KEY_M_J			1b 6a
-KEY_M_K			1b 6b
-KEY_M_L			1b 6c
-KEY_M_M			1b 6d
-KEY_M_N			1b 6e
-KEY_M_O			1b 6f
-KEY_M_P			1b 70
-KEY_M_Q			1b 71
-KEY_M_R			1b 72
-KEY_M_S			1b 73
-KEY_M_T			1b 74
-KEY_M_U			1b 75
-KEY_M_V			1b 76
-KEY_M_W			1b 77
-KEY_M_X			1b 78
-KEY_M_Y			1b 79
-KEY_M_Z			1b 7a
-KEY_M_LCURBRAC		1b 7b
-KEY_M_BAR		1b 7c
-KEY_M_RCURBRAC		1b 7d
-KEY_M_TILDE		1b 7e
+# FreeBSD 11.1
+#KEY_C_UP	0x23D
+#KEY_C_DOWN	0x212
+#KEY_C_LEFT	0x228
+#KEY_C_RIGHT	0x237
+#KEY_C_PPAGE	0x232
+#KEY_C_NPAGE	0x22D
 
-# console
-#only F1-F12
+KEY_S_F1	1B 5B 31 3B 32 50
+KEY_S_F2	1B 5B 31 3B 32 51
+KEY_S_F3	1B 5B 31 3B 32 52
+KEY_S_F4	1B 5B 31 3B 32 53
+KEY_S_F5	1B 5B 31 35 3B 32 7E
+KEY_S_F6	1B 5B 31 37 3B 32 7E
+KEY_S_F7	1B 5B 31 38 3B 32 7E
+KEY_S_F8	1B 5B 31 39 3B 32 7E
+KEY_S_F9	1B 5B 32 30 3B 32 7E
+KEY_S_F10	1B 5B 32 31 3B 32 7E
+KEY_S_F11	1B 5B 32 33 3B 32 7E
+KEY_S_F12	1B 5B 32 34 3B 32 7E
 
-# FreeBSD 11.0
-KEY_C_UP	0x238
-KEY_C_DOWN	0x20F
-KEY_C_LEFT	0x223
-KEY_C_RIGHT	0x232
-KEY_C_PPAGE	0x22D
-KEY_C_NPAGE	0x228
-# mate-terminal (FreeBSD 11.0)
-KEY_S_F1	1B 4F 31 3B 32 50
-KEY_S_F2	1B 4F 31 3B 32 51
-KEY_S_F3	1B 4F 31 3B 32 52
-KEY_S_F4	1B 4F 31 3B 32 53
-#KEY_C_F1 hidden
-KEY_C_F2	1B 4F 31 3B 35 51
-KEY_C_F3	1B 4F 31 3B 35 52
-KEY_C_F4	1B 4F 31 3B 35 53
+KEY_C_UP	1B 5B 31 3B 35 41
+KEY_C_DOWN	1B 5B 31 3B 35 42
+KEY_C_LEFT	1B 5B 31 3B 35 44
+KEY_C_RIGHT	1B 5B 31 3B 35 43
+KEY_C_PPAGE	1B 5B 35 3B 35 7E
+KEY_C_NPAGE	1B 5B 36 3B 35 7E
 

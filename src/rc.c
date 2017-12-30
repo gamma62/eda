@@ -49,7 +49,9 @@ extern int MLEN;
 
 /* local proto */
 static void set_usage (int show_what);
-static int change_fkey_in_table (char *args);
+static int fkey_table_relation (char *args);
+static int pretty_print_key_names(int ki, char *key_buff, int size);
+
 #define SHOW_CURRENT_VALUES 1
 #define SHOW_USAGE 0
 
@@ -179,10 +181,11 @@ set (const char *argz)
 		}
 	}
 
-	if (token[0] == '?' || token[0] == 'h') {
+	if (token[0] == '?') {
 		if (cnf.bootup) set_usage(SHOW_USAGE);
 		return (0);
 	} else if (slen < 3 || token[0] == '#') {
+		/* 1 or 2 char resource names and comments will be ignored */
 		return (0);
 	}
 
@@ -193,6 +196,11 @@ set (const char *argz)
 		SET_CHECK_B( GSTAT_PREFIX );
 		if (ret==0) {
 			cnf.pref = (y==1) ? PREFIXSIZE : 0;
+		}
+		/* update! */
+		for (ri=0; ri<RINGSIZE; ri++) {
+			if (cnf.fdata[ri].fflag & FSTAT_OPEN)
+				update_curpos(ri);
 		}
 		if (cnf.bootup) tracemsg ("prefix %d", (cnf.gstat & GSTAT_PREFIX) ? 1 : 0);
 
@@ -236,7 +244,6 @@ set (const char *argz)
 				ret = 1;
 			} else if (cnf.tabsize != x) {
 				cnf.tabsize = x;
-				//set_tabsize(cnf.tabsize); /* not important */
 				if (cnf.bootup) {
 					/* update! */
 					for (ri=0; ri<RINGSIZE; ri++) {
@@ -373,8 +380,12 @@ set (const char *argz)
 	}
 
 	else {
-		if (cnf.bootup)
+		if (cnf.bootup) {
 			set_usage(SHOW_USAGE);
+		} else {
+			fprintf(stderr, "eda: rc [%s] [%s] ... bad token\n", token, subtoken);
+			ret = 2;
+		}
 	}
 
 	return (ret);
@@ -419,7 +430,7 @@ process_rcfile (int noconfig)
 				/**/
 				if ((ret = set (str)) != 0) {
 					fprintf(stderr, "eda: resource failure %s:%d\n", rcfile[j], rcline);
-					ret = 0;
+					// error in rcfile
 				}
 			}
 			fclose(fp);
@@ -437,11 +448,11 @@ process_rcfile (int noconfig)
 }/* process_rcfile */
 
 /*
-* changes fkey in table[] for selected function with key_value;
+* write table index to keys[]
 * internal function for process_keyfile()
 */
 static int
-change_fkey_in_table (char *args)
+fkey_table_relation (char *args)
 {
 	int ti=0, ki=0;
 	char *s_func=NULL, *s_key=NULL;
@@ -456,29 +467,25 @@ change_fkey_in_table (char *args)
 	}
 
 	args[slen] = '\0';
-	s_func = &args[0];
+	s_key = &args[0];
 	if (restidx > 0) {
-		s_key = &args[restidx];
-		sublen = parse_token(s_key, "\x09 ", &restidx);
-		s_key[sublen] = '\0';
+		s_func = &args[restidx];
+		sublen = parse_token(s_func, "\x09 ", &restidx);
+		s_func[sublen] = '\0';
 	}
 
-	if (slen < 3 || s_func[0] == '#') {
+	if (slen < 3 || sublen < 1 || s_key[0] == '#') {
 		/* comment lines covered also */
 		return (0);
-	}
-	if (sublen < 1) {
-		/* function name w/o key name */
-		return (1);
 	}
 
 	/* find ti and ki */
 	ret=1;
 	ti = index_func_fullname(s_func);
-	if (ti < TLEN) {
+	if (ti < TLEN && table[ti].fkey != -1) {
 		ki = index_key_string(s_key);
 		if (ki < KLEN && ki >= RES_KLEN) {
-			table[ti].fkey = keys[ki].key_value;
+			keys[ki].table_index = ti;
 			ret = 0;
 		} else {
 			if (ki < RES_KLEN) {
@@ -488,11 +495,11 @@ change_fkey_in_table (char *args)
 			}
 		}
 	} else {
-		fprintf(stderr, "eda: function %s is unknown\n", s_func);
+		fprintf(stderr, "eda: function %s is unknown or cannot bind fkey\n", s_func);
 	}
 
 	return (ret);
-}/* change_fkey_in_table */
+}/* fkey_table_relation */
 
 /*
 * process keys files, before cnf.bootup
@@ -501,9 +508,14 @@ int
 process_keyfile (int noconfig)
 {
 	char keyfile[2][sizeof(cnf.myhome)+SHORTNAME];
-	int j=0, kline=0, len=0, ret=0;
+	int j=0, kline=0, len=0, ret=0, ki;
 	FILE *fp;
 	char str[CMDLINESIZE];
+
+	/* must be cleaned */
+	for (ki=0; ki < KLEN; ki++) {
+		keys[ki].table_index = -1;
+	}
 
 	if (noconfig) {
 		return 0;
@@ -531,7 +543,7 @@ process_keyfile (int noconfig)
 					str[--len] = '\0';
 				strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 				/**/
-				ret = change_fkey_in_table (str);
+				ret = fkey_table_relation (str);
 			}
 			fclose(fp);
 		}
@@ -548,7 +560,7 @@ process_keyfile (int noconfig)
 }/* process_keyfile */
 
 /*
-* process macro files, before cnf.bootup
+* process macro files, before and after cnf.bootup
 */
 int
 process_macrofile (int noconfig)
@@ -691,6 +703,10 @@ process_macrofile (int noconfig)
 			fclose(fp);
 		}
 		if (ret) {
+			if (cnf.bootup) {
+				tracemsg("processing [%s] failed (%d), line=%d", macfile[j], ret, mline);
+				break;
+			}
 			fprintf(stderr, "eda: processing [%s] failed (%d), line=%d", macfile[j], ret, mline);
 			if (ret==161) {
 				fprintf(stderr, " : string for key name very long, max %u\n", (unsigned)sizeof(name));
@@ -1019,12 +1035,39 @@ load_macrofile (void)
 	return (ret);
 }
 
-#ifndef KEY_NONE
-#define KEY_NONE   0
-#endif
+/* pretty print key names into given char array
+*/
+int
+pretty_print_key_names(int ki, char *buff, int size)
+{
+	int len;
+	len = strlen(buff);
+
+	if (len+35 > size) {
+		strncat(buff, "...", 10);
+		return 1;
+	}
+
+	if ((strncmp(keys[ki].key_string, "KEY_F", 5) == 0) && 
+	(keys[ki].key_string[5] >= '0' && keys[ki].key_string[5] <= '9')) {
+		snprintf(&buff[len], 30, "%s ", keys[ki].key_string + 4);
+	} else if (strncmp(keys[ki].key_string, "KEY_C_", 6) == 0) {
+		snprintf(&buff[len], 30, "Ctrl-%s ", keys[ki].key_string + 6);
+	} else if (strncmp(keys[ki].key_string, "KEY_M_", 6) == 0) {
+		snprintf(&buff[len], 30, "Alt-%s ", keys[ki].key_string + 6);
+	} else if (strncmp(keys[ki].key_string, "KEY_S_M_", 8) == 0) {
+		snprintf(&buff[len], 30, "Alt-Shift-%s ", keys[ki].key_string + 8);
+	} else if (strncmp(keys[ki].key_string, "KEY_S_", 6) == 0) {
+		snprintf(&buff[len], 30, "Shift-%s ", keys[ki].key_string + 6);
+	} else {
+		snprintf(&buff[len], 30, "%s ", keys[ki].key_string);
+	}
+
+	return 0;
+}
 
 /*
-** show_commands - show table of commands, keyboard shortcuts and function names for macros
+** show_commands - show table of commands with keyboard shortcuts
 */
 int
 show_commands (void)
@@ -1032,9 +1075,9 @@ show_commands (void)
 	int ret=1;
 	LINE *lp=NULL;
 	char circle_line[1024];
+	char key_buff[90];
 	char name_buff[30];
-	char key_buff[30];
-	int ti, ki, i, j;
+	int ti, ki, i, j, mi;
 
 	/* open or reopen? */
 	ret = scratch_buffer("*cmds*");
@@ -1049,8 +1092,8 @@ show_commands (void)
 	CURR_FILE.fflag &= ~FSTAT_NOEDIT;	/* temporary */
 
 	ret = type_text("\n\
-command name          keyb shortcut    function name\n\
---------------------  ---------------  --------------------\n");
+command name          function name         keyboard shortcut\n\
+--------------------  --------------------  -------------------------\n");
 
 	if (!ret) {
 
@@ -1061,25 +1104,13 @@ command name          keyb shortcut    function name\n\
 
 		for (ti=0; ret == 0 && ti < TLEN; ti++) {
 
-			if (table[ti].fkey >= KEY_NONE) {
-				ki = index_key_value(table[ti].fkey);
-				if (ki < KLEN) {
-					if (strncmp(keys[ki].key_string, "KEY_C_", 6) == 0) {
-						snprintf(key_buff, sizeof(key_buff), "Ctrl-%s", keys[ki].key_string + 6);
-					} else if (strncmp(keys[ki].key_string, "KEY_S_", 6) == 0) {
-						snprintf(key_buff, sizeof(key_buff), "Shift-%s", keys[ki].key_string + 6);
-					} else if (strncmp(keys[ki].key_string, "KEY_M_", 6) == 0) {
-						snprintf(key_buff, sizeof(key_buff), "Alt-%s", keys[ki].key_string + 6);
-					} else if (strncmp(keys[ki].key_string, "KEY_NONE", 8) == 0) {
-						snprintf(key_buff, sizeof(key_buff), "none");
-					} else {
-						strncpy(key_buff, keys[ki].key_string + 4, sizeof(key_buff));
-					}
-				}
-			} else {
-				strncpy(key_buff, "n/a", 4);
+			if (table[ti].minlen == -1 && table[ti].fkey == -1) {
+				/* only for macros */
+				continue;
 			}
 
+			/* command name with mandatory or optional arguments */
+			name_buff[0] = '\0';
 			if (table[ti].minlen >= 1) {
 				i = 0;
 				for (j=0; i < 20 && table[ti].name[j] != '\0'; j++) {
@@ -1092,19 +1123,60 @@ command name          keyb shortcut    function name\n\
 					strncat(name_buff, ((table[ti].tflag & TSTAT_OPTARG) ? " [<arg>]" : " <arg>"), 10);
 				}
 			} else {
-				strncpy(name_buff, "n/a", 4);
+				strncpy(name_buff, "n/a", 10);
 			}
 
-			//if ((table[ti].fkey < KEY_NONE) && (table[ti].minlen < 1)) {
-			//	/* only for macros */
-			//	continue;
-			//} else if (strncmp(name_buff, "nop", 4) == 0) {
-			//	/* the end */
-			//	break;
-			//}
+			/* list of keys, pretty printing, space limitation */
+			key_buff[0] = '\0';
+			if (table[ti].fkey == -1) {
+				strncpy(key_buff, "n/a", 10);
+			} else {
+				for (ki=0; ki < KLEN; ki++) {
+					if (keys[ki].table_index == ti) {
+						if (pretty_print_key_names(ki, key_buff, sizeof(key_buff)))
+							break;
+					}
+				}
+				if (key_buff[0] == '\0') {
+					strncat(key_buff, "none", 10);
+				}
+			}
 
-			snprintf(circle_line, sizeof(circle_line)-1, "%-20s  %-15s  %-20s\n",
-				name_buff, key_buff, table[ti].fullname);
+			snprintf(circle_line, sizeof(circle_line)-1, "%-20s  %-20s  %s\n",
+				name_buff, table[ti].fullname, key_buff);
+
+			ret = type_text(circle_line);
+		}
+	}
+
+	if (!ret && macros) {
+
+		ret = type_text("\n\
+macro key             macro name\n\
+--------------------  ----------------------------------------\n");
+
+		for (mi=0; ret == 0 && mi < MLEN; mi++) {
+			key_buff[0] = '\0';
+			ki = index_key_value( macros[mi].fkey );
+			if (ki >= 0 && ki < KLEN && ki != RES_KLEN) { // KEY_NONE index is RES_KLEN
+				pretty_print_key_names(ki, key_buff, sizeof(key_buff));
+			} else {
+				strncpy(key_buff, "none", 10);
+			}
+
+			name_buff[0] = '\0';
+			if (macros[mi].name[0] == '\0') {
+				strncpy(name_buff, "n/a", 10);
+			} else {
+				strncpy(name_buff, macros[mi].name, 20);
+				if (macros[mi].mflag & TSTAT_ARGS) {
+					strncat(name_buff, ((macros[mi].mflag & TSTAT_OPTARG) ? " [<arg>]" : " <arg>"), 10);
+				}
+			}
+
+			snprintf(circle_line, sizeof(circle_line)-1, "%-20s  %s\n",
+				key_buff, name_buff);
+
 			ret = type_text(circle_line);
 		}
 	}

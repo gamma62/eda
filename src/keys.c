@@ -56,7 +56,6 @@ int key_c_npage = 0;
 
 /* local proto */
 static int process_esc_seq (const char *str, NODE *tree);
-static int test_key_handler (NODE *seq_tree);
 
 /*
  * wrapper around wgetch() to add extended keypress recognition,
@@ -69,20 +68,16 @@ static int test_key_handler (NODE *seq_tree);
  *	KEY_RESIZE with some delay
  */
 int
-key_handler (WINDOW *wind, NODE *seq_tree)
+key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 {
 	NODE *node = NULL;
-	int ch = 0;
-	char drop = 0;
-	char resize = 0;
-	int delay = 0;
-	char ready = 0;
-	int i;
+	int ch=0, resize=0, delay=0, ready=0, i=0, mok=0, meta_key=0, node_seq_items=0;
 
 	while (!ready) {
 		ch = wgetch (wind);
 
 		if (ch == KEY_RESIZE) {
+			if (testing) wprintw (stdscr, ".");
 			resize = 1;
 			delay = 0;	/* reset */
 
@@ -91,86 +86,209 @@ key_handler (WINDOW *wind, NODE *seq_tree)
 				ch = KEY_RESIZE;
 				resize = 0;
 				ready = 1;
+				if (testing) wprintw (stdscr, "* ");
+			} else {
+				if (testing) wprintw (stdscr, ",");
 			}
 
 		} else if (ch == KEY_MOUSE) {
-			if (getmouse(&pointer) == OK) {
+			mok = getmouse(&pointer);
+			if (testing) {
+				wprintw (stdscr, "(%d: y=%d x=%d bstate=0%o) ",
+					mok, pointer.y, pointer.x, pointer.bstate);
+			}
+			if (mok == OK) {
 				ready = 1;
 			}
 
 		/* dynamic mapping */
 		} else if (ch == key_c_up) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_UP;
-			ready = 1;
+			ready = 2;
 		} else if (ch == key_c_down) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_DOWN;
-			ready = 1;
+			ready = 2;
 		} else if (ch == key_c_left) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_LEFT;
-			ready = 1;
+			ready = 2;
 		} else if (ch == key_c_right) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_RIGHT;
-			ready = 1;
+			ready = 2;
 		} else if (ch == key_c_ppage) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_PPAGE;
-			ready = 1;
+			ready = 2;
 		} else if (ch == key_c_npage) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_NPAGE;
-			ready = 1;
+			ready = 2;
 
 		} else if (ch != ERR) {
 
 			if (ch == KEY_ESC) {
+				if (testing) wprintw (stdscr, "%02X ", ch);
 				node = seq_tree;
+				node_seq_items = 1;
 
 			} else if (node != NULL) {
-				/* process sequence */
+				if (testing) wprintw (stdscr, "%02X ", ch);
+				++node_seq_items;
+
+				/* maybe META character sequence */
+				if (node_seq_items == 2 && ch >= 0x20 && ch < 0x7f) {
+					switch (ch) {
+					case ' ': meta_key=KEY_M_SPACE; break;
+
+					case '!': meta_key=KEY_M_EXCLAM; break;
+					case '\"': meta_key=KEY_M_DQUOTE; break;
+					case '#': meta_key=KEY_M_HASH; break;
+					case '$': meta_key=KEY_M_DOLLAR; break;
+					case '%': meta_key=KEY_M_PERCENT; break;
+					case '&': meta_key=KEY_M_AMPERSAND; break;
+					case '\'': meta_key=KEY_M_SQUOTE; break;
+					case '(': meta_key=KEY_M_LPAREN; break;
+					case ')': meta_key=KEY_M_RPAREN; break;
+					case '*': meta_key=KEY_M_STAR; break;
+					case '+': meta_key=KEY_M_PLUS; break;
+					case ',': meta_key=KEY_M_COMMA; break;
+					case '-': meta_key=KEY_M_MINUS; break;
+					case '.': meta_key=KEY_M_DOT; break;
+					case '/': meta_key=KEY_M_SLASH; break;
+					case '0': meta_key=KEY_M_ZERO; break;
+					case '1': meta_key=KEY_M_ONE; break;
+					case '2': meta_key=KEY_M_TWO; break;
+					case '3': meta_key=KEY_M_THREE; break;
+					case '4': meta_key=KEY_M_FOUR; break;
+					case '5': meta_key=KEY_M_FIVE; break;
+					case '6': meta_key=KEY_M_SIX; break;
+					case '7': meta_key=KEY_M_SEVEN; break;
+					case '8': meta_key=KEY_M_EIGHT; break;
+					case '9': meta_key=KEY_M_NINE; break;
+					case ':': meta_key=KEY_M_COLON; break;
+					case ';': meta_key=KEY_M_SEMICOLON; break;
+					case '<': meta_key=KEY_M_LESSTHAN; break;
+					case '=': meta_key=KEY_M_EQUAL; break;
+					case '>': meta_key=KEY_M_GREATHAN; break;
+					case '?': meta_key=KEY_M_QMARK; break;
+
+					case '@': meta_key=KEY_M_AT; break;
+					case 'A': meta_key=KEY_S_M_A; break;
+					case 'B': meta_key=KEY_S_M_B; break;
+					case 'C': meta_key=KEY_S_M_C; break;
+					case 'D': meta_key=KEY_S_M_D; break;
+					case 'E': meta_key=KEY_S_M_E; break;
+					case 'F': meta_key=KEY_S_M_F; break;
+					case 'G': meta_key=KEY_S_M_G; break;
+					case 'H': meta_key=KEY_S_M_H; break;
+					case 'I': meta_key=KEY_S_M_I; break;
+					case 'J': meta_key=KEY_S_M_J; break;
+					case 'K': meta_key=KEY_S_M_K; break;
+					case 'L': meta_key=KEY_S_M_L; break;
+					case 'M': meta_key=KEY_S_M_M; break;
+					case 'N': meta_key=KEY_S_M_N; break;
+					case 'O': meta_key=KEY_S_M_O; break;
+					case 'P': meta_key=KEY_S_M_P; break;
+					case 'Q': meta_key=KEY_S_M_Q; break;
+					case 'R': meta_key=KEY_S_M_R; break;
+					case 'S': meta_key=KEY_S_M_S; break;
+					case 'T': meta_key=KEY_S_M_T; break;
+					case 'U': meta_key=KEY_S_M_U; break;
+					case 'V': meta_key=KEY_S_M_V; break;
+					case 'W': meta_key=KEY_S_M_W; break;
+					case 'X': meta_key=KEY_S_M_X; break;
+					case 'Y': meta_key=KEY_S_M_Y; break;
+					case 'Z': meta_key=KEY_S_M_Z; break;
+					case '[': meta_key=KEY_M_LSQBRAC; break;
+					case '\\': meta_key=KEY_M_BACKSLASH; break;
+					case ']': meta_key=KEY_M_RSQBRAC; break;
+					case '^': meta_key=KEY_M_CARET; break;
+					case '_': meta_key=KEY_M_UNDERLINE; break;
+
+					case '`': meta_key=KEY_M_GRAVEACC; break;
+					case 'a': meta_key=KEY_M_A; break;
+					case 'b': meta_key=KEY_M_B; break;
+					case 'c': meta_key=KEY_M_C; break;
+					case 'd': meta_key=KEY_M_D; break;
+					case 'e': meta_key=KEY_M_E; break;
+					case 'f': meta_key=KEY_M_F; break;
+					case 'g': meta_key=KEY_M_G; break;
+					case 'h': meta_key=KEY_M_H; break;
+					case 'i': meta_key=KEY_M_I; break;
+					case 'j': meta_key=KEY_M_J; break;
+					case 'k': meta_key=KEY_M_K; break;
+					case 'l': meta_key=KEY_M_L; break;
+					case 'm': meta_key=KEY_M_M; break;
+					case 'n': meta_key=KEY_M_N; break;
+					case 'o': meta_key=KEY_M_O; break;
+					case 'p': meta_key=KEY_M_P; break;
+					case 'q': meta_key=KEY_M_Q; break;
+					case 'r': meta_key=KEY_M_R; break;
+					case 's': meta_key=KEY_M_S; break;
+					case 't': meta_key=KEY_M_T; break;
+					case 'u': meta_key=KEY_M_U; break;
+					case 'v': meta_key=KEY_M_V; break;
+					case 'w': meta_key=KEY_M_W; break;
+					case 'x': meta_key=KEY_M_X; break;
+					case 'y': meta_key=KEY_M_Y; break;
+					case 'z': meta_key=KEY_M_Z; break;
+					case '{': meta_key=KEY_M_LCURBRAC; break;
+					case '|': meta_key=KEY_M_BAR; break;
+					case '}': meta_key=KEY_M_RCURBRAC; break;
+					case '~': meta_key=KEY_M_TILDE; break;
+					default:
+						meta_key=0;
+						break;
+					}
+				} else {
+					meta_key=0;
+				}
+
+				/* move node pointer forward, maybe the input sequence is
+				 * a real seq, like: 1B 5B 31 3B 32 50 for KEY_S_F1
+				 * or a meta char, like: 1B 5B for KEY_M_LSQBRAC
+				 */
 				for (i=0; i < node->bcount; i++) {
 					if (node->branch[i]->ch == ch) {
 						break;
 					}
 				}
 				if (i < node->bcount) {
+					/* has a branch, still in sequence */
 					node = node->branch[i];
-					if (node->bcount == 0 && node->leaf != 0) {
-						ch = node->leaf;
-						ready = 1;
-					}
-					/* else: ok, continue processing */
 				} else {
-					/* not found, abort sequence */
+					/* sequence lost, must be an undefined sequence */
 					node = NULL;
-					drop = 1;
 				}
 
-			} else if (!drop) {	/* node == NULL */
-#ifdef META_SETS_HIGHBIT
-				if ((ch >= 0xa0 && ch < 0xff)) {
-					/* simulate KEY_ESC + simple character sequence */
-					node = seq_tree;
-					ungetch(ch & ~0x80);
-				} else
-#endif
-				{	/* simple character */
+			} else {	/* node == NULL */
+				if (node_seq_items) {
+					if (testing) wprintw (stdscr, "%02X ", ch);
+					++node_seq_items;
+				} else {
+					/* 'ch' must be simple character */
 					ready = 1;
 				}
 			}
-			/* else: drop character */
 
 		} else {	/* ch == ERR */
-			if (node != NULL) {
-				/* check sequence, must be a leaf */
-				if (node->leaf != 0) {
+			if (node_seq_items) {
+				if (node != NULL && node->leaf != 0) {
 					ch = node->leaf;
-					ready = 1;
+				} else if (node_seq_items == 2 && meta_key != 0) {
+					ch = meta_key;
+				} else {
+					if (testing) wprintw (stdscr, "=> undefined sequence\n");
 				}
-				/* else: should not happen */
+				ready = 1;
 			} else {
 				/* timeout */
-				ready = 1;
+				ready = 9;
 			}
 			node = NULL;
-			drop = 0;
 		}
 	}/* while */
 
@@ -178,8 +296,13 @@ key_handler (WINDOW *wind, NODE *seq_tree)
 	switch (ch)
 	{
 	case KEY_BACKSPACE:
+		break;
 	case KEY_C_H:
+		if (testing) wprintw (stdscr, "((map KEY_C_H 0x02X to KEY_BACKSPACE))\n", ch);
+		ch = KEY_BACKSPACE;
+		break;
 	case KEY_ASCII_DEL:
+		if (testing) wprintw (stdscr, "((map KEY_ASCII_DEL 0x%02X to KEY_BACKSPACE))\n", ch);
 		ch = KEY_BACKSPACE;
 		break;
 	default:
@@ -256,9 +379,8 @@ process_seqfile (int noconfig)
 
 	if (ret) {
 		fprintf(stderr, "eda: processing [%s] failed (%d) line=%d\n", fname, ret, lno);
-		FREE(seq);
+		free_seq_tree (cnf.seq_tree);
 		seq = NULL;
-		free_seq_tree(cnf.seq_tree);
 	} else {
 		cnf.seq_tree = seq;
 	}
@@ -320,7 +442,7 @@ process_esc_seq (const char *str, NODE *tree)
 	key_val = keys[ki].key_value;
 
 	/* the rest is the escape sequence, convert hex chars to numbers and add to leaves[] */
-	for (lcount=0;  lcount < (sizeof(leaves)/sizeof(int)) && *p != '\0'; lcount++) {
+	for (lcount=0; lcount < (sizeof(leaves)/sizeof(int)) && *p != '\0'; lcount++) {
 		leaves[lcount] = strtol(p, &q, 16);
 		if (p == q) {
 			fprintf(stderr, "eda: process_esc_seq: sequence should have only hexadecimal number values: [%s]\n", str);
@@ -370,16 +492,16 @@ process_esc_seq (const char *str, NODE *tree)
 	/* merge leaves[] to tree, node is the running pointer */
 	node = tree;
 	for (i=1; i < lcount; i++) {
-		/* search the next node->branch[] : j */
+		/* search for matching sequence item */
 		j = node->bcount;
 		if (node->branch != NULL) {
 			for (j=0; j < node->bcount; j++) {
-				if (node->branch[j]->ch == leaves[i])
+				if (node->branch[j]->ch == leaves[i]) /* found */
 					break;
 			}
 		}
 
-		/* create 'branch' if necessary */
+		/* add new item to node->branch[] if there is no match */
 		if (j == node->bcount) {
 
 			/* allocate space for bigger pointer array -- sizeof(NODE *) should be portable */
@@ -415,7 +537,8 @@ process_esc_seq (const char *str, NODE *tree)
 		/* skip down to next level */
 		node = node->branch[j];
 	}
-	/* at last add key_val to leaf */
+
+	/* at last add key_val to leaf -- the final result of esc key sequence */
 	node->leaf = key_val;
 
 	return (0);
@@ -473,47 +596,42 @@ key_test (void)
 	ESCDELAY = CUST_ESCDELAY;
 	wtimeout (stdscr, CUST_WTIMEOUT);
 
-	wprintw (stdscr, "eda: key_test\n");
-	wprintw (stdscr, "escape delay=%d, wgetch timeout=%d maxx=%d maxy=%d\n", CUST_ESCDELAY, CUST_WTIMEOUT, maxx, maxy);
-	wprintw (stdscr, "quit by Q\n");
+	wprintw (stdscr, "eda: key_test -- escape sequences ((ESCDELAY=%d WTIMEOUT=%d x=%d x=%d))\n", CUST_ESCDELAY, CUST_WTIMEOUT, maxy, maxx);
+	wprintw (stdscr, "     format: escape key sequence => key code ... [function name]\n");
+	wprintw (stdscr, "     quit with Q or q\n");
 	wsetscrreg(stdscr, 3, maxy-1);
 
 	while (ch != 'q') {
-		ch = test_key_handler (cnf.seq_tree);
+		ch = key_handler (stdscr, cnf.seq_tree, 2);
 
 		if (ch != ERR) {
 			if (ch == KEY_RESIZE) {
-				wprintw (stdscr, ">KEY_RESIZE\n");
+				wprintw (stdscr, "=> KEY_RESIZE\n");
 				/* no RESIZE handling here */
 			} else if (ch >= 0x20 && ch != 0x7F && ch <= 0xFF) {
-				wprintw (stdscr, ">%02X=%c.", ch, ch);
+				wprintw (stdscr, "%c", ch);
 			} else if (ch == '\r') {
-				wprintw (stdscr, ">%02X\n", ch);
+				wprintw (stdscr, "\n");
 			} else if (ch == KEY_MOUSE) {
-				wprintw (stdscr, ">KEY_MOUSE row=%d col=%d\n",
+				wprintw (stdscr, "=> KEY_MOUSE row=%d col=%d\n",
 					pointer.y, pointer.x);
 			} else {
 				ki = index_key_value(ch);
-				if (ki < KLEN) {
-					wprintw (stdscr, ">0x%02X=%s", ch, keys[ki].key_string);
-					for (ti=0; ti < TLEN; ti++) {
-						if (table[ti].fkey == ch) {
+				if (ki >= 0 && ki < KLEN) {
+					wprintw (stdscr, "=> %02X=%s", ch, keys[ki].key_string);
+					ti = index_macros_fkey(ch);
+					if (ti >= 0 && ti < MLEN) {
+						wprintw (stdscr, " ... %s (macro)", macros[ti].name);
+					} else {
+						ti = keys[ki].table_index;
+						if (ti >= 0 && ti < TLEN) {
 							wprintw (stdscr, " ... %s", table[ti].fullname);
-							break;
 						}
 					}
-					if (ti == TLEN && macros != NULL) {
-						for (ti=0; ti < MLEN; ti++) {
-							if (macros[ti].fkey == ch) {
-								wprintw (stdscr, " ... %s", macros[ti].name);
-								break;
-							}
-						}
-					}
-					wprintw (stdscr, "\n");
 				} else {
-					wprintw (stdscr, ">0x%02X=(unknown)\n", ch);
+					wprintw (stdscr, "%02X => unbound key");
 				}
+				wprintw (stdscr, "\n");
 			}
 			/* put to screen */
 			wnoutrefresh (stdscr);
@@ -533,146 +651,4 @@ key_test (void)
 	}
 
 	endwin ();	/* End */
-}
-
-/*
- * test version of key_handler()
- * inputs and returns are the same,
- * added trace: every element of sequence will be printed and
- * decisions also
- * ---
- * mouse events reported also (experimental)
- */
-static int
-test_key_handler (NODE *seq_tree)
-{
-	NODE *node = NULL;
-	int ch = 0;
-	char drop = 0;
-	char resize = 0;
-	int delay = 0;
-	char ready = 0;
-	int i;
-	int mok=0;
-
-	while (!ready) {
-		ch = wgetch (stdscr);
-
-		if (ch == KEY_RESIZE) {
-			wprintw (stdscr, "*");
-			resize = 1;
-			delay = 0;	/* reset */
-
-		} else if (resize) {
-			if (++delay >=  RESIZE_DELAY) {
-				ch = KEY_RESIZE;
-				resize = 0;
-				ready = 1;
-			} else {
-				wprintw (stdscr, ".");
-			}
-
-		} else if (ch == KEY_MOUSE) {
-			mok = getmouse(&pointer);
-			wprintw (stdscr, "(%d: y=%d x=%d state=0%o) ",
-				mok, pointer.y, pointer.x, pointer.bstate);
-			if (mok == OK) {
-				ready = 1;
-			}
-
-		/* dynamic mapping */
-		} else if (ch == key_c_up) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_UP;
-			ready = 1;
-		} else if (ch == key_c_down) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_DOWN;
-			ready = 1;
-		} else if (ch == key_c_left) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_LEFT;
-			ready = 1;
-		} else if (ch == key_c_right) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_RIGHT;
-			ready = 1;
-		} else if (ch == key_c_ppage) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_PPAGE;
-			ready = 1;
-		} else if (ch == key_c_npage) {
-			wprintw (stdscr, "0X%02X-", ch);
-			ch = KEY_C_NPAGE;
-			ready = 1;
-
-		} else if (ch != ERR) {
-
-			if (ch == KEY_ESC) {
-				wprintw (stdscr, "%02X-", ch);
-				node = seq_tree;
-
-			} else if (node != NULL) {
-				wprintw (stdscr, "%02X-", ch);
-				/* process sequence */
-				for (i=0; i < node->bcount; i++) {
-					if (node->branch[i]->ch == ch) {
-						break;
-					}
-				}
-				if (i < node->bcount) {
-					node = node->branch[i];
-					if (node->bcount == 0 && node->leaf != 0) {
-						ch = node->leaf;
-						ready = 1;
-					}
-					/* else: ok, continue processing */
-				} else {
-					/* not found, abort sequence */
-					wprintw (stdscr, "(no branch)-");
-					node = NULL;
-					drop = 1;
-				}
-
-			} else if (!drop) {	/* node == NULL */
-#ifdef META_SETS_HIGHBIT
-				if ((ch >= 0xa0 && ch < 0xff)) {
-					/* simulate KEY_ESC + simple character sequence */
-					wprintw (stdscr, "%02X=FAKE_META-", ch);
-					node = seq_tree;
-					ungetch(ch & ~0x80);
-				} else
-#endif
-				{	/* simple character */
-					ready = 1;
-				}
-
-			}
-			/* else: drop character */
-			else {
-				wprintw (stdscr, "drop:%02X-", ch);
-			}
-
-		} else {	/* ch == ERR */
-			if (node != NULL) {
-				/* check sequence, must be a branch and leaf */
-				if (node->leaf != 0) {
-					ch = node->leaf;
-					ready = 1;
-				}
-				/* else: should not happen */
-				else {
-					wprintw (stdscr, "(end w/o leaf!!!!)");
-				}
-			} else {
-				/* timeout */
-				ready = 1;
-			}
-			node = NULL;
-			drop = 0;
-		}
-
-	}/* while */
-
-	return (ch);
 }

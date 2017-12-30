@@ -25,13 +25,15 @@ ARCH != uname -m
 OS != uname -s
 REV != cat ../REV 2>/dev/null || echo 0
 
-CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
+CFLAGS = -W -Wall -g -O2 -Wformat -Werror=format-security \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
-	-I/usr/local/include -I/usr/local/include/ncurses \
-	-D_BSD_TYPES -D__BSD_VISIBLE -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600
-LDFLAGS = -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lncurses  
+	-I/usr/local/include -I/usr/local/include/ncurses
 
-HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
+# workaround for ncurses-6.0.0s20171007_1
+# /usr/local/lib/libncurses.so.6.0 uses /usr/local/lib/libtinfo.so.6
+#LDFLAGS = -L/usr/local/lib -lncurses
+LDFLAGS = -L/usr/lib -lncurses
+
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
@@ -41,7 +43,7 @@ SRCS = $(OBJS:.o=.c)
 all: eda
 
 eda: $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LDFLAGS)
+	$(CC) -o $@ ${.ALLSRC} $(LDFLAGS)
 
 install:
 	install -d -m 755  $(DESTDIR)$(prefix)/bin/
@@ -85,8 +87,8 @@ keys.o: keys.c
 .SUFFIXES: .i .o
 
 #.c.o:
-#	$(CC) $(CFLAGS) -o $@ -c $^
+#	$(CC) $(CFLAGS) -o ${.TARGET} -c ${.IMPSRC}
 #.c.i:
-#	$(CC) -E -W -Wall -I.. -o $@ -c $^
+#	$(CC) -E -W -Wall -I.. -o ${.TARGET} -c ${.IMPSRC}
 
 # ------------------------------------

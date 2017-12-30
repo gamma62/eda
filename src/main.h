@@ -24,11 +24,7 @@
 
 #include <config.h>
 #include <stdio.h>
-#ifdef __FreeBSD__
-#include <ncurses/curses.h>	/* includes stdarg.h */
-#else
-#include <curses.h>
-#endif
+#include <curses.h>	/* includes stdarg.h */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <regex.h>
@@ -90,9 +86,9 @@
 #endif
 
 /* for wgetch() and timers */
-#define CUST_ESCDELAY	20		/* to set global variable ESCDELAY: expire time (original 1000ms) */
-#define CUST_WTIMEOUT	50		/* wgetch timeout (miliseconds) */
-#define RESIZE_DELAY	3		/* internal counter for wgetch timeouts before reporting KEY_RESIZE */
+#define CUST_ESCDELAY	5		/* set global variable ESCDELAY (miliseconds?) */
+#define CUST_WTIMEOUT	10		/* wgetch timeout (miliseconds) */
+#define RESIZE_DELAY	7		/* internal counter for wgetch timeouts before reporting KEY_RESIZE */
 #define FILE_CHDELAY	(1000/CUST_WTIMEOUT*5)	/* file re-stat timing, 5 seconds */
 #define ZOMBIE_DELAY	(1000/CUST_WTIMEOUT*1)	/* check process alive, 1 second */
 #define REFRESH_EVENT	(-2)		/* force display refresh */
@@ -252,7 +248,7 @@
 #define OPT_STANDARD		0x0000	/* the standard processing into scratch buffer, fg or bg */
 #define OPT_NOSCRATCH		0x0100	/* no scratch buffer -- custom processing */
 /* standard processing only: */
-#define OPT_TTY			0x1000	/* setsid -- session leader -- sh/ish */
+#define OPT_TTY			0x1000	/* setsid -- session leader -- closing stdin */
 #define OPT_SILENT		0x2000	/* no header/footer lines */
 #define OPT_NOAPP		0x4000	/* do not append to buffer, wipe out */
 #define OPT_INTERACT		0x8000	/* interactive bg process */
@@ -457,7 +453,7 @@ struct change_data_tag
 struct table_tag
 {
 	const char *name;	/* command name, optional */
-	int fkey;		/* key value, optional, changeable */
+	int fkey;		/* key value, optional */
 	int minlen;		/* required min.length of name to identify */
 	FUNCPTR funcptr;	/* function pointer */
 	const char *fullname;	/* functions exact name */
@@ -468,6 +464,7 @@ struct key_string_tag
 {
 	int key_value;
 	const char *key_string;
+	int table_index;
 };
 
 struct macroitems_tag

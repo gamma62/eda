@@ -1,5 +1,25 @@
 
-    - config file updates (edarc, edaseq, edamacro); cmdline history bugfix; python error parser; get real HOME path
+* 2017, august and december, rc1 for 0.9.97
+
+  features:
+    - engine tests: base editor functions (ready) and feature groups (started only)
+    - show commands: macro listing added
+    - clipboard I/O with new macros using over_select and external xsel
+    - re-implement over_select: on filter level, replace common lines, cut or add other lines
+    - edakeys: create relation 'key.index -> table.func.name -> table.index' during bootup
+    - improved key tester: improved; added command/macro name also
+    - news for macros: go_text(), using xsel, hg samples
+    - real and alternative (symlink) HOME path, optionally for xterm title
+    - new patterns for python error parser
+
+  fixes:
+    - save as: overwrite existing file is not disabled (since r1141); safety restored
+    - reload macros: error with fprintf whereas tracemsg should be used after cnf.bootup
+    - bookmarks: missing reference cleanup after line removal; added show_bookmarks()
+    - fixed missing curpos update in prefix_macro()
+    - FreeBSD 11.1-RELEASE update, ncurses6.0.0 workaround: use /lib/libncurses.so
+    - cmdline history bugfix
+    - config file updates (edarc, edaseq, edamacro); GNU and BSD makefiles and compiler settings
 
 * 2017, january, release 0.9.83
 

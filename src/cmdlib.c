@@ -100,6 +100,7 @@ delete_lines (const char *args)
 			lineno += cnt;
 			while (TEXT_LINE(lp)) {
 				changes++;
+				clr_opt_bookmark(lp);
 				lp = lll_rm(lp);		/* delete_lines() */
 				CURR_FILE.num_lines--;
 				if (HIDDEN_LINE(cnf.ring_curr,lp)) {
@@ -220,7 +221,7 @@ ringlist_parser (const char *dataline)
 		}
 	} else if (bmx != -1) {
 		PD_LOG(LOG_DEBUG, "try bookmark %d", bmx);
-		ret = jump2_bookmark(bmx,1);	/* silent mode, jump_without_preview */
+		ret = jump2_bookmark(bmx);
 	}
 
 	return (ret);
@@ -1088,9 +1089,6 @@ prefix_macro (void)
 		set("prefix off");
 	} else {
 		set("prefix on");
-		if (CURR_FILE.curpos - CURR_FILE.lnoff > TEXTCOLS-1) {
-			CURR_FILE.lnoff += cnf.pref;
-		}
 	}
 	/* cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS); */
 	return (0);
@@ -1230,7 +1228,7 @@ fsearch_path_macro (const char *fpath)
 
 /*
 ** fsearch_args_macro - change the name patterns of find command,
-**	and show the find_opts setting
+**	like "fsea *.[ch] *.sh" or "fsea *.py" and show the find_opts setting
 */
 int
 fsearch_args_macro (const char *fparams)
@@ -1789,7 +1787,7 @@ bm_clear (const char *args)
 int
 bm_jump1 (void)
 {
-	return (jump2_bookmark(1, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(1));
 }
 
 /*
@@ -1799,7 +1797,7 @@ bm_jump1 (void)
 int
 bm_jump2 (void)
 {
-	return (jump2_bookmark(2, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(2));
 }
 
 /*
@@ -1809,7 +1807,7 @@ bm_jump2 (void)
 int
 bm_jump3 (void)
 {
-	return (jump2_bookmark(3, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(3));
 }
 
 /*
@@ -1819,7 +1817,7 @@ bm_jump3 (void)
 int
 bm_jump4 (void)
 {
-	return (jump2_bookmark(4, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(4));
 }
 
 /*
@@ -1829,7 +1827,7 @@ bm_jump4 (void)
 int
 bm_jump5 (void)
 {
-	return (jump2_bookmark(5, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(5));
 }
 
 /*
@@ -1839,7 +1837,7 @@ bm_jump5 (void)
 int
 bm_jump6 (void)
 {
-	return (jump2_bookmark(6, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(6));
 }
 
 /*
@@ -1849,7 +1847,7 @@ bm_jump6 (void)
 int
 bm_jump7 (void)
 {
-	return (jump2_bookmark(7, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(7));
 }
 
 /*
@@ -1859,7 +1857,7 @@ bm_jump7 (void)
 int
 bm_jump8 (void)
 {
-	return (jump2_bookmark(8, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(8));
 }
 
 /*
@@ -1869,7 +1867,7 @@ bm_jump8 (void)
 int
 bm_jump9 (void)
 {
-	return (jump2_bookmark(9, cnf.gstat & GSTAT_SILENT));
+	return (jump2_bookmark(9));
 }
 
 /*

@@ -22,11 +22,7 @@
 #ifndef _CURSES_EXT_H_
 #define _CURSES_EXT_H_
 
-#ifdef __FreeBSD__
-#include <ncurses/curses.h>
-#else
 #include <curses.h>
-#endif
 
 /* all KEY_*** defines are going into keys[] 
  * except "reserved: internal use only" (see also headers.sh)
@@ -150,6 +146,7 @@
 * ------------------
 */
 #define KEY_M_RETURN	(KEY_META | KEY_RETURN)
+
 #define KEY_M_SPACE	(KEY_META | ' ')
 #define KEY_M_EXCLAM	(KEY_META | '!')
 #define KEY_M_DQUOTE	(KEY_META | '\"')
@@ -182,15 +179,40 @@
 #define KEY_M_EQUAL	(KEY_META | '=')
 #define KEY_M_GREATHAN	(KEY_META | '>')
 #define KEY_M_QMARK	(KEY_META | '?')
+
 #define KEY_M_AT	(KEY_META | '@')
-/*
-* Meta 'A' thru 'Z' is the same as Meta 'a' thru 'z'
-*/
+#define KEY_S_M_A	(KEY_META | 'A')
+#define KEY_S_M_B	(KEY_META | 'B')
+#define KEY_S_M_C	(KEY_META | 'C')
+#define KEY_S_M_D	(KEY_META | 'D')
+#define KEY_S_M_E	(KEY_META | 'E')
+#define KEY_S_M_F	(KEY_META | 'F')
+#define KEY_S_M_G	(KEY_META | 'G')
+#define KEY_S_M_H	(KEY_META | 'H')
+#define KEY_S_M_I	(KEY_META | 'I')
+#define KEY_S_M_J	(KEY_META | 'J')
+#define KEY_S_M_K	(KEY_META | 'K')
+#define KEY_S_M_L	(KEY_META | 'L')
+#define KEY_S_M_M	(KEY_META | 'M')
+#define KEY_S_M_N	(KEY_META | 'N')
+#define KEY_S_M_O	(KEY_META | 'O')
+#define KEY_S_M_P	(KEY_META | 'P')
+#define KEY_S_M_Q	(KEY_META | 'Q')
+#define KEY_S_M_R	(KEY_META | 'R')
+#define KEY_S_M_S	(KEY_META | 'S')
+#define KEY_S_M_T	(KEY_META | 'T')
+#define KEY_S_M_U	(KEY_META | 'U')
+#define KEY_S_M_V	(KEY_META | 'V')
+#define KEY_S_M_W	(KEY_META | 'W')
+#define KEY_S_M_X	(KEY_META | 'X')
+#define KEY_S_M_Y	(KEY_META | 'Y')
+#define KEY_S_M_Z	(KEY_META | 'Z')
 #define KEY_M_LSQBRAC	(KEY_META | '[')
 #define KEY_M_BACKSLASH	(KEY_META | '\\')
 #define KEY_M_RSQBRAC	(KEY_META | ']')
 #define KEY_M_CARET	(KEY_META | '^')
 #define KEY_M_UNDERLINE	(KEY_META | '_')
+
 #define KEY_M_GRAVEACC	(KEY_META | '`')
 #define KEY_M_A		(KEY_META | 'a')
 #define KEY_M_B		(KEY_META | 'b')

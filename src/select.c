@@ -545,7 +545,9 @@ rm_select_eng (LINE *lp_rm)
 			lp_rm->lflag &= ~LSTAT_SELECT;
 			lp_rm = lp_rm->next;
 		} else {
-			lp_rm = lll_rm (lp_rm);	/* next, if TEXT_LINE */
+			clr_opt_bookmark (lp_rm);
+			/* skip to next, if TEXT_LINE */
+			lp_rm = lll_rm (lp_rm);	/* in rm_select_eng() */
 			count++;
 		}
 	}
@@ -663,9 +665,11 @@ wr_select (int fd, int with_shadow)
 	}
 
 	lp_src = selection_first_line (&count);
-	if (HIDDEN_LINE(cnf.select_ri,lp_src)) {
-		/* skip initial shadow lines */
-		next_lp(cnf.select_ri, &lp_src, NULL);
+	if (TEXT_LINE(lp_src)) {
+		if (HIDDEN_LINE(cnf.select_ri,lp_src)) {
+			/* skip initial shadow lines */
+			next_lp(cnf.select_ri, &lp_src, NULL);
+		}
 	}
 	count = 0;
 	while (TEXT_LINE(lp_src) && (lp_src->lflag & LSTAT_SELECT)) {
@@ -705,65 +709,192 @@ wr_select (int fd, int with_shadow)
 } /* wr_select */
 
 /*
+ * over_select_eng - overwrite visible lines of ('selection') with lines from source,
+ *	the more sources, append copies to target,
+ *	the more in 'selection', delete rest
+ *	relocate 'selection' curr_line upwards if it would be removed otherwise
+*/
+int
+over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
+{
+	int target_ri;
+	LINE *lp_target=NULL, *lp_target_end=NULL;
+	LINE *lp=NULL;
+	int src_ready=0, target_ready=0, over=0, insert=0, delete=0, ans=0;
+	int lno_first, lno_last, cnt;
+
+	/* the target */
+	target_ri = cnf.select_ri;
+	lp_target = selection_first_line (&lno_first);
+	if (TEXT_LINE(lp_target)) {
+		if (HIDDEN_LINE(target_ri, lp_target)) {
+			next_lp (target_ri, &lp_target, &cnt);
+			lno_first += cnt;
+		}
+	}
+	lp_target_end = selection_last_line (&lno_last);
+	if (TEXT_LINE(lp_target_end)) {
+		if (HIDDEN_LINE(target_ri, lp_target_end)) {
+			prev_lp (target_ri, &lp_target_end, &cnt);
+			lno_last -= cnt;
+		}
+	}
+	if (!TEXT_LINE(lp_target) || !TEXT_LINE(lp_target_end)) {
+		return -2;
+	}
+	reset_select();
+	SELE_LOG(LOG_DEBUG, "target: lno_first %d [%s] lno_last %d [%s]",
+		lno_first, lp_target->buff, lno_last, lp_target_end->buff);
+
+	while (!src_ready && TEXT_LINE(lp_src) && !target_ready && TEXT_LINE(lp_target)) {
+		/* in the range of original selection lines,
+		 * overwrite the buffer
+		 */
+		SELE_LOG(LOG_DEBUG, "overwrite: [%s] with [%s]", lp_target->buff, lp_src->buff);
+		if (milbuff (lp_target, 0, lp_target->llen, lp_src->buff, lp_src->llen)) {
+			ans = -1;
+			break;
+		}
+		lp_target->lflag |= LSTAT_CHANGE;
+		over++;
+
+		if (lp_src == lp_src_end)
+			src_ready = 1;
+		next_lp (src_ri, &lp_src, NULL);
+
+		if (lp_target == lp_target_end)
+			target_ready = 1;
+		next_lp (target_ri, &lp_target, &cnt);
+		lno_first += cnt;
+	}
+	if (over > 0)
+		cnf.fdata[target_ri].fflag |= FSTAT_CHANGE;
+	if (ans)
+		return ans;
+	SELE_LOG(LOG_DEBUG, "after %d overwrite: lno_first %d curr lineno %d", over, lno_first, cnf.fdata[target_ri].lineno);
+
+	if (!src_ready && TEXT_LINE(lp_src)) {
+		/* append the rest of source */
+		while (!src_ready && TEXT_LINE(lp_src)) {
+			if (lp_src == lp_src_end)
+				src_ready = 1;
+
+			SELE_LOG(LOG_DEBUG, "insert: [%s]", lp_src->buff);
+			lp = insert_line_before (lp_target, lp_src->buff);
+			if (lp == NULL) {
+				ans = -1;
+				break;
+			}
+			lp->lflag |= LSTAT_CHANGE;
+			insert++;
+
+			next_lp (src_ri, &lp_src, NULL);
+		}
+
+		/* update */
+		if (lno_first <= cnf.fdata[target_ri].lineno)
+			cnf.fdata[target_ri].lineno += insert;
+		cnf.fdata[target_ri].num_lines += insert;
+		if (insert > 0)
+			cnf.fdata[target_ri].fflag |= FSTAT_CHANGE;
+		SELE_LOG(LOG_DEBUG, "after %d insert: curr lineno %d", insert, cnf.fdata[target_ri].lineno);
+
+	} else if (!target_ready && TEXT_LINE(lp_target)) {
+		/* remove the rest of 'selection' */
+
+		/* relocate current (up) if current with lineno would be removed */
+		if (lno_first <= cnf.fdata[target_ri].lineno && cnf.fdata[target_ri].lineno <= lno_last) {
+			cnf.fdata[target_ri].curr_line = lp_target;
+			prev_lp (target_ri, &(cnf.fdata[target_ri].curr_line), &cnt);
+			cnf.fdata[target_ri].lineno = lno_first - cnt;
+			SELE_LOG(LOG_DEBUG, "after relocate (to first %d - cnt %d): curr lineno %d", lno_first, cnt, cnf.fdata[target_ri].lineno);
+		}
+
+		while (!target_ready && TEXT_LINE(lp_target)) {
+			if (lp_target == lp_target_end)
+				target_ready = 1;
+
+			if (HIDDEN_LINE(target_ri, lp_target)) {
+				lp_target = lp_target->next;
+			} else {
+				SELE_LOG(LOG_DEBUG, "delete: [%s]", lp_target->buff);
+				clr_opt_bookmark(lp_target);
+				/* skip to next, if TEXT_LINE */
+				lp_target = lll_rm (lp_target);	/* in over_select_eng() */
+				delete++;
+			}
+		}
+		SELE_LOG(LOG_DEBUG, "after %d delete: curr lineno %d", delete, cnf.fdata[target_ri].lineno);
+
+		/* update */
+		if (lno_first < cnf.fdata[target_ri].lineno)
+			cnf.fdata[target_ri].lineno -= delete;
+		cnf.fdata[target_ri].num_lines -= delete;
+		if (delete > 0)
+			cnf.fdata[target_ri].fflag |= FSTAT_CHANGE;
+
+	}
+
+	return (ans);
+}
+
+/*
 ** over_select - overwrite visible selection lines with the ones from "*sh*" buffer,
 **	command must be launched from the "*sh*" buffer
 */
 int
 over_select (void)
 {
-	LINE *lp_target=NULL;
-	int target_ri=0;
-	int drop_shell_ri=0;
-	int lineno=0, cnt=0;
+	int src_ri=0, target_ri=0;
+	LINE *lp_src=NULL, *lp_src_end=NULL;
+	int ans=0;
 
-	if ((strncmp(CURR_FILE.fname, "*sh*", 4) != 0) ||
-	(cnf.select_ri == -1) || (cnf.select_ri == cnf.ring_curr))
-	{
+	/* the source */
+	if (strncmp(CURR_FILE.fname, "*sh*", 4) != 0) {
 		tracemsg ("selection overwrite only from *sh* buffer");
 		return (0);
 	}
-	if ((cnf.fdata[cnf.select_ri]).fflag & FSTAT_CHMASK)
-	{
+	src_ri = cnf.ring_curr;			/* buffer will be dropped -- depending on configuration */
+
+	/* the target */
+	if (cnf.select_ri == -1) {
+		tracemsg ("no selection target");
+		return (0);
+	}
+	target_ri = cnf.select_ri;		/* selection will be reset by engine */
+	if (cnf.fdata[target_ri].fflag & FSTAT_CHMASK) {
 		tracemsg ("selection is in read/only buffer");
 		return (0);
 	}
-	drop_shell_ri = cnf.ring_curr;
+	if (target_ri == src_ri) {
+		tracemsg ("selection target and source must be in different buffers");
+		return (0);
+	}
 
-	/* the target is the selection first line */
-	target_ri = cnf.select_ri;
-	lp_target = selection_first_line (&lineno);
-	if (TEXT_LINE(lp_target)) {
-		/* do not skip HIDDEN lines */
-		cnf.fdata[target_ri].curr_line = lp_target->prev;
-		cnf.fdata[target_ri].lineno = lineno - 1;
-	} else {
-		tracemsg("no selection");
+	/* from the source, copy the whole buffer, all visible lines */
+	lp_src = cnf.fdata[src_ri].top;
+	next_lp (src_ri, &lp_src, NULL);
+	lp_src_end = cnf.fdata[src_ri].bottom;
+
+	/* the engine */
+	ans = over_select_eng (src_ri, lp_src, lp_src_end);
+	if (ans == -2) {
+		tracemsg ("selection has no visible line(s)");
+		return (0);
+	} else if (ans < 0) {
+		tracemsg ("error: selection copy failed (malloc)");
 		return (1);
 	}
-	rm_select();
 
-	/* select all the lines in current buffer */
-	select_all();	/* maybe empty */
-
-	/* switch to and call move */
-	cnf.ring_curr = target_ri;
-	mv_select();
-
-	/* update after op. --- current must be the first line */
-	if (HIDDEN_LINE(cnf.ring_curr,CURR_LINE)) {
-		next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
-		CURR_FILE.lineno += cnt;
-	}
-	go_home();
-
-	/* drop shell */
+	/* drop source buffer */
 	if (cnf.gstat & GSTAT_CLOSE_OVER) {
-		cnf.ring_curr = drop_shell_ri;
+		cnf.ring_curr = src_ri;
 		drop_file();
-		cnf.ring_curr = target_ri;
 	}
 
-	/* focus in target */
+	/* set focus, content of curr_line and lineno maybe changed */
+	cnf.ring_curr = target_ri;
+	go_home();
 	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 
 	return (0);
@@ -1309,6 +1440,7 @@ join_block (const char *separator)
 			lp_target->lflag |= LSTAT_CHANGE;
 
 		/* remove */
+		clr_opt_bookmark(lp_source);
 		lp_source = lll_rm(lp_source);		/* in join_block() */
 		if (HIDDEN_LINE(cnf.ring_curr,lp_source)) {
 			next_lp (cnf.ring_curr, &lp_source, NULL);
@@ -1347,6 +1479,7 @@ join_block (const char *separator)
 			SELECT_FI.fflag |= FSTAT_CHANGE;
 
 			/* remove */
+			clr_opt_bookmark(lp_source);
 			lp_source = lll_rm(lp_source);		/* in join_block() */
 			if (HIDDEN_LINE(cnf.ring_curr,lp_source)) {
 				next_lp (cnf.ring_curr, &lp_source, NULL);

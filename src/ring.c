@@ -228,15 +228,15 @@ clr_bookmark (int bm_i)
 	return;
 }
 
-/* internal function : clear bookmark before line remove
+/* internal function : clear bookmark (before removing line)
 */
 void
-clr_opt_bookmark (void)
+clr_opt_bookmark (LINE *lp)
 {
 	int bm_i;
-	if (CURR_LINE->lflag & LSTAT_BM_BITS) {
-		bm_i = (CURR_LINE->lflag & LSTAT_BM_BITS) >> BM_BIT_SHIFT;
-		CURR_LINE->lflag &= ~LSTAT_BM_BITS;
+	if (TEXT_LINE(lp) && (lp->lflag & LSTAT_BM_BITS)) {
+		bm_i = (lp->lflag & LSTAT_BM_BITS) >> BM_BIT_SHIFT;
+		lp->lflag &= ~LSTAT_BM_BITS;
 		if (bm_i > 0 && bm_i < 10) {
 			cnf.bookmark[bm_i].ring = -1;
 			cnf.bookmark[bm_i].sample[0] = '\0';
@@ -248,25 +248,20 @@ clr_opt_bookmark (void)
 /* internal function for jump to bookmark
 */
 int
-jump2_bookmark (int bm_i, int jump_without_preview)
+jump2_bookmark (int bm_i)
 {
-	static int bm_flag = -1;
 	int ri=0;
 	int bm_bits=0, lineno=0;
 	LINE *lx = NULL;
 	int ret=1;
-	int show_preview = !jump_without_preview;
 
 	if (bm_i < 0 || bm_i >= 10) {
-		bm_flag = -1;
 		return (ret);
 	}
 
 	ri = cnf.bookmark[bm_i].ring;
 	if (ri < 0 || ri >= RINGSIZE) {
-		if (show_preview)
-			tracemsg("bookmark %d not set", bm_i);
-		bm_flag = -1;
+		tracemsg("%d: bookmark not set", bm_i);
 		return (ret);
 	}
 
@@ -274,45 +269,33 @@ jump2_bookmark (int bm_i, int jump_without_preview)
 		HIST_LOG(LOG_INFO, "bookmark %d, buffer already closed -- clearing", bm_i);
 		cnf.bookmark[bm_i].ring = -1;
 		cnf.bookmark[bm_i].sample[0] = '\0';
-		bm_flag = -1;
 		return (ret);
 	}
 
 	bm_bits = (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
-	if (show_preview && bm_flag != bm_i) {
-		/* highlight first the sample text -- interactive mode
+	/* go to the reference (if not yet there)
+	*/
+	ret = 0;
+	if ((CURR_LINE->lflag & LSTAT_BM_BITS) != bm_bits) {
+		/* need to run down the list
 		*/
-		tracemsg("bookmark %d: %s", bm_i, cnf.bookmark[bm_i].sample);
-		bm_flag = bm_i;
-		ret = 0;
-	} else {
-		/* go to the reference (if not yet there)
-		*/
-		bm_flag = bm_i; /* jump_without_preview, force setting */
-		ret = 0;
-		if ((CURR_LINE->lflag & LSTAT_BM_BITS) != bm_bits) {
-			/* need to run down the list
-			*/
-			lx = cnf.fdata[ri].top->next;
-			lineno = 1;
-			while (TEXT_LINE(lx)) {
-				if ((lx->lflag & LSTAT_BM_BITS) == bm_bits)
-					break;
-				lx = lx->next;
-				lineno++;
-			}
-			if (TEXT_LINE(lx)) {
-				HIST_LOG(LOG_INFO, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
-				set_position (ri, lineno, lx);
-				ret = 0;
-			} else {
-				tracemsg("bookmark %d: line removed");
-				HIST_LOG(LOG_INFO, "bookmark %d, not found -- clearing", bm_i);
-				cnf.bookmark[bm_i].ring = -1;
-				cnf.bookmark[bm_i].sample[0] = '\0';
-				ret = 1;
-				bm_flag = -1;
-			}
+		lx = cnf.fdata[ri].top->next;
+		lineno = 1;
+		while (TEXT_LINE(lx)) {
+			if ((lx->lflag & LSTAT_BM_BITS) == bm_bits)
+				break;
+			lx = lx->next;
+			lineno++;
+		}
+		if (TEXT_LINE(lx)) {
+			HIST_LOG(LOG_INFO, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
+			set_position (ri, lineno, lx);
+			ret = 0;
+		} else {
+			HIST_LOG(LOG_INFO, "bookmark %d, not found -- clearing", bm_i);
+			cnf.bookmark[bm_i].ring = -1;
+			cnf.bookmark[bm_i].sample[0] = '\0';
+			ret = 1;
 		}
 	}
 
@@ -357,6 +340,34 @@ clear_bookmarks (int ring_i)
 	}
 
 	return;
+}
+
+/*
+** show_bookmarks - show bookmark data in the messages lines
+*/
+int
+show_bookmarks (void)
+{
+	int bm_i, ri, count=0;
+
+	for (bm_i=0; bm_i < 10; bm_i++) {
+		ri = cnf.bookmark[bm_i].ring;
+		if (0 <= ri && ri < RINGSIZE) {
+			if ((cnf.fdata[ri].fflag & FSTAT_OPEN) == 0) {
+				tracemsg("%d: %s (invalid)", bm_i, cnf.bookmark[bm_i].sample);
+				cnf.bookmark[bm_i].ring = -1;
+				cnf.bookmark[bm_i].sample[0] = '\0';
+			} else {
+				tracemsg("%d: %s", bm_i, cnf.bookmark[bm_i].sample);
+			}
+			count++;
+		}
+	}
+	if (count == 0) {
+		tracemsg("no bookmarks");
+	}
+
+	return 0;
 }
 
 /*

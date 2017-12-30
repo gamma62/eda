@@ -23,6 +23,7 @@
 
 /* cmd.c */
 extern int switch_text_cmd (void);			/* public */
+extern int go_text (void);				/* public */
 extern int clhistory_push (const char *buff, int len);
 extern int clhistory_cleanup (int keep);
 extern int clhistory_prev (void);			/* public */
@@ -139,14 +140,15 @@ extern void init_colors (int palette);
 extern void editor (void);
 extern void app_resize (void);
 extern int run_macro_command (int mi, char *cmdline_buffer);
-extern int run_command (int ti, const char *cmdline_buffer);
+extern int run_command (int ti, const char *cmdline_buffer, int fkey);
 extern int force_redraw (void);				/* public */
 extern int index_func_fullname (const char *fullname);
 extern int index_key_string (const char *key_string);
 extern int index_key_value (int key_value);
+extern int index_macros_fkey (int fkey);
 
 /* keys.c */
-extern int key_handler (WINDOW *wind, NODE *seq_tree);
+extern int key_handler (WINDOW *wind, NODE *seq_tree, int testing);
 extern int process_seqfile (int noconfig);
 extern void free_seq_tree (NODE *node);
 extern void key_test (void);
@@ -262,9 +264,10 @@ extern void load_clhistory (void);
 extern int list_buffers (void);				/* public */
 extern void set_bookmark (int bm_i);
 extern void clr_bookmark (int bm_i);
-extern void clr_opt_bookmark (void);
-extern int jump2_bookmark (int bm_i, int jump_without_preview);
+extern void clr_opt_bookmark (LINE *lp);
+extern int jump2_bookmark (int bm_i);
 extern void clear_bookmarks (int ring_i);
+extern int show_bookmarks (void);			/* public */
 extern int mhist_push (int ring_i, int lineno);
 extern int mhist_pop (void);
 extern void mhist_clear (int ring_i);

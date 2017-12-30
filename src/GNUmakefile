@@ -25,20 +25,10 @@ ARCH = $(shell uname -m)
 OS = $(shell uname -s)
 REV = $(shell cat ../REV 2>/dev/null || echo 0)
 
-ifeq ($(OS),Linux)
 CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
 	-D_GNU_SOURCE
-LDFLAGS = -lncurses  
-endif
-
-ifeq ($(OS),FreeBSD)
-CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
-	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
-	-I/usr/local/include -I/usr/local/include/ncurses \
-	-D_BSD_TYPES -D__BSD_VISIBLE -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600
-LDFLAGS = -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lncurses  
-endif
+LDFLAGS = -lncurses
 
 HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \

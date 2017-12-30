@@ -36,6 +36,8 @@ extern TABLE table[];
 extern const int TLEN;
 extern MACROS *macros;
 extern int MLEN;
+extern KEYS keys[];
+extern const int KLEN;
 
 /* local proto */
 static void reset_clhistory(void);
@@ -62,6 +64,17 @@ switch_text_cmd (void)
 	CURR_FILE.fflag ^= FSTAT_CMD;
 	cnf.gstat |= GSTAT_UPDNONE;
 	return 0;
+}
+
+/*
+** go_text - move cursor to the text area, useful for for macros
+*/
+int
+go_text (void)
+{
+	CURR_FILE.fflag &= ~FSTAT_CMD;
+	cnf.gstat |= GSTAT_UPDNONE;
+	return (0);
 }
 
 /* push string down in command line history
@@ -1871,7 +1884,7 @@ delline (void)
 		return (0);
 
 	/* before remove */
-	clr_opt_bookmark();
+	clr_opt_bookmark(CURR_LINE);	/* in delline() */
 
 	/* save the next */
 	lp = CURR_LINE;
@@ -2062,7 +2075,8 @@ join_line (void)
 	}
 
 	/* remove */
-	lll_rm(lp_next);	/* in join_line() */
+	clr_opt_bookmark(lp_next);
+	lll_rm(lp_next);		/* in join_line() */
 
 	/* update */
 	CURR_FILE.num_lines--;
@@ -2086,7 +2100,7 @@ int
 ed_common (int ch)
 {
 	int ret=4;
-	int mi=0, ti=0;
+	int mi=0, ti=0, ki=0;
 	char args_buff[CMDLINESIZE];
 
 	switch (ch)
@@ -2107,23 +2121,19 @@ ed_common (int ch)
 		*/
 		memset(args_buff, 0, sizeof(args_buff));
 
-		for (mi=0; mi < MLEN; mi++) {
-			if (macros[mi].fkey == ch) {
-				break;
-			}
-		}
+		mi = index_macros_fkey(ch);
 		if (mi >= 0 && mi < MLEN) {
 			run_macro_command (mi, args_buff);
 			break;	/* switch */
 		}
 
-		for (ti=0; ti < TLEN; ti++) {
-			if (table[ti].fkey == ch)
-				break;
-		}
-		if (ti >= 0 && ti < TLEN) {
-			run_command (ti, args_buff);
-			break;	/* switch */
+		ki = index_key_value(ch);
+		if (ki > 0 && ki < KLEN) {
+			ti = keys[ki].table_index;
+			if (ti >= 0 && ti < TLEN) {
+				run_command (ti, args_buff, ch);
+				break;	/* switch */
+			}
 		}
 
 		/* warning in event_handler */

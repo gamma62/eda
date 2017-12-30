@@ -33,6 +33,8 @@
  * keypresses (fkey >= KEY_NONE)
  * 	table[] is used to check keypresses in ed_common()
  * 	fkey (-1) means: key-binding not possible or meaningless
+ * TSTAT_ flags: 0x01 argument, 0x10 optional argument
+ * mandatory arguments should have fkey == -1, but some functions are flexible
  */
 TABLE table[] = {
 	/* name		fkey, minlen,		funcptr,fullname	tflag(TSTAT_) */
@@ -58,8 +60,8 @@ TABLE table[] = {
 	{ "reload",	KEY_NONE, 2,		PN(reload_bydiff),	0x00},
 	{ "prev",	KEY_S_F8, 4,		PN(prev_file),		0x00},
 	{ "next",	KEY_F8, 4,		PN(next_file),		0x00},
-	{ "save",	KEY_F2, 2,		PN(save_file),		0x11},
-	{ "file",	KEY_F3, 2,		PN(file_file),		0x00},
+	{ "save",	KEY_F2, 4,		PN(save_file),		0x11},
+	{ "file",	KEY_F3, 4,		PN(file_file),		0x00},
 	{ "quit",	KEY_F4, 1,		PN(quit_file),		0x00},
 	{ "qquit",	KEY_NONE, 2,		PN(drop_file),		0x00},
 	{ "qoth",	KEY_NONE, 2,		PN(quit_others),	0x00},
@@ -92,11 +94,11 @@ TABLE table[] = {
 	{ "shright",	KEY_M_RCURBRAC, 3,	PN(shift_right),	0x02},
 
 	/* multiline selection operations */
-	{ "padb",	KEY_NONE, 3,		PN(pad_block),		0x03},
-	{ "cutb",	KEY_NONE, 3,		PN(cut_block),		0x03},
-	{ "lcutb",	KEY_NONE, 4,		PN(left_cut_block),	0x03},
-	{ "splitb",	KEY_NONE, 5,		PN(split_block),	0x07},
-	{ "joinb",	KEY_NONE, 4,		PN(join_block),		0x0b},
+	{ "padb",	KEY_NONE, 3,		PN(pad_block),		0x13},
+	{ "cutb",	KEY_NONE, 3,		PN(cut_block),		0x13},
+	{ "lcutb",	KEY_NONE, 4,		PN(left_cut_block),	0x13},
+	{ "splitb",	KEY_NONE, 5,		PN(split_block),	0x17},
+	{ "joinb",	KEY_NONE, 4,		PN(join_block),		0x1b},
 
 	/* filtering while editing at different levels */
 	{ "all",	-1, 3,			PN(filter_all),		0x11},
@@ -132,8 +134,8 @@ TABLE table[] = {
 	{ "",		KEY_M_Q, -1,		PN(multisearch_cmd),	0x00},
 	{ "",		KEY_M_W, -1,		PN(find_window_switch),	0x00},
 	{ "fword",	KEY_NONE, 2,		PN(fw_option_switch),	0x00},
-	{ "fspath",	KEY_NONE, 3,		PN(fsearch_path_macro),	0x01},
-	{ "fseargs",	KEY_NONE, 4,		PN(fsearch_args_macro),	0x01},
+	{ "fspath",	-1, 3,			PN(fsearch_path_macro),	0x01},
+	{ "fseargs",	-1, 4,			PN(fsearch_args_macro),	0x01},
 
 	/* brace match and folding */
 	{ "match",	KEY_F9, 3,		PN(tomatch),		0x00},
@@ -161,9 +163,9 @@ TABLE table[] = {
 	{ "rc",		-1, 2,			PN(load_rcfile),	0x00},
 	{ "keys",	-1, 3,			PN(load_keyfile),	0x00},
 	{ "macros",	-1, 5,			PN(load_macrofile),	0x00},
-	{ "rem",	KEY_NONE, 3,		PN(reload_macros),	0x00},
-	{ "sp",		KEY_NONE, 2,		PN(save_project),	0x11},
-	{ "is",		KEY_NONE, 2,		PN(is_special),		0x11},
+	{ "remac",	KEY_NONE, 3,		PN(reload_macros),	0x00},
+	{ "sp",		-1, 2,			PN(save_project),	0x01},
+	{ "is",		-1, 2,			PN(is_special),		0x01},
 
 	/* buffer views and UI changes, ringlist, lsdir */
 	{ "palette",	KEY_M_QMARK, 3,		PN(rotate_palette),	0x00},
@@ -176,7 +178,7 @@ TABLE table[] = {
 
 	/* bookmarks */
 	{ "bms",	KEY_M_ZERO, 3,		PN(bm_set),		0x11},
-	{ "bmc",	KEY_NONE, 3,		PN(bm_clear),		0x01},
+	{ "bmc",	-1, 3,			PN(bm_clear),		0x01},
 	{ "b1",		KEY_M_ONE, 2,		PN(bm_jump1),		0x00},
 	{ "b2",		KEY_M_TWO, 2,		PN(bm_jump2),		0x00},
 	{ "b3",		KEY_M_THREE, 2,		PN(bm_jump3),		0x00},
@@ -186,6 +188,7 @@ TABLE table[] = {
 	{ "b7",		KEY_M_SEVEN, 2,		PN(bm_jump7),		0x00},
 	{ "b8",		KEY_M_EIGHT, 2,		PN(bm_jump8),		0x00},
 	{ "b9",		KEY_M_NINE, 2,		PN(bm_jump9),		0x00},
+	{ "shbms",	KEY_S_F7, 3,		PN(show_bookmarks),	0x00},
 
 	/* export/insert, view block name and anything else */
 	{ "",		KEY_C_B, -1,		PN(ins_bname),		0x00},
@@ -203,8 +206,9 @@ TABLE table[] = {
 
 	{ "stop",	KEY_NONE, 4,	PN(stop_bg_process),		0x00},
 	{ "",		-1, -1,		PN(finish_in_fg),		0x00},
-	/* switch between command line and text area (ESC or F12) */
+	/* command line and text area */
 	{ "",		-1, -1,		PN(switch_text_cmd),		0x00},
+	{ "",		-1, -1,		PN(go_text),			0x00},
 	/* clhistory (previous in history: Ctrl-UP or Ctrl-O) */
 	{ "",		-1, -1,		PN(clhistory_prev),		0x00},
 	/* clhistory (next, back, in history: Ctrl-DOWN or Ctrl-P) */
@@ -226,6 +230,7 @@ TABLE table[] = {
 	{ "",		-1, -1,		PN(type_text),			0x07},
 	{ "",		-1, -1,		PN(split_line),			0x06},
 	{ "",		-1, -1,		PN(join_line),			0x0a},
+	{ "title",	-1, 5,		PN(xterm_title),		0x01},
 
 	/* the end */
 	{ "nop",	-1, 3,		PN(nop),			0x00},

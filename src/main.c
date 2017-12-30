@@ -24,7 +24,7 @@
 #include <string.h>
 #include <stdlib.h>		/* malloc, realloc, free */
 #include <signal.h>
-#include <sys/types.h>		/* getpid */
+#include <sys/types.h>		/* tcgetsid() */
 #include <sys/stat.h>
 #ifdef __FreeBSD__
 #include <termios.h>		/* tcgetsid() on FreeBSD */
@@ -87,7 +87,7 @@ KEY_S_F1	manual\n\
 	finish_in_fg\n\
 	go_top\n\
 .\n\
-### see eda(1) and edamacro(5) for further help; sample file installed under /usr/local/share/eda, by default\n\
+### see eda(1) and edamacro(5) for further help; sample files are in /usr/local/share/eda by default\n\
 \n");
 	}
 
@@ -169,7 +169,7 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 #ifdef DEVELOPMENT_VERSION
 	openlog("eda", LOG_PID, LOG_LOCAL0);
 	if (cnf.noconfig) {
-		setlogmask( LOG_MASK(LOG_EMERG) );
+		setlogmask( LOG_MASK(LOG_CRIT) );
 	}
 #endif
 

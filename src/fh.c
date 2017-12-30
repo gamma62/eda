@@ -1277,7 +1277,8 @@ reload_bydiff (void)
 			if (rb[0] == '<' && cnt_from > 0) {
 				lp = CURR_LINE->next;
 				if (TEXT_LINE(lp)) {
-					lp = lll_rm(lp);
+					clr_opt_bookmark(lp);
+					lp = lll_rm(lp);	/* in reload_bydiff() */
 					CURR_FILE.num_lines--;
 				} else {
 					PD_LOG(LOG_ERR, "delete line failed");
@@ -1294,7 +1295,8 @@ reload_bydiff (void)
 			if (rb[0] == '<' && cnt_from > 0) {
 				lp = CURR_LINE;
 				if (TEXT_LINE(lp)) {
-					CURR_LINE = lll_rm(lp);
+					clr_opt_bookmark(lp);
+					CURR_LINE = lll_rm(lp);		/* in reload_bydiff() */
 					CURR_FILE.num_lines--;
 				} else {
 					PD_LOG(LOG_ERR, "invalid input, c, <, %d, %d", cnt_from, ni);
@@ -1568,15 +1570,28 @@ save_file (const char *newfname)
 			}
 		}
 	} else {
-		/* if there is bg proc running... this an explicit call */
-		if (CURR_FILE.pipe_output != 0) {
-			stop_bg_process();	/* save_file() */
-		}
-
 		strncpy(gname, newfname, sizeof(gname));
 		gname[sizeof(gname)-1] = '\0';
 		glob_name(gname, sizeof(gname));
 		fname_p = gname;
+
+		/* this mandatory check prevents overwriting another file */
+		if (stat(fname_p, &test) == 0) {
+			if (CURR_FILE.stat.st_ino != test.st_ino) {
+				tracemsg ("file [%s] exist. choose another.", fname_p);
+				return (0);
+			} else {
+				FH_LOG(LOG_NOTICE, "save as [%s] -> [%s] with same inode=%u",
+					CURR_FILE.fname, fname_p, test.st_ino);
+			}
+		} else {
+			FH_LOG(LOG_NOTICE, "save as [%s] -> [%s] ", CURR_FILE.fname, fname_p);
+		}
+
+		/* if there is bg proc running... this an explicit call */
+		if (CURR_FILE.pipe_output != 0) {
+			stop_bg_process();	/* save_file() */
+		}
 	}
 
 	/* backup */

@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2017-01-16" "0.9.83" ""
+.TH "EDAMACRO" "5" "2017-12-26" "0.9.83" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -96,7 +96,7 @@ keypress_enter
 handle the Enter keypress in text area, regular file buffers, special window, interactive shells
 .br
 
-.SS using command line history (previous in history: Ctrl-UP or Ctrl-O)
+.SS using command line history (previous in history: Ctrl-UP)
 clhistory_prev
 .br
 .TP 16
@@ -104,7 +104,7 @@ clhistory_prev
 copy the previous item from history to command line, with prefix filtering, prefix of the original line
 .br
 
-.SS using command line history (next, back, in history: Ctrl-DOWN or Ctrl-P)
+.SS using command line history (next, back, in history: Ctrl-DOWN)
 clhistory_next
 .br
 .TP 16
@@ -432,7 +432,7 @@ filter_cmd filter_shadow_cmd
 start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
 .TP 19
 .B filter_shadow_cmd
-start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines, or all lines if no selection, set child process arguments on commandline, for example "|| a2ps -1 -f8"
+start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines or all lines if no selection here, set child process arguments on commandline, for example "|| a2ps -1 -f8"
 .br
 
 .SS multifile search tools
@@ -461,7 +461,7 @@ switch on/off the full word option for egrep/find
 change the path elements of the find command, and show the find_opts setting
 .TP 20
 .B fsearch_args_macro
-change the name patterns of find command, and show the find_opts setting
+change the name patterns of find command, like "fsea *.[ch] *.sh" or "fsea *.py" and show the find_opts setting
 .br
 
 .SS resources, keys, macros, projects
@@ -594,6 +594,32 @@ stop running background process of current buffer
 .br
 
 .SS anything else
+filter_m1 go_text mouse_support nop recording_switch show_bookmarks show_commands version 
+.br
+.TP 11
+.B filter_m1
+make 1 line more visible around sequences of visible lines (expand unhidden ranges)
+.TP 9
+.B go_text
+move cursor to the text area, useful for for macros
+.TP 15
+.B mouse_support
+switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
+.TP 5
+.B nop
+no operation, does nothing, only for testing
+.TP 18
+.B recording_switch
+switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
+.TP 16
+.B show_bookmarks
+show bookmark data in the messages lines
+.TP 15
+.B show_commands
+show table of commands with keyboard shortcuts
+.TP 9
+.B version
+show the version string
 .br
 
 .SH "INTERACTIVE COMMANDS"

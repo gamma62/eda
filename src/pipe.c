@@ -25,8 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>		/* getuid, pipe, fork, close, execvp, fcntl */
-#include <sys/types.h>
+#include <unistd.h>		/* getpid, getuid, pipe, fork, close, execvp, fcntl */
 #include <fcntl.h>
 #include <signal.h>		/* signal, kill */
 #include <sys/wait.h>		/* waitpid */
@@ -136,7 +135,7 @@ make_cmd (const char *ext_cmd)
 	/* make w/ or w/o options */
 	snprintf(ext_argstr, sizeof(ext_argstr)-1, "%s %s %s", cnf.make_path, cnf.make_opts, ext_cmd);
 
-	ret = read_pipe ("*make*", cnf.make_path, ext_argstr, OPT_REDIR_ERR);
+	ret = read_pipe ("*make*", cnf.make_path, ext_argstr, OPT_REDIR_ERR | OPT_TTY);
 
 	return (ret);
 }
@@ -303,7 +302,7 @@ locate_cmd (const char *expr)
 int
 filter_cmd (const char *ext_cmd)
 {
-	int ret=0;
+	int ret=0, opts=0;
 
 	if (ext_cmd[0] == '\0') {
 		tracemsg("no filter command");
@@ -315,14 +314,15 @@ filter_cmd (const char *ext_cmd)
 		return (1);
 	}
 
-	ret = filter_cmd_eng(ext_cmd, OPT_IN_OUT | OPT_REDIR_ERR | OPT_SILENT);
+	opts = OPT_IN_OUT | OPT_REDIR_ERR | OPT_SILENT;
+	ret = filter_cmd_eng(ext_cmd, opts);
 
 	return (ret);
 }
 
 /*
 ** filter_shadow_cmd - start filter command in shell and feed lines into child process and catch output,
-**	push out shadow line markers together with selection lines, or all lines if no selection,
+**	push out shadow line markers together with selection lines or all lines if no selection here,
 **	set child process arguments on commandline, for example "|| a2ps -1 -f8"
 */
 int

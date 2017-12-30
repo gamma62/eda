@@ -468,7 +468,7 @@ slash_index (const char *string, int strsize, int from, int reverse, int get_fir
 /*
  * helper function to get token in given string by delimiter(s),
  * return length of token, but
- * 	length can be 0 or strlen of input if no delimiters found
+ * length can be 0 or strlen of input if no delimiters found
  * index_rest is the next index after delimiters, and maybe -1
  */
 int

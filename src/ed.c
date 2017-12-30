@@ -96,9 +96,13 @@ editor (void)
 	event_handler ();
 
 	if (cnf.gstat & GSTAT_AUTOTITLE)
-		xterm_title("xterm");
-	clear();
-	refresh();
+		xterm_title ("xterm");
+	if (cnf.automacro[0] != '\0' && (cnf.noconfig == 0)) {
+		; /* after automacro (engine tests) skip refresh */
+	} else {
+		clear();
+		refresh();
+	}
 
 	endwin ();	/* End */
 	cnf.bootup = 0;
@@ -136,15 +140,11 @@ app_resize (void)
 	if (CURR_FILE.focus > TEXTROWS-1) {
 		CURR_FILE.focus = TEXTROWS-1;
 	}
-	if (CURR_FILE.curpos - CURR_FILE.lnoff > TEXTCOLS-1) {
-		CURR_FILE.curpos = 0;
-		CURR_FILE.lnoff = 0;
-		CURR_FILE.lncol = 0;
-	}
-	if (cnf.clpos - cnf.cloff > cnf.maxx-1) {
-		cnf.clpos = 0;
-		cnf.cloff = 0;
-	}
+	CURR_FILE.curpos = 0;
+	CURR_FILE.lnoff = 0;
+	CURR_FILE.lncol = 0;
+	cnf.clpos = 0;
+	cnf.cloff = 0;
 }
 
 int
@@ -232,14 +232,14 @@ run_macro_command (int mi, char *args_inbuff)
 }
 
 int
-run_command (int ti, const char *args_inbuff)
+run_command (int ti, const char *args_inbuff, int fkey)
 {
 	int exec = 0;
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
 
 		CMD_LOG(LOG_INFO, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
-			ti, table[ti].name, table[ti].fkey, args_inbuff);
+			ti, table[ti].name, fkey, args_inbuff);
 
 		if (table[ti].tflag & TSTAT_ARGS) {
 			REC_LOG(LOG_DEBUG, "command %d [%s] [%s]", ti, table[ti].fullname, args_inbuff);
@@ -298,53 +298,6 @@ event_handler (void)
 	}
 	while (cnf.ring_size > 0)
 	{
-		/*
-		 * critical error checks
-		 */
-		if (CURR_LINE == NULL) {
-			MAIN_LOG(LOG_CRIT, "assert, CURR_LINE==NULL (ri=%d) -- abort", cnf.ring_curr);
-			abort();
-			break;
-		}
-		if (CURR_LINE->buff == NULL) {
-			MAIN_LOG(LOG_CRIT, "assert, CURR_LINE->buff==NULL (ri=%d) -- abort", cnf.ring_curr);
-			abort();
-			break;
-		}
-		if ((CURR_LINE->llen < 1) || (CURR_FILE.lncol < 0)) {
-			MAIN_LOG(LOG_CRIT, "assert, llen %d lncol %d lineno %d -- abort",
-				CURR_LINE->llen, CURR_FILE.lncol, CURR_FILE.lineno);
-			abort();
-			break;
-		}
-
-		if (cnf.cmdline_len >= CMDLINESIZE || cnf.cmdline_buff[cnf.cmdline_len] != '\0') {
-			MAIN_LOG(LOG_ERR, "cmdline buffer not terminated [%c%c%c...] (len=%d) -- fixing",
-				cnf.cmdline_buff[0], cnf.cmdline_buff[1], cnf.cmdline_buff[2], cnf.cmdline_len);
-			reset_cmdline();
-		}
-		if (CURR_LINE->buff[CURR_LINE->llen-1] != '\n') {
-			MAIN_LOG(LOG_ERR, "line %d: NL missing! -- fixing", CURR_FILE.lineno);
-			CURR_LINE->buff[CURR_LINE->llen-1] = '\n';
-		}
-		if (CURR_LINE->buff[CURR_LINE->llen] != '\0') {
-			MAIN_LOG(LOG_ERR, "line %d: final zero missing! -- fixing", CURR_FILE.lineno);
-			CURR_LINE->buff[CURR_LINE->llen] = '\0';
-		}
-		if (TEXTROWS < TRACESIZE+1) {
-			MAIN_LOG(LOG_ERR, "text window has very few lines (%d)", TEXTROWS);
-		}
-
-		if (cnf.clpos-cnf.cloff > TEXTCOLS-1 || cnf.clpos-cnf.cloff < 0) {
-			MAIN_LOG(LOG_ERR, "bad command line cursor position : clpos=%d cloff=%d",
-				cnf.clpos, cnf.cloff);
-				cnf.clpos = cnf.cloff = 0;
-		}
-		if (CURR_FILE.curpos-CURR_FILE.lnoff > TEXTCOLS-1 || CURR_FILE.curpos-CURR_FILE.lnoff < 0) {
-			MAIN_LOG(LOG_ERR, "bad text cursor position : curpos=%d lnoff=%d",
-				CURR_FILE.curpos, CURR_FILE.lnoff);
-			CURR_FILE.curpos = CURR_FILE.lnoff = 0;
-		}
 
 		/*
 		 * regular screen update (REFRESH_EVENT used to force update)
@@ -384,10 +337,10 @@ event_handler (void)
 		 */
 		if (CURR_FILE.fflag & FSTAT_CMD) {
 			wmove (cnf.wbase, 0, cnf.clpos-cnf.cloff);
-			ch = key_handler (cnf.wbase, cnf.seq_tree);
+			ch = key_handler (cnf.wbase, cnf.seq_tree, 0);
 		} else {
 			wmove (cnf.wtext, CURR_FILE.focus, cnf.pref+CURR_FILE.curpos-CURR_FILE.lnoff);
-			ch = key_handler (cnf.wtext, cnf.seq_tree);
+			ch = key_handler (cnf.wtext, cnf.seq_tree, 0);
 		}
 		delay_cnt_4stat++;
 
@@ -446,7 +399,7 @@ event_handler (void)
 						mi = ti - TLEN;
 						run_macro_command (mi, args_buff);
 					} else if (ti >= 0 && ti < TLEN) {
-						run_command (ti, args_buff);
+						run_command (ti, args_buff, KEY_NONE);
 					} else {
 						/* warning */
 						tracemsg("unknown command [%s]", cnf.cmdline_buff);
@@ -478,7 +431,7 @@ event_handler (void)
 			/* warning */
 			if (ret == 0) {
 				cnf.gstat |= GSTAT_UPDNONE;
-				tracemsg("unknown key 0x%02X", ch);
+				tracemsg("unbound key 0x%02X", ch);
 			}
 		}
 
@@ -643,4 +596,19 @@ index_key_value (int key_value)
 		}
 	}
 	return (ki);
+}
+
+/*
+* search down fkey in macros[].fkey, return index
+*/
+int
+index_macros_fkey (int fkey)
+{
+	int mi;
+	for (mi=0; mi < MLEN; mi++) {
+		if (macros[mi].fkey == fkey) {
+			break;
+		}
+	}
+	return (mi);
 }

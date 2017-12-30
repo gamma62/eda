@@ -12,18 +12,18 @@ text editor and analyzer for programmers
 
 Mostly for C, shell scripts, Perl or any similar structured language, C++, Tcl, Python.
 
- * line based selection handling, operations on block of lines
- * filtering lines (multi level) by rules, by regex patterns or manually
- * folding whole functions or blocks, jump to matching brace
- * regex based search, highlight (patterns or lines), replace
+ * line based selection handling, cp, mv, rm and over
+ * text line filter (7 levels) by regex patterns and manually
+ * folding whole functions or blocks, an additional filter
+ * regex based search, replace and highlight (patterns and lines)
  * multifile search, external and internal
  * external tools (make, find/egrep, version control tools) integrated
  * parsers for external and internal tools (make, lsdir, unified diff)
- * output filter APIs for printing or others (a2ps, indent, macros, etc)
- * bookmarks, projects, ctags support, show, jump to, jump back
- * version control tools supported: cvs, subversion, mercurial
- * macro interface (with record facility) and samples
- * embedded interactive shells, local or remote
+ * output filter API (for example: a2ps, indent, xmllint, macros)
+ * bookmarks, projects, ctags support
+ * version control support: cvs, svn, hg, git
+ * macro interface (with record)
+ * shell fork
 
 See man pages eda(1), edamcro(5) and README for details.
 
