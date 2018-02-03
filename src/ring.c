@@ -42,8 +42,6 @@ list_buffers (void)
 	int ri, lno_read;
 	LINE *lp=NULL, *lx=NULL;
 	char one_line[CMDLINESIZE*2];
-	struct tm *tm_p=NULL;
-	char mtime_buff[40];
 	int ret=1, bm_i;
 	int origin = cnf.ring_curr;
 
@@ -75,27 +73,24 @@ list_buffers (void)
 		/* base data
 		*/
 		if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-			snprintf(one_line, sizeof(one_line)-1, "r=%d [%s] origin:%d flags:%s%s%s%s%s lines:%d\n",
-				ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin,
+			HIST_LOG(LOG_NOTICE, "r=%d [%s] origin:%d",
+				ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin);
+			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s%s\n",
+				ri, cnf.fdata[ri].fname, cnf.fdata[ri].num_lines,
 				(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
 				(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
 				(cnf.fdata[ri].fflag & FSTAT_CHMASK) ? "r/o " : "",
-				(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "interactive " : "",
-				(cnf.fdata[ri].pipe_output != 0) ? "running " : "",
-				cnf.fdata[ri].num_lines);
+				(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "int " : "",
+				(cnf.fdata[ri].pipe_output != 0) ? "pipe " : "");
 		} else {
-			tm_p = localtime(&cnf.fdata[ri].stat.st_mtime);
-			strftime(mtime_buff, 39, "%Y-%m-%d %H:%M:%S", tm_p);
-			mtime_buff[39] = '\0';
-			snprintf(one_line, sizeof(one_line)/2, "r=%d [%s] flags:%s%s%s%s lines:%d [%s] [%s] mtime %s\n",
-				ri, cnf.fdata[ri].fname,
+			HIST_LOG(LOG_NOTICE, "r=%d [%s] [%s]",
+				ri, cnf.fdata[ri].dirname, cnf.fdata[ri].basename);
+			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s\n",
+				ri, cnf.fdata[ri].fname, cnf.fdata[ri].num_lines,
 				(cnf.fdata[ri].fflag & FSTAT_RO) ? "R/O " : "R/W ",
 				(cnf.fdata[ri].fflag & FSTAT_CHANGE) ? "Mod " : "",
 				(cnf.fdata[ri].fflag & FSTAT_EXTCH) ? "Ext.Mod " : "",
-				(cnf.fdata[ri].fflag & FSTAT_HIDDEN) ? "HIDDEN " : "",
-				cnf.fdata[ri].num_lines,
-				cnf.fdata[ri].dirname, cnf.fdata[ri].basename,
-				mtime_buff);
+				(cnf.fdata[ri].fflag & FSTAT_HIDDEN) ? "HIDDEN " : "");
 		}
 
 		if ((lx = append_line (lp, one_line)) != NULL) {
@@ -165,7 +160,7 @@ set_bookmark (int bm_i)
 			clr_bookmark (bm_i);
 		cnf.bookmark[bm_i].ring = cnf.ring_curr;
 		CURR_LINE->lflag |= (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
-		HIST_LOG(LOG_INFO, "bookmark %d, bit set, ring %d (original lineno %d))",
+		HIST_LOG(LOG_NOTICE, "bookmark %d, bit set, ring %d (original lineno %d))",
 			bm_i, cnf.bookmark[bm_i].ring, CURR_FILE.lineno);
 
 		/* prepare sample of [block-name: ]sample-string-from-the-line
@@ -182,7 +177,6 @@ set_bookmark (int bm_i)
 			if (slen>0 && sample[slen-1]=='\n') {
 				sample[--slen] = '\0';	/* remove trailing newline */
 			}
-			/* tracemsg doesn't handle TABs */
 			strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN|STRIP_BLANKS_SQUEEZE, sample, &slen);
 			strncpy(cnf.bookmark[bm_i].sample, sample, sizeof(cnf.bookmark[bm_i].sample));
 			cnf.bookmark[bm_i].sample[sizeof(cnf.bookmark[bm_i].sample)-1] = '\0';
@@ -216,12 +210,12 @@ clr_bookmark (int bm_i)
 			while (TEXT_LINE(lx)) {
 				if ((lx->lflag & LSTAT_BM_BITS) == bm_bits) {
 					lx->lflag &= ~LSTAT_BM_BITS;
-					HIST_LOG(LOG_INFO, "bookmark %d, bit found and cleared", bm_i);
+					HIST_LOG(LOG_NOTICE, "bookmark %d, bit found in ring %d, cleared", bm_i, ri);
 				}
 				lx = lx->next;
 			}
 		}
-		HIST_LOG(LOG_INFO, "bookmark %d, cleared, ring %d", bm_i, ri);
+		HIST_LOG(LOG_NOTICE, "bookmark %d, cleared (was in ring %d)", bm_i, cnf.bookmark[bm_i].ring);
 		cnf.bookmark[bm_i].ring = -1;
 		cnf.bookmark[bm_i].sample[0] = '\0';
 	}
@@ -266,7 +260,7 @@ jump2_bookmark (int bm_i)
 	}
 
 	if (!(cnf.fdata[ri].fflag & FSTAT_OPEN)) {
-		HIST_LOG(LOG_INFO, "bookmark %d, buffer already closed -- clearing", bm_i);
+		HIST_LOG(LOG_NOTICE, "bookmark %d, buffer already closed -- clearing", bm_i);
 		cnf.bookmark[bm_i].ring = -1;
 		cnf.bookmark[bm_i].sample[0] = '\0';
 		return (ret);
@@ -288,11 +282,11 @@ jump2_bookmark (int bm_i)
 			lineno++;
 		}
 		if (TEXT_LINE(lx)) {
-			HIST_LOG(LOG_INFO, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
+			HIST_LOG(LOG_NOTICE, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
 			set_position (ri, lineno, lx);
 			ret = 0;
 		} else {
-			HIST_LOG(LOG_INFO, "bookmark %d, not found -- clearing", bm_i);
+			HIST_LOG(LOG_NOTICE, "bookmark %d, not found -- clearing", bm_i);
 			cnf.bookmark[bm_i].ring = -1;
 			cnf.bookmark[bm_i].sample[0] = '\0';
 			ret = 1;

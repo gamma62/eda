@@ -37,68 +37,12 @@
 extern CONFIG cnf;
 
 /* local proto */
-static void work_uptime (const char *headline);
 static int next_ri (void);
 static int abbrev_filename (char *gname);
 static int check_dirname (const char *gname);
 static int getxline_filter(char *getbuff);
 static int parse_diff_header (const char *ptr, int ra[5]);
 static int backup_file (const char *fname, char *backup_name);
-
-static void
-work_uptime (const char *headline)
-{
-	time_t now=0;
-	struct tm *tm_p;
-	long gone=0;
-	int uptime=0, wmin=0, whours=0, upmin=0, uphours=0, updays=0, slen=0;
-	char *iobuffer=NULL, mystring[500];
-
-	now = time(NULL);
-	tm_p = localtime(&now);
-	gone = now - cnf.starttime;
-	gone /= 60; wmin = (int) (gone%60);
-	gone /= 60; whours = (int) gone;
-
-	iobuffer = read_file_line ("/proc/uptime", 1);
-	if (iobuffer != NULL) {
-		uptime = atoi(iobuffer);
-		if (uptime < 0 || uptime > 3600*100)
-			uptime=0;
-		uptime /= 60; upmin = (int) (uptime%60);
-		uptime /= 60; uphours = (int) (uptime%24);
-		uptime /= 24; updays = (int) uptime;
-		FREE(iobuffer); iobuffer = NULL;
-	}
-
-	memset(mystring, 0, 500);
-	if (headline != NULL) {
-		snprintf(mystring+slen, 50, "%s", headline);
-		slen = strlen(mystring);
-	}
-	strftime(mystring+slen, 20, "  ( %H:%M:%S", tm_p);
-	slen = strlen(mystring);
-
-	snprintf(mystring+slen, 20, "  work %02d:%02d  up ", whours, wmin);
-	slen = strlen(mystring);
-
-	if (updays > 1) {
-		snprintf(mystring+slen, 50, "%d days, ", updays);
-	} else if (updays > 0) {
-		snprintf(mystring+slen, 50, "%d day, ", updays);
-	}
-	slen = strlen(mystring);
-	if (uphours > 1) {
-		snprintf(mystring+slen, 50, "%d hours, ", uphours);
-	} else if (uphours > 0) {
-		snprintf(mystring+slen, 50, "%d hour, ", uphours);
-	}
-	slen = strlen(mystring);
-	snprintf(mystring+slen, 50, "%d min )", upmin);
-
-	tracemsg(mystring);
-	return;
-}
 
 /*
 * user interface functions call tracemsg() if error occured
@@ -956,7 +900,7 @@ scratch_buffer (const char *fname)
 
 	ring_i = next_ri();
 	if (ring_i == -1) {
-		/* no free index */
+		FH_LOG(LOG_NOTICE, "cannot add new buffer: no free ring index");
 		return 1;
 	}
 
@@ -1225,7 +1169,7 @@ reload_bydiff (void)
 				target = range[3];
 				cnt_to = range[4] - range[3] + 1;
 				cnt_from = range[1] - range[0] + 1;
-				PD_LOG(LOG_INFO, "dot, action %c target %d (cnt %d) source %d (cnt %d)",
+				PD_LOG(LOG_NOTICE, "dot, action %c target %d (cnt %d) source %d (cnt %d)",
 					action, target, cnt_to, range[0], cnt_from);
 
 				lp = lll_goto_lineno (cnf.ring_curr, target);
@@ -1564,8 +1508,7 @@ save_file (const char *newfname)
 			return (0);
 		} else {
 			if (!(CURR_FILE.fflag & FSTAT_CHANGE)) {
-				/* tracemsg ("not changed, not saved."); */
-				work_uptime("no change, no save");
+				tracemsg ("not changed, not saved.");
 				return (0);
 			}
 		}

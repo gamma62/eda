@@ -1238,7 +1238,7 @@ save_clhistory (void)
 			runner = runner->next;
 		}
 		fclose(fp);
-		HIST_LOG(LOG_INFO, "saved items %d", items);
+		HIST_LOG(LOG_DEBUG, "saved items %d", items);
 	} else {
 		FH_LOG(LOG_ERR, "fopen/w [%s] failed (%s)", histfile, strerror(errno));
 	}
@@ -1275,7 +1275,7 @@ load_clhistory (void)
 			}
 		}
 		fclose(fp);
-		HIST_LOG(LOG_INFO, "loaded items %d, size=%d", items, cnf.clhist_size);
+		HIST_LOG(LOG_DEBUG, "loaded items %d, size=%d", items, cnf.clhist_size);
 	}
 
 	return;

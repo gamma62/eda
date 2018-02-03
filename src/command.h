@@ -52,6 +52,10 @@ TABLE table[] = {
 	{ "center",	KEY_F5, 2,		PN(center_focusline),	0x00},
 	{ "",		KEY_M_LESSTHAN, -1,	PN(clhistory_prev),	0x00},
 	{ "", 		KEY_M_GREATHAN, -1,	PN(clhistory_next),	0x00},
+	{ "scroll1u", 	KEY_M_J, -1,		PN(scroll_1line_up),	0x00},
+	{ "scroll1dn", 	KEY_M_K, -1,		PN(scroll_1line_down),	0x00},
+	{ "scrollup", 	KEY_M_B, -1,		PN(scroll_screen_up),	0x00},
+	{ "scrolldn",	KEY_M_SPACE, -1,	PN(scroll_screen_down),	0x00},
 
 	/* file I/O and switching buffers */
 	{ "ed",		-1, 1,			PN(add_file),		0x11},
@@ -65,10 +69,11 @@ TABLE table[] = {
 	{ "quit",	KEY_F4, 1,		PN(quit_file),		0x00},
 	{ "qquit",	KEY_NONE, 2,		PN(drop_file),		0x00},
 	{ "qoth",	KEY_NONE, 2,		PN(quit_others),	0x00},
-	{ "qall",	KEY_S_F4, 2,		PN(quit_all),		0x00},
-	{ "fall",	KEY_S_F3, 2,		PN(file_all),		0x00},
-	{ "sall",	KEY_S_F2, 2,		PN(save_all),		0x00},
+	{ "qall",	KEY_NONE, 2,		PN(quit_all),		0x00},
+	{ "fall",	KEY_NONE, 2,		PN(file_all),		0x00},
+	{ "sall",	KEY_NONE, 2,		PN(save_all),		0x00},
 	{ "hide",	KEY_NONE, 4,		PN(hide_file),		0x00},
+	{ "popen",	KEY_C_RSQBRAC, 5,	PN(parse_open),		0x00},
 
 	/* in-line edit */
 	{ "deleol",	KEY_F6, 6,		PN(deleol),		0x0a},
@@ -195,7 +200,7 @@ TABLE table[] = {
 	{ "",		KEY_C_V, -1,		PN(ins_varname),	0x00},
 	{ "",		KEY_C_G, -1,		PN(ins_filename),	0x00},
 	{ "",		KEY_C_X, -1,		PN(cp_text2cmd),	0x00},
-	{ "vbn",	KEY_M_SLASH, 3,		PN(view_bname),		0x00},
+	{ "vbn",	KEY_S_F2, 3,		PN(view_bname),		0x00},
 	{ "wcase",	KEY_C_W, 2,		PN(word_case),		0x02},
 	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
 	{ "version",	KEY_NONE, 7,		PN(version),		0x00},
@@ -209,10 +214,6 @@ TABLE table[] = {
 	/* command line and text area */
 	{ "",		-1, -1,		PN(switch_text_cmd),		0x00},
 	{ "",		-1, -1,		PN(go_text),			0x00},
-	/* clhistory (previous in history: Ctrl-UP or Ctrl-O) */
-	{ "",		-1, -1,		PN(clhistory_prev),		0x00},
-	/* clhistory (next, back, in history: Ctrl-DOWN or Ctrl-P) */
-	{ "",		-1, -1,		PN(clhistory_next),		0x00},
 	/* moving around in text area and command line */
 	{ "",		-1, -1,		PN(go_up),			0x00},
 	{ "",		-1, -1,		PN(go_down),			0x00},
@@ -230,7 +231,9 @@ TABLE table[] = {
 	{ "",		-1, -1,		PN(type_text),			0x07},
 	{ "",		-1, -1,		PN(split_line),			0x06},
 	{ "",		-1, -1,		PN(join_line),			0x0a},
-	{ "title",	-1, 5,		PN(xterm_title),		0x01},
+	{ "xtitle",	-1, 4,		PN(xterm_title),		0x01},
+	{ "msg",	-1, 3,		PN(message),			0x01},
+	{ "xmsg",	-1, 4,		PN(msg_from_text),		0x00},
 
 	/* the end */
 	{ "nop",	-1, 3,		PN(nop),			0x00},

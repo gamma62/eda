@@ -205,7 +205,7 @@ ringlist_parser (const char *dataline)
 	}
 
 	rx = bmx = -1;
-	if (regexp_match(dataline, "r=([0-9]+)", 1, xmatch) == 0) {
+	if (regexp_match(dataline, "([0-9]+)", 1, xmatch) == 0) {
 		rx = atoi(xmatch);
 	} else if (regexp_match(dataline, "[[:blank:]]+bookmark[[:blank:]]+([0-9]+):", 1, xmatch) == 0) {
 		bmx = atoi(xmatch);
@@ -213,6 +213,7 @@ ringlist_parser (const char *dataline)
 
 	if (rx != -1) {
 		if (rx >= 0 && rx < RINGSIZE && (cnf.fdata[rx].fflag & FSTAT_OPEN)) {
+			PD_LOG(LOG_DEBUG, "switch to ri=%d", rx);
 			/* do not set lineno here */
 			cnf.ring_curr = rx;		/* jump */
 			ret = 0;
@@ -497,7 +498,7 @@ lsdir (const char *dirpath)
 
 		if (lstat(fullpath, &test)) {
 			item_count--;
-			PD_LOG(LOG_WARNING, "lstat(%s) failed [%s], item_count decr --> (%d)", fullpath, strerror(errno), item_count);
+			PD_LOG(LOG_DEBUG, "lstat(%s) failed [%s], item_count decr --> (%d)", fullpath, strerror(errno), item_count);
 			continue;
 		} else if (S_ISLNK(test.st_mode)) {
 			last_item->_type[0] = 'l';
@@ -505,7 +506,7 @@ lsdir (const char *dirpath)
 
 		if (one_lsdir_line (fullpath, &test, last_item)) {
 			item_count--;
-			PD_LOG(LOG_WARNING, "entry [%s] item_count decr --> (%d)", last_item->entry, item_count);
+			PD_LOG(LOG_DEBUG, "entry [%s] item_count decr --> (%d)", last_item->entry, item_count);
 			continue;
 		}
 	}
@@ -623,8 +624,8 @@ simple_parser (const char *dataline, int jump_mode)
 }
 
 /*
-* python_parser - try to parse filename and linenum from the dataline, and jump to that position
-* various experimental patterns
+* python_parser - try to parse filename and lineno from the dataline, and jump to that position
+* very experimental, jump back is based on origin and regex patterns used for lineno
 * returns 0 on success, 2 if the buffer is not open or scratch, 1 if lineno not found and -1 if pattern does not match
 */
 int
@@ -692,6 +693,7 @@ python_parser (const char *dataline)
 		    (cnf.fdata[origin].fflag & FSTAT_OPEN) && \
 		    !(cnf.fdata[origin].fflag & FSTAT_SCRATCH))
 		{
+			PD_LOG(LOG_DEBUG, "try switch to origin %d", origin);
 			safeback = cnf.ring_curr;
 			cnf.ring_curr = origin;
 			lx = lll_goto_lineno (cnf.ring_curr, linenum);
@@ -699,6 +701,7 @@ python_parser (const char *dataline)
 				set_position (cnf.ring_curr, linenum, lx);
 				ret = 0;
 			} else {
+				PD_LOG(LOG_ERR, "switch to origin %d failed, safeback %d", origin, safeback);
 				cnf.ring_curr = safeback;
 				ret = 1;
 			}
@@ -706,6 +709,48 @@ python_parser (const char *dataline)
 	}
 
 	return (ret);
+}
+
+/*
+** parse_open - get nonspace characters around cursor, assuming that is a filename
+**	try to open file
+*/
+int
+parse_open (void)
+{
+	LINE *lp;
+	char strz[FNAMESIZE];
+	int beg=0, end=0, lncol, len;
+
+#define FN(ch)	( ((ch) >= 'a' && (ch) <= 'z') || ((ch) >= 'A' && (ch) <= 'Z') || \
+		((ch) >= '0' && (ch) <= '9') || ((ch) == '_') || \
+		((ch) == '.') || ((ch) == '+') || ((ch) == '-') || ((ch) == '/') )
+
+	lp = CURR_LINE;
+	lncol = CURR_FILE.lncol;
+	if ( !TEXT_LINE(lp) || lncol >= lp->llen-1 || !FN(lp->buff[lncol]) ) {
+		return (0);
+	}
+	strz[0]='\0';
+
+	for (beg = lncol; beg >= 0 && FN(lp->buff[beg]); beg--)
+		;
+	++beg;
+	for (end = lncol; end < lp->llen-1 && FN(lp->buff[end]); end++)
+		;
+	--end;
+	PD_LOG(LOG_DEBUG, "lncol %d beg %d end %d", lncol, beg, end);
+	if (beg <= end) {
+		len = end-beg+1;
+		if (len < FNAMESIZE) {
+			strncpy (strz, &lp->buff[beg], len);
+			strz[len] = '\0';
+			PD_LOG(LOG_DEBUG, "strz [%s]", strz);
+			add_file(strz);
+		}
+	}
+
+	return (0);
 }
 
 /*
@@ -803,6 +848,7 @@ general_parser (void)
 					lsdir(fname);
 				} else if (S_ISREG(test.st_mode)) {
 					/* read can fail (no permission, etc) */
+					PD_LOG(LOG_DEBUG, "try open %s", fname);
 					add_file(fname);
 				} else {
 					tracemsg("Cannot handle %s", fname);
@@ -815,7 +861,7 @@ general_parser (void)
 			FREE(fname); fname = NULL;
 		} else {
 			tracemsg("directory list parser failed");
-			PD_LOG(LOG_WARNING, "dirlist_parser failed");
+			PD_LOG(LOG_ERR, "dirlist_parser failed");
 		}
 	}
 	else if ((strncmp(CURR_FILE.fname, "*find*", 6) == 0) ||
@@ -1657,7 +1703,7 @@ ins_filename (void)
 }
 
 /*
-* xterm_title - replace title of x-terminal-emulator with passed parameters or
+** xterm_title - replace xterm title with given string
 */
 int
 xterm_title (const char *xtitle)
@@ -2145,7 +2191,7 @@ process_diff (void)
 
 	ret = set_diff_section (&diff_type, &ring_tg);
 	if (ret) {
-		PD_LOG(LOG_DEBUG, "inclomplete processing, given up");
+		PD_LOG(LOG_DEBUG, "incomplete processing, given up");
 		if (ret == 4)
 			filter_more(patt1);
 		return (ret);

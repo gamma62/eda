@@ -24,6 +24,8 @@
 /* cmd.c */
 extern int switch_text_cmd (void);			/* public */
 extern int go_text (void);				/* public */
+extern int message (const char *str);			/* public */
+extern int msg_from_text (void);			/* public */
 extern int clhistory_push (const char *buff, int len);
 extern int clhistory_cleanup (int keep);
 extern int clhistory_prev (void);			/* public */
@@ -42,14 +44,16 @@ extern int next_nonblank (void);			/* public */
 extern void set_position (int ri, int lineno, LINE *lp);
 extern int go_left (void);				/* public */
 extern int go_right (void);				/* public */
+extern int scroll_1line_up (void);			/* public */
 extern int go_up (void);				/* public */
+extern int scroll_1line_down (void);			/* public */
 extern int go_down (void);				/* public */
 extern int go_page_up (void);				/* public */
 extern int go_first_screen_line (void);
-extern int scroll_screen_up (void);
+extern int scroll_screen_up (void);			/* public */
 extern int go_page_down (void);				/* public */
 extern int go_last_screen_line (void);
-extern int scroll_screen_down (void);
+extern int scroll_screen_down (void);			/* public */
 extern int go_top (void);				/* public */
 extern int go_bottom (void);				/* public */
 extern int goto_line (const char *args);		/* public */
@@ -84,6 +88,7 @@ extern int lsdir (const char *dirpath);
 #define SIMPLE_PARSER_WINKIN 1
 extern int simple_parser (const char *dline, int jump_mode);
 extern int python_parser (const char *dline);
+extern int parse_open (void);
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */
@@ -236,6 +241,7 @@ extern int filter_cmd (const char *ext_cmd);		/* public */
 extern int filter_shadow_cmd (const char *ext_cmd);	/* public */
 extern int lsdir_cmd (const char *ext_cmd);		/* public */
 extern int show_define (const char *fname, int lineno);
+extern int read_extcmd_line (char *ext_cmd, int lineno, char *buff, int siz);
 extern int finish_in_fg (void);				/* public */
 extern int read_stdin (void);
 extern int read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, int opts);

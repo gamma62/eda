@@ -1,6 +1,6 @@
 .\"
 .\" -*- nroff -*-
-.TH "EDA" "1" "2017-12-26" "0.9.83" ""
+.TH "EDA" "1" "2018-02-03" "0.9.83" ""
 
 .SH "NAME"
 \fBeda\fR \- text editor and analyzer for programmers
@@ -25,16 +25,16 @@ run as key tester, to help create sequence file
 .B eda
 [options] filename [+lineno] [filename [+lineno] ...]
 .br
-.B \-p\ project
+.B \-p project
 load project with settings and file list
 .br
 .B \-t
 force tags file load on start-up
 .br
-.B \-j\ symbol
+.B \-j symbol
 jump to symbol after start-up, implies tags file load
 .br
-.B \-a\ macro
+.B \-a macro
 macro name to start automatically after startup
 .br
 .B \-n
@@ -319,7 +319,7 @@ example configuration files and other documentation.
 
 .SH "SEE ALSO"
 .BR edamacro (5),
-.BR regex (7),
+.BR regex (3),
 .BR diff (1),
 .BR find (1),
 .BR egrep (1),
@@ -327,5 +327,5 @@ example configuration files and other documentation.
 .BR bash (1),
 .BR ctags (1),
 .BR a2ps (1),
-version control tools
+version control tools like svn(1), hg (1), git (1)
 

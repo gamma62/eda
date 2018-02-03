@@ -104,8 +104,8 @@ prev_lp (int ri, LINE **linep_p, int *count)
 
 /*
 ** filter_all - make all lines visible according to the parameter, those and only those;
-**	special arguments are "alter" mentioning altered lines, "selection",
-**	"function" mentioning functions and headers, and ":<linenumber>",
+**	special arguments are "alter" meaning altered lines, "selection",
+**	"function" meaning functions and headers, and ":<linenumber>",
 **	otherwise argument is handled as regexp
 */
 int
@@ -116,8 +116,8 @@ filter_all (const char *expr)
 
 /*
 ** filter_more - make more lines visible according to the parameter;
-**	special arguments are "alter" mentioning altered lines, "selection",
-**	"function" mentioning functions and headers, and ":<linenumber>",
+**	special arguments are "alter" meaning altered lines, "selection",
+**	"function" meaning functions and headers, and ":<linenumber>",
 **	otherwise the argument is handled as regexp
 */
 int
@@ -128,8 +128,8 @@ filter_more (const char *expr)
 
 /*
 ** filter_less - make less lines visible according to the parameter;
-**	special arguments are "alter" mentioning altered lines, "selection",
-**	"function" mentioning functions and headers, and ":<linenumber>",
+**	special arguments are "alter" meaning altered lines, "selection",
+**	"function" meaning functions and headers, and ":<linenumber>",
 **	otherwise the argument is handled as regexp
 */
 int
@@ -221,7 +221,7 @@ filter_l1 (void)
 
 /*
 * filter engine for 'all', 'less' and 'more';
-* "all //" will show all lines, "less //" will show no lines, "more //" does nothing;
+* "all" will show all lines, "less" will show no lines, "more" will do nothing;
 * special arguments are "alter", "selection", "function" and ":<linenumber>",
 * otherwise argument is handled as regexp
 */

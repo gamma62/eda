@@ -564,7 +564,7 @@ void
 tracemsg(const char *format, ...)
 {
 	char temp[1024];	/* instead of TRACESIZE*CMDLINESIZE */
-	int i=0, j=0, k=0;
+	int i=0, j=0;
 	va_list args;
 
 	/* do nothing if cnf.maxx is 0,
@@ -581,25 +581,18 @@ tracemsg(const char *format, ...)
 	temp[sizeof(temp)-1] = '\0'; /* safe */
 
 	while (cnf.trace < TRACESIZE) {
-		for (j=0, k=0; j < cnf.maxx-1 && temp[i] != '\0'; j++, i++) {
-			cnf.tracerow[cnf.trace][j] = temp[i];
-			if ((k == 0) || (j < cnf.maxx - 20)) {
-				if (cnf.tracerow[cnf.trace][j] == ' ')
-					k = j;
-			}
-		}
-
-		/* word wrap at last boundary */
-		if (j > cnf.maxx - 2) {
-			i -= j-k-1;	/* previous word begin */
-			j = k;		/* overwrite last space */
-		}
-		cnf.tracerow[cnf.trace][j] = '\0';
-
-		cnf.trace++;
+		cnf.tracerow[cnf.trace][j] = (temp[i] == '\t') ? ' ' : temp[i];
 		if (temp[i] == '\0') {
+			++cnf.trace;
 			break;
+		} else if (j == cnf.maxx) {
+			cnf.tracerow[cnf.trace][j+1] = '\0';
+			j = 0;
+			++cnf.trace;
+		} else {
+			j++;
 		}
+		i++;
 	}
 
 	return;

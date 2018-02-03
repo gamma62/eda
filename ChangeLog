@@ -1,8 +1,24 @@
 
-* 2017, august and december, rc1 for 0.9.97
+* 2018, january, rc2 for 0.9.97
 
   features:
-    - engine tests: base editor functions (ready) and feature groups (started only)
+    - parse_open() bound to Ctrl-] to parse filename from text and open it
+    - scroll 1 line by Alt-j/k, screen by Alt-b/space
+    - read_extcmd_line() for future use; console color palette
+    - message() and msg_from_text() for macros; list_buffers() simplified
+
+  fixes:
+    - quick response to Alt-keys except 1b 5b
+    - bugfix: key sequence with backspace on cmdline
+    - reduced CPU active wait time (wgetch timeout)
+    - use [a-zA-Z0-9_] instead of [:alpha:] in some internal regex patterns
+    - internal tracemsg() replaces TABs now; fixed special situation with BackSpace on cmdline
+    - default edakeys should not have KEY_NONE
+
+* 2017, august, december, rc1 for 0.9.97
+
+  features:
+    - engine tests: base editor functions (ready) and feature groups (started)
     - show commands: macro listing added
     - clipboard I/O with new macros using over_select and external xsel
     - re-implement over_select: on filter level, replace common lines, cut or add other lines
@@ -108,7 +124,7 @@
     - 2010-11-04 [0.9.37pre7]
 	project handling, pwd update after project processing, mkdir ~/.eda
 	change regular filename to an equivalent with same inode possible
-	added pf the print pilter macro, print_filter() like filter_cmd(), 
+	added pf the print pilter macro, print_filter() like filter_cmd(),
 	oops fixes for the cmdline history/handling
 	new vcs tool, unified diffs, diff parser reviewed (and only for *diff*)
 	API changed, get_col(), get_pos() functions
@@ -158,7 +174,7 @@
 	do not compile ic.c into program
     - Nov 2008
 	new color settings: the default for console and the new for rxvt; palette resource
-	fixes in block_name(), malloc/realloc wrappers, is_special() 
+	fixes in block_name(), malloc/realloc wrappers, is_special()
 	find_macro() extended: *find* and *make* buffers
 	buffer origin setting to help motion history (scratch, reopen, locate, read_pipe)
 	reintegrated memory check; compiler checks and warning fixes
@@ -194,7 +210,7 @@
 	calc4() and read_result() removed, also ungetch() from key handler
 	use typeahead again
 	unknown types handled with defaults in block_name() and filter_func()
-	added ishell_cmd and sshell_cmd, 
+	added ishell_cmd and sshell_cmd,
 	flag interactive buffers in ring_list() and statusline(), specific setting in fork_exec(),
 	changes around read_pipe(): Unix98 ptys, check_zombie(), write_out_chars(), wait4_bg() and stop_bg()
 	bugfix in save_file(): SPECW file saved
@@ -234,7 +250,7 @@
     - 2007-04-17 [EDA_the_0.8.83_mockingbird_release]
 	calc4 sample, revised pipe module, drop batch and mguard
 	LOGS updated, removed batch, memory_guard and some tracemsg
-	fire up ic (init connect) sample, 
+	fire up ic (init connect) sample,
 	pipe variables name changes (in[] >> child >> out[])
 	check case sensitivity in find_cmd(); changed calls to wr_select()
 	fix fold_thisfunc() if current line is block-end
@@ -282,7 +298,7 @@
 
 * 2006 (Feb - March) -- base features improved step by step, safe code reviews, bugs and fixes
 
-	window wpref (prefix pane) merged into wtext, 
+	window wpref (prefix pane) merged into wtext,
 	quit_others() on Shift-F4, mark truncated lines while loaded,
 	go_smarthome() for interactive use, new prev_nonblank() and next_nonblank(),
 	test script updates; batch files use "press" and "type" now

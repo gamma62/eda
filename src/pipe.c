@@ -481,6 +481,39 @@ show_define (const char *fname, int lineno)
 	return (ret);
 }
 
+/*
+ * read_extcmd_line - given an external command to be passed to sh -c '...'
+ * and return the specified lineno from the output
+*/
+int
+read_extcmd_line (char *ext_cmd, int lineno, char *buff, int siz)
+{
+	FILE *pipe_fp;
+	int lno=0, slen=0;
+	char *p, cache[1024];
+
+	pipe_fp = popen(ext_cmd, "r");
+	if (pipe_fp == NULL) {
+		return (1);
+	}
+
+	memset(cache, '\0', 1024);
+	while ((p = fgets(cache, 1023, pipe_fp)) != NULL) {
+		if (++lno == lineno) {
+			memset(buff, '\0', siz);
+			strncpy(buff, cache, siz-1);
+
+			slen = strlen(buff);
+			if (slen > 0 && buff[slen-1] == '\n')
+				slen--;
+			buff[slen] = '\0';
+		}
+	}
+	pclose(pipe_fp);
+
+	return (0);
+}
+
 /* does the common work starting background process
 * returns child PID if ok, otherwise -1
 * pipes:
@@ -539,7 +572,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 			return (-1);
 		}
 
-		PIPE_LOG(LOG_NOTICE, "slave [%s] ptm %d pts %d", slave, ptm, pts);
+		PIPE_LOG(LOG_NOTICE, "interactive: slave [%s] ptm %d pts %d", slave, ptm, pts);
 		/* parent */
 		out_pipe[XREAD] = ptm;
 		in_pipe[XWRITE] = ptm;
@@ -725,7 +758,7 @@ read_stdin (void)
 		PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
 			CURR_FILE.pipe_output, strerror(errno));
 	}
-	PIPE_LOG(LOG_INFO, "ri=%d stdin-pipe -- continue in background", cnf.ring_curr);
+	PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in background", cnf.ring_curr);
 
 	return (0);
 }
@@ -770,7 +803,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	/* cnf.ring_curr is set now */
 	if (CURR_FILE.pipe_output != 0) {
 		tracemsg("background process is already running in this buffer!");
-		PIPE_LOG(LOG_WARNING, "cannot start, background process (%s) running! ri:%d pipe:%d",
+		PIPE_LOG(LOG_ERR, "cannot start, background process (%s) running! ri:%d pipe:%d",
 			sbufname, cnf.ring_curr, CURR_FILE.pipe_output);
 		cnf.ring_curr = ring_i;
 		return (0);
@@ -792,11 +825,11 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	}
 	CURR_FILE.chrw = chrw;
 
-	PIPE_LOG(LOG_INFO, "fork/parent -- ri:%d, new ri:%d -- pid:%d pipes: in=%d out=%d",
+	PIPE_LOG(LOG_NOTICE, "fork/parent -- ri:%d, new ri:%d -- pid:%d pipes: in=%d out=%d",
 		ring_i, cnf.ring_curr, chrw, in_pipe[XWRITE], out_pipe[XREAD]);
-	PIPE_LOG(LOG_INFO, "fork/parent -- *process* pid:%d (ppid:%d) sid:%d pgid:%d",
+	PIPE_LOG(LOG_NOTICE, "fork/parent -- *process* pid:%d (ppid:%d) sid:%d pgid:%d",
 		cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
-	PIPE_LOG(LOG_INFO, "fork/parent -- *user* uid:%d gid:%d euid:%d egid:%d",
+	PIPE_LOG(LOG_NOTICE, "fork/parent -- *user* uid:%d gid:%d euid:%d egid:%d",
 		cnf.uid, cnf.gid, cnf.euid, cnf.egid);
 
 	/* common */
@@ -824,7 +857,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		}
 		if (lno_write < 1)
 			ret = 100;
-		PIPE_LOG(LOG_INFO, "feed child process (ri:%d, opts:0x%x): pipe=%d -- wrote %d line(s)",
+		PIPE_LOG(LOG_NOTICE, "feed child process (ri:%d, opts:0x%x): pipe=%d -- wrote %d line(s)",
 			ring_i, (opts & OPT_IN_OUT_MASK), in_pipe[XWRITE], lno_write);
 	}
 
@@ -889,7 +922,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		if (opts & OPT_NOBG) {
 			/* finish in foreground -- loop stops if pipe_output closed
 			*/
-			PIPE_LOG(LOG_INFO, "ri=%d [%s] -- finish in foreground", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- finish in foreground", cnf.ring_curr, sbufname);
 			ret = finish_in_fg();
 			/* finished */
 		} else {
@@ -899,10 +932,10 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
 					CURR_FILE.pipe_output, strerror(errno));
 			}
-			PIPE_LOG(LOG_INFO, "ri=%d [%s] -- continue in background", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in background", cnf.ring_curr, sbufname);
 		}
 	} else {
-		PIPE_LOG(LOG_INFO, "ri=%d -- external processing", cnf.ring_curr);
+		PIPE_LOG(LOG_NOTICE, "ri=%d -- external processing", cnf.ring_curr);
 		ret = 0;
 	}
 

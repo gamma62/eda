@@ -1,5 +1,19 @@
 
-    - some changes done, other feature branches started; see ChangeLog or the code
+* 2018, january, rc2 for 0.9.97
+
+    - parser, motion history, scroll, macros, improvements and fixes
+    - bugfix: key sequence with backspace on cmdline
+
+* 2017, august, december, rc1 for 0.9.97
+
+    - engine tests, show commands with macros, clipboard I/O with macros, improved selection overwrite
+    - improved key tester and bettre edakeys configuration, new macros
+    - bugfixes: save as file overwrite, bookmarks reference cleanup, cmdline history, curpos update in prefix_macro
+    - FreeBSD 11.1-RELEASE ncurses6.0.0 workaround
+
+* 2017, january, release 0.9.83
+
+    - FreeBSD port, cmds.txt cheatsheet, transparent background option, python support and macros
 
 * 2015 preparation for the EDA edition "Summer '15 release 0.9.53"
 

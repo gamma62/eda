@@ -32,6 +32,7 @@
 #define KEY_RETURN	0x0d	/* reserved */
 #define KEY_TAB		0x09	/* reserved */
 #define KEY_ESC		0x1b	/* reserved */
+#define KEY_C_RSQBRAC	0x1d
 #define KEY_META	0x2000	/* reserved: internal use only! */
 			/* Meta/Alt character flag */
 #define KEY_CTRL	0x4000	/* reserved: internal use only! */

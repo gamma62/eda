@@ -1,4 +1,5 @@
 /* keys.h : generated file, don't edit! */
+	{ KN(KEY_C_RSQBRAC), 0 },
 	{ KN(KEY_NONE), 0 },
 	{ KN(KEY_PPAGE), 0 },
 	{ KN(KEY_NPAGE), 0 },

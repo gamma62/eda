@@ -77,6 +77,52 @@ go_text (void)
 	return (0);
 }
 
+/*
+** message - display a string as "message", mostly for macros
+*/
+int
+message (const char *str)
+{
+	int silent;
+	silent = (cnf.gstat | GSTAT_SILENT);
+
+	if (str && strlen(str) > 0) {
+		/* macros should be silent, but this is intentional */
+		if (silent)
+			cnf.gstat &= ~GSTAT_SILENT;
+
+		tracemsg("%s", str);
+
+		if (silent)
+			cnf.gstat |= GSTAT_SILENT;
+	}
+
+	return 0;
+}
+
+/*
+** msg_from_text - display text from the current line as message, mostly for macros
+*/
+int
+msg_from_text (void)
+{
+	char row[CMDLINESIZE];
+	int i;
+
+	for (i=0; i < CURR_LINE->llen-1 && i < CMDLINESIZE-1; i++) {
+		row[i] = CURR_LINE->buff[i];
+	}
+	row[i] = '\0';
+
+	message (row);
+
+	/* for testing */
+	if (cnf.trace > 0 && cnf.trace <= TRACESIZE)
+		CMD_LOG(LOG_DEBUG, "%d: %s", cnf.trace-1, cnf.tracerow[cnf.trace-1]);
+
+	return 0;
+}
+
 /* push string down in command line history
 */
 int
@@ -162,7 +208,11 @@ clhistory_cleanup (int keep)
 	CMDLINE *runner;
 	int item=0;
 
-	HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d and should keep %d", cnf.clhist_size, keep);
+	if (keep > 0) {
+		HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d and should keep %d", cnf.clhist_size, keep);
+	} else {
+		HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d to cleanup all", cnf.clhist_size);
+	}
 	reset_clhistory();
 
 	runner = cnf.clhistory;
@@ -180,8 +230,8 @@ clhistory_cleanup (int keep)
 	}
 
 	if (runner != NULL) {
-		HIST_LOG(LOG_INFO, "done, (kept %d, prev %d, next %d), cnf.clhist_size %d",
-			item, (runner->prev != NULL), (runner->next != NULL), cnf.clhist_size);
+		HIST_LOG(LOG_DEBUG, "done, (kept %d, prev NULL %d, next NULL %d), cnf.clhist_size %d",
+			item, (runner->prev == NULL), (runner->next == NULL), cnf.clhist_size);
 		return (0);
 	} else {
 		HIST_LOG(LOG_ERR, "failed, (kept %d but runner is NULL), cnf.clhist_size %d",
@@ -216,7 +266,7 @@ clhistory_rm_olddup (char *buff, int len, int depth)
 	}
 
 	if (removed) {
-		HIST_LOG(LOG_INFO, "done, removed [%s], cnf.clhist_size %d", buff, cnf.clhist_size);
+		HIST_LOG(LOG_DEBUG, "done, removed [%s], cnf.clhist_size %d", buff, cnf.clhist_size);
 	}
 	return;
 }
@@ -300,7 +350,7 @@ clhistory_prev (void)
 	else if (cnf.cloff > cnf.clpos)
 		cnf.cloff = cnf.clpos + 1;
 
-	HIST_LOG(LOG_INFO, "---done, cmdline buffer [%s]", cnf.cmdline_buff);
+	HIST_LOG(LOG_DEBUG, "---done, cmdline buffer [%s]", cnf.cmdline_buff);
 	return 0;
 }
 
@@ -368,7 +418,7 @@ clhistory_next (void)
 	else if (cnf.cloff > cnf.clpos)
 		cnf.cloff = cnf.clpos + 1;
 
-	HIST_LOG(LOG_INFO, "+++done, cmdline buffer [%s]", cnf.cmdline_buff);
+	HIST_LOG(LOG_DEBUG, "+++done, cmdline buffer [%s]", cnf.cmdline_buff);
 	return 0;
 }
 
@@ -378,10 +428,10 @@ static void
 go2end_cmdline(void)
 {
 	cnf.clpos = cnf.cmdline_len;	/* after last */
-	if (cnf.clpos - cnf.cloff > cnf.maxx-1)
+	if (cnf.clpos > cnf.maxx-1)
 		cnf.cloff = cnf.clpos - cnf.maxx + 1;
-	else if (cnf.cloff > cnf.clpos)
-		cnf.cloff = cnf.clpos + 1;
+	else
+		cnf.cloff = 0;
 }
 
 /* clear command line and set first position
@@ -438,16 +488,18 @@ ed_cmdline (int ch)
 		{
 		case KEY_BACKSPACE:
 			if (cnf.clpos > 0) {
-				if (cnf.clpos > cnf.cmdline_len)
+				if (cnf.clpos > cnf.cmdline_len) {
 					go2end_cmdline();
-				for (ii = cnf.clpos-1; ii+1 <= cnf.cmdline_len; ii++)
-					cnf.cmdline_buff[ii] = cnf.cmdline_buff[ii+1];
-				cnf.clpos--;
-				cnf.cmdline_len--;
-				cnf.cmdline_buff[cnf.cmdline_len] = '\0';
-				/* skip to left (stepwise) */
-				if (cnf.cloff > cnf.clpos)
-					cnf.cloff = (cnf.clpos > 5) ? (cnf.clpos - 5) : 0;
+				} else {
+					for (ii = cnf.clpos-1; ii+1 <= cnf.cmdline_len; ii++)
+						cnf.cmdline_buff[ii] = cnf.cmdline_buff[ii+1];
+					cnf.clpos--;
+					cnf.cmdline_len--;
+					cnf.cmdline_buff[cnf.cmdline_len] = '\0';
+					/* skip to left (stepwise) */
+					if (cnf.cloff > cnf.clpos)
+						cnf.cloff = (cnf.clpos >= 4) ? (cnf.clpos - 4) : 0;
+				}
 				cnf.reset_clhistory = 1;
 			}
 			break;
@@ -480,7 +532,7 @@ ed_cmdline (int ch)
 			cnf.clpos = (cnf.clpos > 0) ? cnf.clpos-1 : 0;
 			/* skip to left (stepwise) */
 			if (cnf.cloff > cnf.clpos)
-				cnf.cloff = (cnf.clpos > 5) ? (cnf.clpos - 5) : 0;
+				cnf.cloff = (cnf.clpos >= 4) ? (cnf.clpos - 4) : 0;
 			break;
 		case KEY_RIGHT:
 			cnf.clpos = (cnf.clpos < CMDLINESIZE-1) ? cnf.clpos+1 : CMDLINESIZE-1;
@@ -585,7 +637,7 @@ cmdline_to_clhistory (char *buff, int length)
 {
 	int xlength = length;
 
-	HIST_LOG(LOG_INFO, "start (going to reset and trip)...");
+	HIST_LOG(LOG_DEBUG, "start (going to reset and strip)...");
 	reset_clhistory();
 
 	/* strip all blanks, even if this can cut ending of regexp pattern
@@ -596,7 +648,7 @@ cmdline_to_clhistory (char *buff, int length)
 		clhistory_rm_olddup (buff, xlength, 5);
 		clhistory_push (buff, xlength);
 	}
-	HIST_LOG(LOG_INFO, "done (after olddup and push)...");
+	HIST_LOG(LOG_DEBUG, "done (after olddup and push)...");
 }
 
 /*
@@ -1042,6 +1094,25 @@ go_right (void)
 }
 
 /*
+** scroll_1line_up - scroll the text area up with one line, keep focus
+*/
+int
+scroll_1line_up (void)
+{
+	LINE *lp=CURR_LINE;
+	int fcnt=0;	/* file lines */
+
+	if (UNLIKE_TOP(lp)) {
+		prev_lp (cnf.ring_curr, &lp, &fcnt);
+		CURR_LINE = lp;
+		CURR_FILE.lineno -= fcnt;
+		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
+	}
+
+	return (0);
+}
+
+/*
 ** go_up - go up one line in the text area, or leave command line
 */
 int
@@ -1069,6 +1140,25 @@ go_up (void)
 				}
 			}
 		}
+		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
+	}
+
+	return (0);
+}
+
+/*
+** scroll_1line_down - scroll the text area down with one line, keep focus
+*/
+int
+scroll_1line_down (void)
+{
+	LINE *lp=CURR_LINE;
+	int fcnt=0;	/* file lines */
+
+	if (UNLIKE_BOTTOM(lp)) {
+		next_lp (cnf.ring_curr, &lp, &fcnt);
+		CURR_LINE = lp;
+		CURR_FILE.lineno += fcnt;
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
 	}
 
@@ -1156,7 +1246,8 @@ go_first_screen_line (void)
 	return (0);
 }
 
-/* scroll the text area up with at most one screenfull
+/*
+** scroll_screen_up - scroll the text area up with at most one screen
 */
 int
 scroll_screen_up (void)
@@ -1230,7 +1321,8 @@ go_last_screen_line (void)
 	return (0);
 }
 
-/* scroll the text area down with at most one screenfull
+/*
+** scroll_screen_down - scroll the text area down with at most one screen
 */
 int
 scroll_screen_down (void)

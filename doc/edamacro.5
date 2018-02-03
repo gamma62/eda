@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2017-12-26" "0.9.83" ""
+.TH "EDAMACRO" "5" "2018-02-03" "0.9.83" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -15,15 +15,17 @@ Lets start with an example macro.
 .br
 
 .nf
-    KEY_C_Y        delline_alias
-    #Description: alias for Meta-D
-            delline
+    KEY_S_F1        manual
+    #Description: show the eda manual
+            shell_cmd man -P cat eda
+            finish_in_fg
+            go_top
     .
 .fi
 
 Macros must have a name for command line start (delline_alias here) and
 a key binding (KEY_C_Y here). The name shall be one word without spaces.
-The key name regex pattern is KEY_[A-Z0-9_]+ for acceptance and KEY_NONE 
+The key name regex pattern is KEY_[A-Z0-9_]+ for acceptance and KEY_NONE
 is a valid no-key. See the edakeys file for valid key names.
 The description line is optional, reserved for later use. The macro can have
 various arguments, constants from the script, inserted literally at runtime
@@ -52,7 +54,7 @@ switch between text area and command line
 .br
 
 .SS base editor functions: moving around in text area and command line
-go_up go_down go_smarthome go_home go_end go_left go_right
+go_up go_down go_smarthome go_home go_end go_left go_right scroll_1line_down scroll_1line_up scroll_screen_down scroll_screen_up
 .br
 .TP 7
 .B go_up
@@ -75,6 +77,18 @@ move cursor to left by 1 character in the text area
 .TP 10
 .B go_right
 move cursor to right by 1 character in the text area
+.TP 19
+.B scroll_1line_down
+scroll the text area down with one line, keep focus
+.TP 17
+.B scroll_1line_up
+scroll the text area up with one line, keep focus
+.TP 20
+.B scroll_screen_down
+scroll the text area down with at most one screen
+.TP 18
+.B scroll_screen_up
+scroll the text area up with at most one screen
 .br
 
 .SS base editor functions: inline editing in text area and command line
@@ -96,7 +110,7 @@ keypress_enter
 handle the Enter keypress in text area, regular file buffers, special window, interactive shells
 .br
 
-.SS using command line history (previous in history: Ctrl-UP)
+.SS using command line history (previous in history)
 clhistory_prev
 .br
 .TP 16
@@ -104,7 +118,7 @@ clhistory_prev
 copy the previous item from history to command line, with prefix filtering, prefix of the original line
 .br
 
-.SS using command line history (next, back, in history: Ctrl-DOWN)
+.SS using command line history (next, back, in history)
 clhistory_next
 .br
 .TP 16
@@ -232,7 +246,7 @@ strip trailing whitechars (space, tab, CR) from the lines, according to the para
 .br
 
 .SS line based selection functions
-line_select reset_select cp_select mv_select rm_select go_select_first go_select_last select_all over_select unindent_left indent_right shift_left shift_right 
+line_select reset_select cp_select mv_select rm_select go_select_first go_select_last select_all over_select unindent_left indent_right shift_left shift_right
 .br
 .TP 13
 .B line_select
@@ -300,13 +314,13 @@ filter_all filter_less filter_more filter_tmp_all filter_expand_up filter_expand
 .br
 .TP 12
 .B filter_all
-make all lines visible according to the parameter, those and only those; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise argument is handled as regexp
+make all lines visible according to the parameter, those and only those; special arguments are "alter" meaning altered lines, "selection", "function" meaning functions and headers, and ":<linenumber>", otherwise argument is handled as regexp
 .TP 13
 .B filter_less
-make less lines visible according to the parameter; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
+make less lines visible according to the parameter; special arguments are "alter" meaning altered lines, "selection", "function" meaning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
 .TP 13
 .B filter_more
-make more lines visible according to the parameter; special arguments are "alter" mentioning altered lines, "selection", "function" mentioning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
+make more lines visible according to the parameter; special arguments are "alter" meaning altered lines, "selection", "function" meaning functions and headers, and ":<linenumber>", otherwise the argument is handled as regexp
 .TP 16
 .B filter_tmp_all
 switch between filtered view and full view, showing all lines
@@ -350,13 +364,13 @@ search next occurence; reset search if not found
 start search and replace with given regular expressions (like "ch /from/to/"), possible delimiters are slash, single quote, double quote, exclamation mark; submatch referencies '\\1'...'\\9' and '&' can be used
 .TP 11
 .B color_tag
-mark lines with color in different ways, if argument is missing the focus word is used; with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged, while with regexp argument only the matchhing lines will have color mark; with empty pattern all marks are removed (like "tag //")
+mark lines with color in different ways, if argument is missing the focus word is used; with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged, while with regexp argument only the matchhing lines will have color mark; with empty pattern all marks are removed (like "tag")
 .TP 15
 .B tag_focusline
 toggle the color mark of the focus line
 .TP 16
 .B highlight_word
-highlight matching bytes in the line according to regexp or the focus word; reset highlighting if cursor is not in a word or pattern is explicit empty (like "high //")
+highlight matching bytes in the line according to regexp or the focus word; reset highlighting if cursor is not in a word or pattern is empty (like "high")
 .TP 13
 .B search_word
 start immediate find search with the word under cursor
@@ -522,7 +536,7 @@ force the screen redraw of current buffer
 .br
 
 .SS Bookmarks, set and jump (Alt-0 sets next free, jump shows preview)
-bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 
+bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9
 .br
 .TP 8
 .B bm_set
@@ -594,7 +608,7 @@ stop running background process of current buffer
 .br
 
 .SS anything else
-filter_m1 go_text mouse_support nop recording_switch show_bookmarks show_commands version 
+filter_m1 go_text message mouse_support msg_from_text nop parse_open recording_switch show_bookmarks show_commands version xterm_title
 .br
 .TP 11
 .B filter_m1
@@ -602,12 +616,21 @@ make 1 line more visible around sequences of visible lines (expand unhidden rang
 .TP 9
 .B go_text
 move cursor to the text area, useful for for macros
+.TP 9
+.B message
+display a string as "message", mostly for macros
 .TP 15
 .B mouse_support
 switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
+.TP 15
+.B msg_from_text
+display text from the current line as message, mostly for macros
 .TP 5
 .B nop
 no operation, does nothing, only for testing
+.TP 12
+.B parse_open
+get nonspace characters around cursor, assuming that is a filename try to open file
 .TP 18
 .B recording_switch
 switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
@@ -620,6 +643,9 @@ show table of commands with keyboard shortcuts
 .TP 9
 .B version
 show the version string
+.TP 13
+.B xterm_title
+replace xterm title with given string
 .br
 
 .SH "INTERACTIVE COMMANDS"
@@ -654,6 +680,7 @@ and the function name (the same as in the API list above).
 .BR bash (1),
 .BR sed (1),
 .BR awk (1),
-.BR perl (1)
-version control tools
+.BR perl (1),
+.BR python (1)
+version control tools like svn(1), hg (1), git (1)
 

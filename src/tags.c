@@ -352,7 +352,7 @@ tag_load_file (void)
 			chunk+comments, ret, err1, err2, err3);
 	} else {
 		tracemsg ("%d symbols loaded: OK", chunk);
-		TAGS_LOG(LOG_INFO, "chunks=%d comments=%d", chunk, comments);
+		TAGS_LOG(LOG_NOTICE, "chunks=%d comments=%d", chunk, comments);
 	}
 
 	FREE(buff);
@@ -435,7 +435,7 @@ tag_do (const char *arg_symbol, int flag)
 
 	if (cnf.taglist == NULL) {
 		tracemsg ("tags file [%s] not loaded", cnf.tags_file);
-		TAGS_LOG(LOG_WARNING, "tags file [%s] not loaded", cnf.tags_file);
+		TAGS_LOG(LOG_ERR, "tags file [%s] not loaded", cnf.tags_file);
 	} else {
 		if (arg_symbol[0] == '\0') {
 			get_symbol = select_word(CURR_LINE, CURR_FILE.lncol);

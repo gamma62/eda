@@ -30,10 +30,10 @@ CFLAGS = -W -Wall -g -O2 -Wformat -Werror=format-security \
 	-I/usr/local/include -I/usr/local/include/ncurses
 
 # workaround for ncurses-6.0.0s20171007_1
-# /usr/local/lib/libncurses.so.6.0 uses /usr/local/lib/libtinfo.so.6
 #LDFLAGS = -L/usr/local/lib -lncurses
 LDFLAGS = -L/usr/lib -lncurses
 
+HDRS = main.h curses_ext.h command.h proto.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
@@ -86,9 +86,9 @@ keys.o: keys.c
 
 .SUFFIXES: .i .o
 
-#.c.o:
-#	$(CC) $(CFLAGS) -o ${.TARGET} -c ${.IMPSRC}
-#.c.i:
-#	$(CC) -E -W -Wall -I.. -o ${.TARGET} -c ${.IMPSRC}
+.c.o:
+	$(CC) $(CFLAGS) -o ${.TARGET} -c ${.IMPSRC}
+.c.i:
+	$(CC) -E -W -Wall -I.. -o ${.TARGET} -c ${.IMPSRC}
 
 # ------------------------------------

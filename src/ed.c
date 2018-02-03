@@ -165,7 +165,7 @@ run_macro_command (int mi, char *args_inbuff)
 		args[0] = args_inbuff;
 		args_cnt = parse_args (dup_buffer, args+1);
 
-		CMD_LOG(LOG_INFO, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
+		CMD_LOG(LOG_NOTICE, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
 			mi, macros[mi].name, macros[mi].fkey, args_inbuff, args_cnt);
 
 		cnf.gstat |= GSTAT_SILENT;
@@ -217,7 +217,7 @@ run_macro_command (int mi, char *args_inbuff)
 				exec = ((FUNCP0) table[ix].funcptr)();
 			}
 			if (exec) {
-				CMD_LOG(LOG_WARNING, "macro: (mi=%d name=[%s] key=0x%02x) last command (ti=%d) [%s] returned: %d",
+				CMD_LOG(LOG_ERR, "macro: (mi=%d name=[%s] key=0x%02x) last command (ti=%d) [%s] returned: %d",
 					mi, macros[mi].name, macros[mi].fkey, ix, table[ix].fullname, exec);
 				break;	/* stop macro */
 			}
@@ -238,7 +238,7 @@ run_command (int ti, const char *args_inbuff, int fkey)
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
 
-		CMD_LOG(LOG_INFO, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
+		CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
 			ti, table[ti].name, fkey, args_inbuff);
 
 		if (table[ti].tflag & TSTAT_ARGS) {
@@ -253,7 +253,7 @@ run_command (int ti, const char *args_inbuff, int fkey)
 			exec = ((FUNCP0) table[ti].funcptr)();
 		}
 		if (exec) {
-			CMD_LOG(LOG_WARNING, "command: last (ti=%d) [%s] returned: %d",
+			CMD_LOG(LOG_ERR, "command: last (ti=%d) [%s] returned: %d",
 				ti, table[ti].fullname, exec);
 		}
 	}/* change allowed */
@@ -293,7 +293,8 @@ event_handler (void)
 			mi = ti - TLEN;
 			run_macro_command (mi, args_buff);
 		} else {
-			CMD_LOG(LOG_WARNING, "macro [%s] does not exist", cnf.automacro);
+			CMD_LOG(LOG_ERR, "macro [%s] does not exist", cnf.automacro);
+			drop_all();
 		}
 	}
 	while (cnf.ring_size > 0)
@@ -329,8 +330,10 @@ event_handler (void)
 			}
 			cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
 			upd_cmdline ();
+
+			doupdate ();
+			delay_cnt_4stat = 0;
 		}
-		doupdate ();
 
 		/*
 		 * wait for input, do cursor reposition
@@ -342,16 +345,16 @@ event_handler (void)
 			wmove (cnf.wtext, CURR_FILE.focus, cnf.pref+CURR_FILE.curpos-CURR_FILE.lnoff);
 			ch = key_handler (cnf.wtext, cnf.seq_tree, 0);
 		}
-		delay_cnt_4stat++;
 
 		/* delayed window resize, loop up */
 		if (ch == KEY_RESIZE) {
 			app_resize();
 			force_redraw();
 			continue;
+		}
 
 		/* optional mouse positioning support, loop up */
-		} else if (ch == KEY_MOUSE) {
+		if (ch == KEY_MOUSE) {
 			if (!set_position_by_pointer(pointer)) {
 				cnf.gstat |= GSTAT_UPDFOCUS;
 				CURR_FILE.fflag &= ~FSTAT_CMD;
@@ -359,9 +362,11 @@ event_handler (void)
 				ch = ERR;
 			}
 			continue;
+		}
 
-		/* bg processing in time slots, loop up */
-		} else if (ch == ERR) {
+		/* idle time slots, used for background processes */
+		if (ch == ERR) {
+			delay_cnt_4stat++;
 			if (delay_cnt_4stat > FILE_CHDELAY) {
 				/* rare slots: stat disk-files
 				*/

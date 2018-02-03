@@ -46,7 +46,7 @@
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
 #define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement, regexp_shorthands() */
-#define PALETTE_MAX	2
+#define PALETTE_MAX	3
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
 #define LINESIZE_MIN	0x001f		/* (2^5-1) incr/decr step for realloc() ==31 */
@@ -87,7 +87,7 @@
 
 /* for wgetch() and timers */
 #define CUST_ESCDELAY	5		/* set global variable ESCDELAY (miliseconds?) */
-#define CUST_WTIMEOUT	10		/* wgetch timeout (miliseconds) */
+#define CUST_WTIMEOUT	100		/* wgetch timeout (miliseconds); higher ==> less CPU time */
 #define RESIZE_DELAY	7		/* internal counter for wgetch timeouts before reporting KEY_RESIZE */
 #define FILE_CHDELAY	(1000/CUST_WTIMEOUT*5)	/* file re-stat timing, 5 seconds */
 #define ZOMBIE_DELAY	(1000/CUST_WTIMEOUT*1)	/* check process alive, 1 second */
@@ -219,7 +219,7 @@
 /* some function and block header patterns for various file types
  */
 #define C_HEADER_PATTERN	"([:a-zA-Z0-9_]+)[[:blank:]]*[(]"
-#define C_STRUCTURE_PATTERN	"^(struct|enum|union|class|namespace)[[:blank:]]+([[:alpha:]]*)|^typedef[[:blank:]]+(struct|enum|union)[[:blank:]]+([[:alpha:]]*)"
+#define C_STRUCTURE_PATTERN	"^(struct|enum|union|class|namespace)[[:blank:]]+([a-zA-Z0-9_]*)|^typedef[[:blank:]]+(struct|enum|union)[[:blank:]]+([a-zA-Z0-9_]*)"
 #define HEADER_PATTERN_END	"[)][[:blank:]]*[{][[:blank:]]*$"
 /**/
 #define PERL_HEADER_PATTERN	"^sub[[:blank:]]+([:.a-zA-Z0-9_]+)"
@@ -227,7 +227,7 @@
 #define SHELL_HEADER_PATTERN	"^function[[:blank:]]+([a-zA-Z0-9_]+)|^([a-zA-Z0-9_]+)[[:blank:]]*[(][)]"
 #define HEADER_PATTERN_END2	"[[:blank:]]*[{][[:blank:]]*(#.*)?$"
 /**/
-#define PYTHON_HEADER_PATTERN	"^[[:blank:]]*def[[:blank:]]+([[:alpha:]]+)"
+#define PYTHON_HEADER_PATTERN	"^[[:blank:]]*def[[:blank:]]+([a-zA-Z0-9_]*)"
 #define TEXT_HEADER_PATTERN	"^[^[:blank:]]+"
 
 /* options for pipe i/o processing

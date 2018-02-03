@@ -5,12 +5,13 @@
 # details about syntax and functions in edamacro(5)
 #
 #---sample
-#KEY_NONE	whynot
+#KEY_NONE	macro_API
 #	go_text
 #	go_end
 #	keypress_enter
-#	type_text	^G : the buffer name
-#	type_text	$0 : the whole input
+#	type_text	[^G] : the buffer name
+#	type_text	[$0] : the whole input
+#	type_text	fields [$1] [$2] [^G] [$3] [$4] [$5] [$6] [$7] [$8] [$9] end
 #	shell_cmd	date +fw%V
 #	finish_in_fg
 #	switch_text_cmd
@@ -18,16 +19,18 @@
 #---end sample
 #
 # Note:
-# to capture the end of a background process (shell_cmd filter_cmd filter_shadow_cmd)
-# do not forget to call, see also OPT_NOBG
+# the functions
+#	shell_cmd  make_cmd  filter_cmd  filter_shadow_cmd
+# fork to background by default
+# to capture the end of the background process in a macro do not forget to call
 #	finish_in_fg
-# to overwrite the selection lines pushed to *sh* buffer use the function
+# and to overwrite the selection lines pushed to *sh* buffer use the function
 #	over_select
 #
-# Some must have macros
+# Some 'must have' macros
 #
 KEY_F1	help
-#Description: show the commands or cmds.txt
+#Description: show cmds.txt (if available) or use the function
 #	add_file ~/.eda/cmds.txt
 	show_commands
 .
@@ -96,6 +99,11 @@ KEY_NONE	git
 #Description: alias to run any Git command
 	vcstool git $0
 .
+KEY_NONE	hgi
+#Description: very short info about branch / revision status
+	vcstool hg id -b
+	vcstool hg id -nit
+.
 KEY_NONE	hginfo
 #Description: run hg commands to get info: summary, diff stat, status
 	vcstool hg sum
@@ -117,6 +125,11 @@ KEY_NONE	svndiff
 	vcstool svn diff -x -w $0
 	is_special diff
 	process_diff
+.
+KEY_NONE	hglog
+#Description: run hg glog
+	vcstool hg log -G -l 50
+	go_top
 .
 #
 # Tools
@@ -150,7 +163,9 @@ KEY_NONE	allpy
 	filter_all /^(\s*(def|class) (_|\w).*):|__main__/
 .
 KEY_NONE	pyc
-#Description: python check sample, example, using these tools
+#Description: python check example, change as you wish
+#	shell_cmd check_python.sh ^G
+#	finish_in_fg
 	shell_cmd python -m py_compile ^G
 	finish_in_fg
 #	shell_cmd pyflakes ^G

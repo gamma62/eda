@@ -202,7 +202,7 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 					case 'X': meta_key=KEY_S_M_X; break;
 					case 'Y': meta_key=KEY_S_M_Y; break;
 					case 'Z': meta_key=KEY_S_M_Z; break;
-					case '[': meta_key=KEY_M_LSQBRAC; break;
+					case '[': meta_key=KEY_M_LSQBRAC; break; /* 0x5b is special */
 					case '\\': meta_key=KEY_M_BACKSLASH; break;
 					case ']': meta_key=KEY_M_RSQBRAC; break;
 					case '^': meta_key=KEY_M_CARET; break;
@@ -242,6 +242,11 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 					default:
 						meta_key=0;
 						break;
+					}
+					if (meta_key != 0 && ch != 0x5b) {
+						/* early break, quick response to repeated Alt-keys */
+						ch = meta_key;
+						ready = 1;
 					}
 				} else {
 					meta_key=0;

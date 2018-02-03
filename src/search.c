@@ -278,7 +278,7 @@ search_goto_pattern (int ri, const char *pattern, int *new_lineno)
 ** color_tag - mark lines with color in different ways, if argument is missing the focus word is used;
 **	with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged,
 **	while with regexp argument only the matchhing lines will have color mark;
-**	with empty pattern all marks are removed (like "tag //")
+**	with empty pattern all marks are removed (like "tag")
 */
 int
 color_tag (const char *expr)
@@ -389,7 +389,7 @@ color_tag (const char *expr)
 
 /*
 ** highlight_word - highlight matching bytes in the line according to regexp or the focus word;
-**	reset highlighting if cursor is not in a word or pattern is explicit empty (like "high //")
+**	reset highlighting if cursor is not in a word or pattern is empty (like "high")
 */
 int
 highlight_word (const char *expr)
