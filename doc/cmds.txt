@@ -1,23 +1,23 @@
 +-----------------------------------------------------------------------------+
 | Function keys                                                               |
-| F1   F2    F3    F4    F5     F6      F7   F8   F9     F10    F11           |
-| cmds save  file  quit  center deleol  dup  next match  symbol jump          |
-| man  (all) (all) (all)        del2bol      prev fmatch fblock thisf         |
+| F1   F2    F3    F4    F5     F6      F7        F8   F9     F10    F11      |
+| cmds save  file  quit  center deleol  duplicate next match  symbol jump     |
+| man  bname                    del2bol bookmarks prev fmatch fblock thisf    |
 |                                                                             |
 | Control keys                      Alt/Meta keys                             |
 | filter: ^U, ^N and ^E             line selection: L, U, C, M, G, (A-E)      |
 | insert: ^V, ^B, ^X and ^G         delete line: D                            |
-| search: ^F and ^L                 find/locate: Q                            |
-| high/tag: ^J, ^K                  window switch: W                          |
-| select all: ^A                    [ ] unindent/indent                       |
-| redraw: ^R                        { } unshift/shift                         |
-| jump back: ^T                     < > cmdline history                       |
-| wordcase: ^W                      filter cycle: Alt-backslash               |
-|                                   vbn: Alt-slash                            |
-|                                   palette: Alt-question                     |
-|                                                                             |
+| search: ^F and ^L                 (multi) find/locate: Q                    |
+| highlight/tag: ^J, ^K             find window switch: W                     |
+| select all: ^A                    [ ] unindent/indent for selection         |
+| redraw: ^R                        { } unshift/shift for selection           |
+| jump back: ^T (after F11)         < > cmdline history                       |
+| wordcase: ^W                      (incr) filter cycle: Alt-backslash        |
+|                                   function name, vbn: Shift-F2              |
+|                                   color palette change: Alt-?               |
 | Bookmarks: Alt-1 ... Alt-9, easy set: Alt-0                                 |
-| Toggles: prefix Alt-@, shadow Alt-#, smartind Alt-minus, ftmp Alt-equal     |
+| Toggles: prefix Alt-@, shadow Alt-#                                         |
+|          smartind Alt-minus, ftmp Alt-equal                                 |
 | Use F12 or ESC to switch to/from commandline.                               |
 +-----------------------------------------------------------------------------+
 
@@ -39,12 +39,13 @@ fi.le                 F3               file_file
 q.uit                 F4               quit_file
 qq.uit                none             drop_file
 qo.th                 none             quit_others
-qa.ll                 Shift-F4         quit_all
-fa.ll                 Shift-F3         file_all
-sa.ll                 Shift-F2         save_all
+qa.ll                 none             quit_all
+fa.ll                 none             file_all
+sa.ll                 none             save_all
 hide                  none             hide_file
+popen                 Ctrl-RSQBRAC     parse_open
 
-Moving around with cursor keys. Ctrl-Up/Down for browsing command history.
+Moving around with cursor keys. Ctrl-Up/Down is hardcoded for command history.
 Use ESC or F12 to switch between text area and command line.
 
 command name          keyb shortcut    function name
@@ -60,8 +61,12 @@ pos <arg>             n/a              goto_pos
 ce.nter               F5               center_focusline
 n/a                   Alt-LESSTHAN     clhistory_prev
 n/a                   Alt-GREATHAN     clhistory_next
+n/a                   Alt-J            scroll_1line_up
+n/a                   Alt-K            scroll_1line_down
+n/a                   Alt-B            scroll_screen_up
+n/a                   Alt-SPACE        scroll_screen_down
 
-In-line edit, split line (Enter), join lines (Delete, Backspace, deleol).
+In-line editing, split line (by Enter), join lines (by Delete, Backspace, deleol).
 
 command name          keyb shortcut    function name
 --------------------  ---------------  --------------------
@@ -72,7 +77,7 @@ dup                   F7               duplicate
 dele.te <arg>         n/a              delete_lines
 strip <arg>           n/a              strip_lines
 
-Line based selection functions.
+Line based selection functions. See also clipboard macros.
 
 command name          keyb shortcut    function name
 --------------------  ---------------  --------------------
@@ -116,6 +121,7 @@ dl.evel               none             decr_filter_level
 il2                   none             incr2_filter_level
 dl2                   none             decr2_filter_level
 n/a                   Alt-BACKSLASH    incr_filter_cycle
+m1                    n/a              filter_m1
 
 Search and replace, line tagging with color, alternate highlight.
 
@@ -212,8 +218,9 @@ b6                    Alt-SIX          bm_jump6
 b7                    Alt-SEVEN        bm_jump7
 b8                    Alt-EIGHT        bm_jump8
 b9                    Alt-NINE         bm_jump9
+shb.ms                Shift-F7         show_bookmarks
 
-Export/insert, view block name, and anything else.
+Export/insert, view block/function name, and anything else.
 
 command name          keyb shortcut    function name
 --------------------  ---------------  --------------------
@@ -221,33 +228,12 @@ n/a                   Ctrl-B           ins_bname
 n/a                   Ctrl-V           ins_varname
 n/a                   Ctrl-G           ins_filename
 n/a                   Ctrl-X           cp_text2cmd
-vbn                   Alt-SLASH        view_bname
+vbn                   Shift-F2         view_bname
 wc.ase                Ctrl-W           word_case
-cmd.s                 F1               show_commands
+cmd.s                 none             show_commands
 version               none             version
 mouse                 none             mouse_support
 record                none             recording_switch
+xtit.le <arg>         n/a              xterm_title
 
-The rest is only for macros (function API)
-
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-n/a                   n/a              finish_in_fg
-n/a                   n/a              switch_text_cmd
-n/a                   n/a              clhistory_prev
-n/a                   n/a              clhistory_next
-n/a                   n/a              go_up
-n/a                   n/a              go_down
-n/a                   n/a              go_smarthome
-n/a                   n/a              go_home
-n/a                   n/a              go_end
-n/a                   n/a              go_left
-n/a                   n/a              go_right
-n/a                   n/a              delback_char
-n/a                   n/a              delete_char
-n/a                   n/a              keypress_enter
-n/a                   n/a              type_text
-n/a                   n/a              split_line
-n/a                   n/a              join_line
-nop                   n/a              nop
-
+The rest is useful for macros (function API), see edamacro(5).

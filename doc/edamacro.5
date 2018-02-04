@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2018-02-03" "0.9.83" ""
+.TH "EDAMACRO" "5" "2018-02-04" "0.9.83" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -173,7 +173,7 @@ scroll the screen that focus line will be vertically centered
 .br
 
 .SS file I/O and switching buffers
-add_file reload_file reload_bydiff show_diff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all save_all hide_file
+add_file reload_file reload_bydiff show_diff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all save_all hide_file parse_open
 .br
 .TP 10
 .B add_file
@@ -220,6 +220,9 @@ save all files where necessary
 .TP 11
 .B hide_file
 hide regular file buffer, unhide any
+.TP 12
+.B parse_open
+get nonspace characters around cursor, assuming that is a filename try to open file
 .br
 
 .SS editing lines: split line (Enter), join lines (Delete, Backspace, deleol)
@@ -310,7 +313,7 @@ join two blocks of selection lines one-by-one, the separator line is either chos
 .br
 
 .SS filtering while editing at different levels
-filter_all filter_less filter_more filter_tmp_all filter_expand_up filter_expand_down filter_restrict incr_filter_level decr_filter_level incr2_filter_level decr2_filter_level incr_filter_cycle
+filter_all filter_less filter_more filter_tmp_all filter_expand_up filter_expand_down filter_restrict incr_filter_level decr_filter_level incr2_filter_level decr2_filter_level incr_filter_cycle filter_m1
 .br
 .TP 12
 .B filter_all
@@ -348,6 +351,9 @@ decrement filter level and duplicate filter bits also
 .TP 19
 .B incr_filter_cycle
 increment filter level in cycle
+.TP 11
+.B filter_m1
+make 1 line more visible around sequences of visible lines (expand unhidden ranges)
 .br
 
 .SS search, change, highlight, regexp tools
@@ -535,8 +541,8 @@ create directory listing in special buffer for easy navigation and opening, argu
 force the screen redraw of current buffer
 .br
 
-.SS Bookmarks, set and jump (Alt-0 sets next free, jump shows preview)
-bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9
+.SS Bookmarks, set and jump (Alt-0 sets next free)
+bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 show_bookmarks
 .br
 .TP 8
 .B bm_set
@@ -571,6 +577,9 @@ jump to 8th bookmark if possible, show bookmark info in notification before jump
 .TP 10
 .B bm_jump9
 jump to 9th bookmark if possible, show bookmark info in notification before jump
+.TP 16
+.B show_bookmarks
+show bookmark data in the messages lines
 .br
 
 .SS Export/insert, view block name,  helper functions
@@ -597,7 +606,7 @@ switch the case of characters in the word under cursor
 .br
 
 .SS Only for macros and external processes
-finish_in_fg stop_bg_process
+finish_in_fg stop_bg_process go_text message msg_from_text recording_switch
 .br
 .TP 14
 .B finish_in_fg
@@ -605,14 +614,6 @@ finish reading output of external process in foreground, read from pipe until pr
 .TP 17
 .B stop_bg_process
 stop running background process of current buffer
-.br
-
-.SS anything else
-filter_m1 go_text message mouse_support msg_from_text nop parse_open recording_switch show_bookmarks show_commands version xterm_title
-.br
-.TP 11
-.B filter_m1
-make 1 line more visible around sequences of visible lines (expand unhidden ranges)
 .TP 9
 .B go_text
 move cursor to the text area, useful for for macros
@@ -620,23 +621,22 @@ move cursor to the text area, useful for for macros
 .B message
 display a string as "message", mostly for macros
 .TP 15
-.B mouse_support
-switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
-.TP 15
 .B msg_from_text
 display text from the current line as message, mostly for macros
-.TP 5
-.B nop
-no operation, does nothing, only for testing
-.TP 12
-.B parse_open
-get nonspace characters around cursor, assuming that is a filename try to open file
 .TP 18
 .B recording_switch
 switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
-.TP 16
-.B show_bookmarks
-show bookmark data in the messages lines
+.br
+
+.SS anything else
+mouse_support nop show_commands version xterm_title
+.br
+.TP 15
+.B mouse_support
+switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
+.TP 5
+.B nop
+no operation, does nothing, only for testing
 .TP 15
 .B show_commands
 show table of commands with keyboard shortcuts

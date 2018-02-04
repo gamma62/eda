@@ -206,10 +206,13 @@ TABLE table[] = {
 	{ "version",	KEY_NONE, 7,		PN(version),		0x00},
 	{ "mouse",	KEY_NONE, 5,		PN(mouse_support),	0x00},
 	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
+	{ "xtitle",	-1, 4,			PN(xterm_title),	0x01},
+	{ "msg",	-1, 3,			PN(message),		0x01},
+	{ "xmsg",	-1, 4,			PN(msg_from_text),	0x00},
+	{ "stop",	KEY_NONE, 4,		PN(stop_bg_process),	0x00},
 
-	/* hardcoded keys and functions for macros (the function pointers must be listed) */
+	/* functions for macros (function pointers reference) */
 
-	{ "stop",	KEY_NONE, 4,	PN(stop_bg_process),		0x00},
 	{ "",		-1, -1,		PN(finish_in_fg),		0x00},
 	/* command line and text area */
 	{ "",		-1, -1,		PN(switch_text_cmd),		0x00},
@@ -231,9 +234,6 @@ TABLE table[] = {
 	{ "",		-1, -1,		PN(type_text),			0x07},
 	{ "",		-1, -1,		PN(split_line),			0x06},
 	{ "",		-1, -1,		PN(join_line),			0x0a},
-	{ "xtitle",	-1, 4,		PN(xterm_title),		0x01},
-	{ "msg",	-1, 3,		PN(message),			0x01},
-	{ "xmsg",	-1, 4,		PN(msg_from_text),		0x00},
 
 	/* the end */
 	{ "nop",	-1, 3,		PN(nop),			0x00},
