@@ -26,214 +26,216 @@ Switch between buffers with F8, save file with F2, save&quit F3, quit F4.
 Leave the program if all the buffers are closed.
 Press Ctrl-C twice to leave immediately.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-e.d [<arg>]           n/a              add_file
-re!                   none             reload_file
-diff [<arg>]          none             show_diff
-re.load               none             reload_bydiff
-prev                  Shift-F8         prev_file
-next                  F8               next_file
-sa.ve [<arg>]         F2               save_file
-fi.le                 F3               file_file
-q.uit                 F4               quit_file
-qq.uit                none             drop_file
-qo.th                 none             quit_others
-qa.ll                 none             quit_all
-fa.ll                 none             file_all
-sa.ll                 none             save_all
-hide                  none             hide_file
-popen                 Ctrl-RSQBRAC     parse_open
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+e.d [<arg>]           add_file              n/a
+re!                   reload_file           none
+diff [<arg>]          show_diff             none
+re.load               reload_bydiff         none
+prev                  prev_file             Shift-F8
+next                  next_file             F8
+save [<arg>]          save_file             F2
+file                  file_file             F3
+q.uit                 quit_file             F4
+qq.uit                drop_file             none
+qo.th                 quit_others           none
+qa.ll                 quit_all              none
+fa.ll                 file_all              none
+sa.ll                 save_all              none
+hide                  hide_file             none
+popen                 parse_open            Ctrl-]
 
 Moving around with cursor keys. Ctrl-Up/Down is hardcoded for command history.
 Use ESC or F12 to switch between text area and command line.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-n/a                   PPAGE            go_page_up
-n/a                   NPAGE            go_page_down
-n/a                   Ctrl-LEFT        prev_nonblank
-n/a                   Ctrl-RIGHT       next_nonblank
-top                   Ctrl-PPAGE       go_top
-bot.tom               Ctrl-NPAGE       go_bottom
-: <arg>               n/a              goto_line
-pos <arg>             n/a              goto_pos
-ce.nter               F5               center_focusline
-n/a                   Alt-LESSTHAN     clhistory_prev
-n/a                   Alt-GREATHAN     clhistory_next
-n/a                   Alt-J            scroll_1line_up
-n/a                   Alt-K            scroll_1line_down
-n/a                   Alt-B            scroll_screen_up
-n/a                   Alt-SPACE        scroll_screen_down
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+n/a                   go_page_up            PageUp
+n/a                   go_page_down          PageDown
+n/a                   prev_nonblank         Ctrl-LEFT
+n/a                   next_nonblank         Ctrl-RIGHT
+top                   go_top                Ctrl-PageUp
+bot.tom               go_bottom             Ctrl-PageDown
+: <arg>               goto_line             n/a
+pos <arg>             goto_pos              n/a
+ce.nter               center_focusline      F5
+n/a                   clhistory_prev        Alt-<
+n/a                   clhistory_next        Alt->
+n/a                   scroll_1line_up       Alt-J
+n/a                   scroll_1line_down     Alt-K
+n/a                   scroll_screen_up      Alt-B
+n/a                   scroll_screen_down    Alt-Space
 
 In-line editing, split line (by Enter), join lines (by Delete, Backspace, deleol).
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-deleol                F6               deleol
-del2bol               Shift-F6         del2bol
-dell.ine              Alt-D            delline
-dup                   F7               duplicate
-dele.te <arg>         n/a              delete_lines
-strip <arg>           n/a              strip_lines
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+deleol                deleol                F6
+del2bol               del2bol               Shift-F6
+dell.ine              delline               Alt-D
+dup                   duplicate             F7
+dele.te <arg>         delete_lines          n/a
+strip <arg>           strip_lines           n/a
 
 Line based selection functions. See also clipboard macros.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-lisel                 Alt-L            line_select
-resel                 Alt-U            reset_select
-cpsel                 Alt-C            cp_select
-mvsel                 Alt-M            mv_select
-rmsel                 Alt-G            rm_select
-selfi.rst             Alt-A            go_select_first
-sella.st              Alt-E            go_select_last
-sea.ll                Ctrl-A           select_all
-over                  none             over_select
-unind.ent             Alt-LSQBRAC      unindent_left
-ind.ent               Alt-RSQBRAC      indent_right
-shl.eft               Alt-LCURBRAC     shift_left
-shr.ight              Alt-RCURBRAC     shift_right
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+lisel                 line_select           Alt-L
+resel                 reset_select          Alt-U
+cpsel                 cp_select             Alt-C
+mvsel                 mv_select             Alt-M
+rmsel                 rm_select             Alt-G
+selfi.rst             go_select_first       Alt-A
+sella.st              go_select_last        Alt-E
+sea.ll                select_all            Ctrl-A
+over                  over_select           none
+unind.ent             unindent_left         Alt-[
+ind.ent               indent_right          Alt-]
+shl.eft               shift_left            Alt-{
+shr.ight              shift_right           Alt-}
 
 Something like block based selection handling.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-pad.b <arg>           none             pad_block
-cut.b <arg>           none             cut_block
-lcut.b <arg>          none             left_cut_block
-split.b <arg>         none             split_block
-join.b <arg>          none             join_block
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+pad.b <arg>           pad_block             none
+cut.b <arg>           cut_block             none
+lcut.b <arg>          left_cut_block        none
+split.b <arg>         split_block           none
+join.b <arg>          join_block            none
 
 The filter engine based on regexp.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-all [<arg>]           n/a              filter_all
-less [<arg>]          n/a              filter_less
-more <arg>            n/a              filter_more
-ftmp                  Alt-EQUAL        filter_tmp_all
-fxup                  Ctrl-U           filter_expand_up
-fxdn                  Ctrl-N           filter_expand_down
-fres                  Ctrl-E           filter_restrict
-il.evel               none             incr_filter_level
-dl.evel               none             decr_filter_level
-il2                   none             incr2_filter_level
-dl2                   none             decr2_filter_level
-n/a                   Alt-BACKSLASH    incr_filter_cycle
-m1                    n/a              filter_m1
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+all [<arg>]           filter_all            n/a
+less [<arg>]          filter_less           n/a
+more <arg>            filter_more           n/a
+ftmp                  filter_tmp_all        Alt-=
+fxup                  filter_expand_up      Ctrl-U
+fxdn                  filter_expand_down    Ctrl-N
+fres                  filter_restrict       Ctrl-E
+il.evel               incr_filter_level     none
+dl.evel               decr_filter_level     none
+il2                   incr2_filter_level    none
+dl2                   decr2_filter_level    none
+n/a                   incr_filter_cycle     Alt-\
+m1                    filter_m1             n/a
 
 Search and replace, line tagging with color, alternate highlight.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-/ <arg>               n/a              search
-n/a                   Ctrl-L           repeat_search
-ch.ange <arg>         n/a              change
-tag [<arg>]           n/a              color_tag
-tf                    Alt-T            tag_focusline
-n/a                   Ctrl-F           search_word
-hi.gh [<arg>]         Ctrl-J           highlight_word
-n/a                   Ctrl-K           tag_line_byword
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+/ <arg>               search                n/a
+n/a                   repeat_search         Ctrl-L
+ch.ange <arg>         change                n/a
+tag [<arg>]           color_tag             n/a
+tf                    tag_focusline         Alt-T
+n/a                   search_word           Ctrl-F
+hi.gh [<arg>]         highlight_word        Ctrl-J
+n/a                   tag_line_byword       Ctrl-K
 
 Multifile search and locate (internal search).
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-find [<arg>]          none             find_cmd
-loc.ate [<arg>]       none             locate_cmd
-locsw.itch            none             locate_find_switch
-n/a                   Alt-Q            multisearch_cmd
-n/a                   Alt-W            find_window_switch
-fw.ord                none             fw_option_switch
-fsp.ath <arg>         none             fsearch_path_macro
-fsea.rgs <arg>        none             fsearch_args_macro
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+find [<arg>]          find_cmd              none
+loc.ate [<arg>]       locate_cmd            none
+locsw.itch            locate_find_switch    none
+n/a                   multisearch_cmd       Alt-Q
+n/a                   find_window_switch    Alt-W
+fw.ord                fw_option_switch      none
+fsp.ath <arg>         fsearch_path_macro    n/a
+fsea.rgs <arg>        fsearch_args_macro    n/a
 
 Brace matching, block folding.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-mat.ch                F9               tomatch
-fm.atch               Shift-F9         forcematch
-fb.lock               Shift-F10        fold_block
-this.f                Shift-F11        fold_thisfunc
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+mat.ch                tomatch               F9
+fm.atch               forcematch            Shift-F9
+fb.lock               fold_block            Shift-F10
+this.f                fold_thisfunc         Shift-F11
 
 Using ctags.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-lt                    n/a              tag_load_file
-sym.bol [<arg>]       F10              tag_view_info
-j.ump [<arg>]         F11              tag_jump_to
-jb.ack                Ctrl-T           tag_jump_back
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+lt                    tag_load_file         n/a
+sym.bol [<arg>]       tag_view_info         F10
+j.ump [<arg>]         tag_jump_to           F11
+jb.ack                tag_jump_back         Ctrl-T
 
 External tools, filter pipes, VCS calls and unified diffs.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-sh <arg>              n/a              shell_cmd
-ish [<arg>]           n/a              ishell_cmd
-make [<arg>]          n/a              make_cmd
-| <arg>               n/a              filter_cmd
-|| <arg>              n/a              filter_shadow_cmd
-vcstool <arg>         n/a              vcstool
-pd.iff                none             process_diff
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+sh <arg>              shell_cmd             n/a
+ish [<arg>]           ishell_cmd            n/a
+make [<arg>]          make_cmd              n/a
+| <arg>               filter_cmd            n/a
+|| <arg>              filter_shadow_cmd     n/a
+vcstool <arg>         vcstool               n/a
+pd.iff                process_diff          none
 
 Resources, keys, macros, projects and buffer type query/change.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-set <arg>             n/a              set
-rc                    n/a              load_rcfile
-key.s                 n/a              load_keyfile
-macro.s               n/a              load_macrofile
-rem                   none             reload_macros
-sp [<arg>]            none             save_project
-is [<arg>]            none             is_special
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+set <arg>             set                   n/a
+rc                    load_rcfile           n/a
+key.s                 load_keyfile          n/a
+macro.s               load_macrofile        n/a
+rem.ac                reload_macros         none
+sp <arg>              save_project          n/a
+is <arg>              is_special            n/a
 
 Buffer views and UI changes, directory and buffer lists.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-pal.ette              Alt-QMARK        rotate_palette
-pref                  Alt-AT           prefix_macro
-sma.rt                Alt-MINUS        smartind_macro
-sha.dow               Alt-HASH         shadow_macro
-ri.ng                 Alt-R            list_buffers
-ls.dir [<arg>]        n/a              lsdir_cmd
-redraw                Ctrl-R           force_redraw
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+pal.ette              rotate_palette        Alt-?
+pref                  prefix_macro          Alt-@
+sma.rt                smartind_macro        Alt-Minus
+sha.dow               shadow_macro          Alt-#
+ri.ng                 list_buffers          Alt-R
+ls.dir [<arg>]        lsdir_cmd             n/a
+redraw                force_redraw          Ctrl-R
 
 Bookmarks, set and jump (Alt-0 sets next free, jump shows preview).
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-bms [<arg>]           Alt-ZERO         bm_set
-bmc <arg>             none             bm_clear
-b1                    Alt-ONE          bm_jump1
-b2                    Alt-TWO          bm_jump2
-b3                    Alt-THREE        bm_jump3
-b4                    Alt-FOUR         bm_jump4
-b5                    Alt-FIVE         bm_jump5
-b6                    Alt-SIX          bm_jump6
-b7                    Alt-SEVEN        bm_jump7
-b8                    Alt-EIGHT        bm_jump8
-b9                    Alt-NINE         bm_jump9
-shb.ms                Shift-F7         show_bookmarks
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+bms [<arg>]           bm_set                Alt-0
+bmc <arg>             bm_clear              n/a
+b1                    bm_jump1              Alt-1
+b2                    bm_jump2              Alt-2
+b3                    bm_jump3              Alt-3
+b4                    bm_jump4              Alt-4
+b5                    bm_jump5              Alt-5
+b6                    bm_jump6              Alt-6
+b7                    bm_jump7              Alt-7
+b8                    bm_jump8              Alt-8
+b9                    bm_jump9              Alt-9
+shb.ms                show_bookmarks        Shift-F7
 
 Export/insert, view block/function name, and anything else.
 
-command name          keyb shortcut    function name
---------------------  ---------------  --------------------
-n/a                   Ctrl-B           ins_bname
-n/a                   Ctrl-V           ins_varname
-n/a                   Ctrl-G           ins_filename
-n/a                   Ctrl-X           cp_text2cmd
-vbn                   Shift-F2         view_bname
-wc.ase                Ctrl-W           word_case
-cmd.s                 none             show_commands
-version               none             version
-mouse                 none             mouse_support
-record                none             recording_switch
-xtit.le <arg>         n/a              xterm_title
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+n/a                   ins_bname             Ctrl-B
+n/a                   ins_varname           Ctrl-V
+n/a                   ins_filename          Ctrl-G
+n/a                   cp_text2cmd           Ctrl-X
+vbn                   view_bname            Shift-F2
+wc.ase                word_case             Ctrl-W
+cmd.s                 show_commands         none
+version               version               none
+mouse                 mouse_support         none
+record                recording_switch      none
+xtit.le <arg>         xterm_title           n/a
+stop                  stop_bg_process       none
 
-The rest is useful for macros (function API), see edamacro(5).
+The rest of functions is useful for macros only, see edamacro(5).
+
