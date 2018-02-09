@@ -10,7 +10,7 @@ text editor and analyzer for programmers
  features and heavy-weight tools in the background to help everyday work
  in program development.
 
-Mostly for C, shell scripts, Perl or any similar structured language, C++, Tcl, Python.
+Mostly for C, shell scripts, Perl or any similar structured language, C++, XML, Python.
 
  * line based selection handling, cp, mv, rm and over
  * text line filter (7 levels) by regex patterns and manually
@@ -25,5 +25,5 @@ Mostly for C, shell scripts, Perl or any similar structured language, C++, Tcl, 
  * macro interface (with record)
  * shell fork
 
-See man pages eda(1), edamcro(5) and README for details.
+See man pages eda(1), edamcro(5) and the cmds.txt for details.
 

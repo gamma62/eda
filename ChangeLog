@@ -1,13 +1,15 @@
 
-* 2018, january, rc2 for 0.9.97
+* 2018, jan-feb, rc4 for 0.9.97
 
   features:
+    - cmds.txt and manuals update
     - parse_open() bound to Ctrl-] to parse filename from text and open it
     - scroll 1 line by Alt-j/k, screen by Alt-b/space
     - read_extcmd_line() for future use; console color palette
     - message() and msg_from_text() for macros; list_buffers() simplified
 
   fixes:
+    - cmdline buffer strip without length populated (affected: parse_cmdline)
     - quick response to Alt-keys except 1b 5b
     - bugfix: key sequence with backspace on cmdline
     - reduced CPU active wait time (wgetch timeout)

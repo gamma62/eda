@@ -1,9 +1,9 @@
 NOTES about ideas, plans, bugs
 
---- v.0.9.97 rc1 ---
+--- v.0.9.97 rc4 ---
 
 FEATURES: engine tests
-  - base editor functions (ready) and feature groups (started only)
+  - base editor functions (ready) and feature groups
 ongoing
 
 FEATURE: xml/html tag support

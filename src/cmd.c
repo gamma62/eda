@@ -116,10 +116,6 @@ msg_from_text (void)
 
 	message (row);
 
-	/* for testing */
-	if (cnf.trace > 0 && cnf.trace <= TRACESIZE)
-		CMD_LOG(LOG_DEBUG, "%d: %s", cnf.trace-1, cnf.tracerow[cnf.trace-1]);
-
 	return 0;
 }
 

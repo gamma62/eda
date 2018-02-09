@@ -23,24 +23,24 @@ Lets start with an example macro.
     .
 .fi
 
-Macros must have a name for command line start (delline_alias here) and
-a key binding (KEY_C_Y here). The name shall be one word without spaces.
+Macros must have a name for command line start (manual here) and
+a key binding (KEY_S_F1 here). The name shall be one word without spaces.
 The key name regex pattern is KEY_[A-Z0-9_]+ for acceptance and KEY_NONE
 is a valid no-key. See the edakeys file for valid key names.
 The description line is optional, reserved for later use. The macro can have
 various arguments, constants from the script, inserted literally at runtime
 and the ones from the command line, inserted dynamically by reference,
 $1...$9 and $0. The $0 refers the whole list of parameters. Additionally,
-the ^G token will be replaced by the (short) filename.
+the ^G token will be replaced by the (short) name of current buffer.
 Custom arguments and the ones from the command line can be mixed.
 
-The macro commands are listed after the header line until a line with
+The functions shall be listed after the header line until a line with
 one dot (or an empty line). The body lines of the macro must start with
 one TAB, followed by the function name and the optional parameters.
+Each parameter string is truncated at 128 bytes.
 
-See the public keys in the edakeys file and use the "cmds" command to see
-current list of commands. Command names can be abbreviated, minimum length
-is marked with the dot character in the "cmds" list.
+See the public keys in the edakeys file and use the "cmds" command to get
+current list of functions.
 .br
 
 .SH "Functions for macros grouped by feature"

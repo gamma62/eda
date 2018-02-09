@@ -1,6 +1,6 @@
 .\"
 .\" -*- nroff -*-
-.TH "EDA" "1" "2018-02-03" "0.9.83" ""
+.TH "EDA" "1" "2018-02-04" "0.9.83" ""
 
 .SH "NAME"
 \fBeda\fR \- text editor and analyzer for programmers
@@ -44,7 +44,7 @@ no configuration file processing
 .B xeda
 [options] filenames ...
 .br
-xeda is a wrapper around eda to start eda in a terminal emulator like gnome-terminal or xterm
+xeda is a wrapper around eda to start eda in a terminal emulator
 
 .SH "DESCRIPTION"
 The \fBeda\fR program is a text editor, built to work on source code files. It is useful for editing all kinds of plain text but it was designed for program development and code analysis. \fBEda\fR is a mixture of simple and intuitive user interface, base editor features and heavy-weight tools in the background to help everyday work in program development.
@@ -56,59 +56,63 @@ The advanced features grow up from the design, the line based buffer management 
 .SH "USAGE"
 .SS Introduction
 
-The user interface is natural; status line, text area and command line. Trace/info messages re-use some of the first lines of the text area. The prefix of text lines (containing line number and attributes) is switch-able. The focus line is highlighted. Command line has a history (^UP, ^DOWN or ^O, ^P). Switch between command line and enter text area with ESC or F12. Ctrl-Right and Ctrl-Left jumps to next word in the text area.
+The user interface is natural; status line, text area and command line. Trace/info messages re-use some of the first lines of the text area. The prefix of text lines (containing line number and attributes) is switch-able. The focus line is highlighted. Command line has a history (Ctrl-UP and Ctrl-DOWN by default). Switch between command line and enter text area with ESC or F12. Ctrl-Right and Ctrl-Left jumps to next word in the text area.
 
-The command line commands and the keys are bound to public functions, the key bindings are changeable, see ~/.eda/edakeys. Check the actual status with the "cmds" command. The commands on command line have a history (it is saved and loaded upon start) and a prefix filter. Type some characters and browse the history: the commands are filtered by that prefix. Projects can save configuration options (like start directory, tags file, version control options, etc.) and files.
+The command line commands and the keys are bound to public functions, the key bindings are changeable, see ~/.eda/edakeys. Check the actual status with the "cmds" command. With the 'eda -k' command it is easy to check actual key bindings and see the connected function. The commands on command line have a history (it is saved and loaded upon start) and a prefix filter. Type some characters and browse the history (Ctrl-UP, Ctrl-DOWN): the commands are filtered by that prefix. Projects can save configuration options (like start directory, find options, version control options, etc.) and the files with line number.
+
+\fBEda\fR is an engine. The macros are simple extensions. See the sample macros, read edamacro(5) and start writing your own extensions.
 
 .SS Base editing and moving around
 
 Base editing is not a surprise, <enter> splits line, <delete> on line-end joins with next, <backspace> on line-begin joins to previous.
 
-Go top of file by ^PgUp or "top" and go bottom by ^PgDn or "bottom". With ":<N>" jump to the <N>-th line. Switch between files in the ring by F8 (next file) and ^F8 (previous file). Press Meta-R to get the ring-list, list of open buffers, bookmarks, selection, etc.
+Go top of file by Ctrl-PgUp or "top" and go bottom by Ctrl-PgDn or "bottom". With ":<N>" jump to the <N>-th line. Switch between files in the ring by F8 (next file) and Ctrl-F8 (previous file). Press Alt-R to get the list of open buffers and bookmarks. 
 
-Use <F6> to delete up-to the line end and <F7> to duplicate the line. Move the current/focus line to the middle of the screen by <F5>. Delete the whole line by Meta-D, delete to begin-of-line by Shift-F6. Most of the commands have command name and key binding. See the "cmds" command output to get current list. Macros are listed as well.
+Use <F6> to delete up-to the line end and <F7> to duplicate the line. Move the current/focus line to the middle of the screen by <F5>. Delete the whole line by Alt-D, delete to begin-of-line by Shift-F6. Most of the commands have command name and key binding. See the "cmds" command output to get current list. Macros are listed as well.
 
-Lot of commands do a jump from one place to another, to come back just press the ^T key. To temporary hide an open buffer press ^F1 and the buffer disappear from the ring when going around with F8 key. Get it back from the ring-list (see Meta-R) or opening the buffer directly.
+The jump to symbol (F11 key) requires ctags, to come back just press Ctrl-T. With the F10 key you can see the symbols value. To temporary hide/unhide an open buffer use the 'hide' command. Hidden buffers do not appear when cycling with the F8 key. Get it back from the ring-list (see Alt-R) or opening the buffer directly by its name 'e filename'.
 
-There are 9 bookmarks for use. To return to a bookmarked place press Meta-<N> key. With Meta-0 you can set the focus line to the next free bookmark. Set a bookmark with "bms <N>" and clear it with "bmc <N>". The line prefix shows line number and line attributes, like the bookmark and the bits for saved and unsaved changes on the line. Bookmarks are listed in the ring-list (see Meta-R). Pressing Meta-<N> shows (like a preview) the position and on the second press jumps to the place. The prefixes can be switched on/off by Meta-GRAVEACC key.
+There are 9 bookmarks for use. To return to a bookmarked place press Alt-<N> key. With Alt-0 you can set the next free bookmark. Set a bookmark with "bms <N>" and clear it with "bmc <N>". Show bookmarks function bound to Shift-F7 by default. The line prefix shows line number and line attributes, like the bookmark and the bits for saved and unsaved changes on the line. The prefixes can be switched on/off by Alt-AT key.
 
 .SS File handling: open, save, quit
 
-Open one file by the "e <file-name>" command. Save file by F2 or "save", save and quit by F3 or "file", quit file with F4 (if there are no unsaved changes) or quit immediately with "qq". Quit other files (close other buffers) by Shift-F4 or the "qoth" command. File all (save all and quit) with "fa". One file can be saved with another name in the file-system with the "save <newfilename>" command. While selecting a file-name (for open, save or any other reason) the TAB key can be used for file-name globbing.
+Open one file by the "e <file-name>" command. Save file by F2 or "save", save and quit by F3 or "file", quit file with F4 (if there are no unsaved changes) or quit immediately with "qq". Quit other files (close other buffers) with the "qoth" command. File all (save all and quit) with "fall". One file can be saved with another name in the file-system with the "save <newfilename>" command. While selecting a file-name (for open, save or any other reason) the TAB key can be used for file-name globbing.
 
 Files can be reloaded from disk by the "re!" command, unconditionally and reload by diff with "re". The latter case saves bookmarks, line attributes, highlighting, etc.
 
-Beneath regular buffers eda has special buffers also. These are generated pages like directory listing (output of "ls"), actual command list (output of "cmds"), the make and find/egrep output buffers and so on. These are almost read-only (editing is not possible) but have line parser to interpret the enter key-press and figure out file-name and line number to perform a jump to action.
+Beneath regular buffers eda has special buffers also. These are generated pages like directory listing (output of "ls"), actual command list (output of "cmds"), the make and find/egrep output buffers and so on. These are read-only (line delete maybe possible) but have line parser to interpret the enter key-press and figure out file-name and line number to perform a jump to action.
 
-For emergency exit press Ctrl-C twice. (The ^X and ^V keys are often used and a little failure by the fingers could ruin the works).
+For emergency exit press Ctrl-C twice. (The Ctrl-X and Ctrl-V keys are often used and a little failure by the fingers could ruin the works).
 
 .SS Selection
 
-Selection is line based (actually it is a line attribute like highlight or filter). Select range of lines by Meta-L; first and last line. Re-selecting boundaries grows or shrinks selection. Base actions are copy, move, delete and (un)indent.
+Selection is line based (actually it is a line attribute like highlight or filter). Select range of lines by Alt-L; first and last line. Re-selecting boundaries grows or shrinks selection. Base actions are copy, move, delete and (un)indent.
 
-After selecting line(s) copy them to the focus line by Meta-C, or move them by Meta-M. Remove lines by Meta-G. To reset selection press Meta-U.
+After selecting line(s) copy them to the focus line by Alt-C, or move them by Alt-M. Remove lines by Alt-G. To reset selection press Alt-U.
 
-The indent/unindent commands are Shift-F7/Shift-F8, these work based on the configured indent setting (see the "set" command). The shift/unshift commands (Shift-F9/Shift-F10) are the brute-force ones, remove the first character or duplicate the first character in the line(s).
+The indent/unindent commands are Alt-[/Alt-], these work based on the configured indent setting (see the "set" command). The shift/unshift commands (Alt-{/Alt-}) are the brute-force ones, remove the first character or duplicate the first character in the line(s).
 
-Jump to the first/last line of selection by Meta-A and Meta-E.
+Jump to the first/last line of selection by Alt-A and Alt-E.
 
-Selected lines can be passed thru external filters, like with the "|sort" command. The output is going to a special shell buffer, the selection remains. To overwrite original selection with the filtered result just type the "over" command. See more in the Filtering section.
+Selected lines can be passed thru external filters, like with the "|sort" command. The output is going to a special shell buffer, the selection remains. To overwrite original selection with the filtered result just type the "over" command. The overwrite is transparent to the filter: hidden lines remain, only the visible selection lines will be replaced. The more old ones will be deleted, the more new ones will be appended. See more in the Filtering section.
 
 .SS Search, Change and Highlight
 
-Search (and change) is command line based and bound to the buffer. Every buffer has its own patters. Regexp pattern matching is a heavy tool, but the knowledge is not mandatory. Simple search patterns work fine.
+Search (and change) is command line based and bound to the buffer. Every buffer has its own patters. Regexp pattern matching is a heavy tool, but the knowledge is not mandatory. Simple search patterns are just strings.
 
-The search pattern must be started and optionally closed with '/'. To continue last search press ^L. The ^F macro cancels search and/or recalls the last search pattern to the command line for editing.
+The search pattern must be started and optionally closed with '/'. To continue last search press Ctrl-L. The Ctrl-F macro cancels search and/or recalls the last search pattern to the command line for editing.
 
 Replace is similar: ch /search-regexp/replace-pattern/. The delimiters for change are: ', ", / and !. These delimiters here are mandatory. While in a change process the trace message is used to get answer from the user for each change: "replace: Yes/No/Rest/Quit ?". "Yes" and "No" is for the current change pointed by cursor. "Rest" finishes all the pending replacements. "Quit" does quit, like the ESC key.
 
-Eda uses extended regexp from GLIBC. Some usual short-hands are implemented, like \\s, \\S, \\w, \\W, \\d, \\D for the blank, non-blank, alnum, non-alnum, digit, non-digit classes. And \\t for TAB key. Patterns can use accumulation and back-references to the accumulators in the pattern. The \\1 ... \\9 and \\0 and & can be used in replace patterns, just like in sed(1).
+Eda uses extended regexp. Some usual short-hands are implemented, like \\s, \\S, \\w, \\W, \\d, \\D with the [:blank:], [:alpha:], [:digit:] classes. And \\t for TAB key. Patterns can use accumulation and back-references to the accumulators in the pattern. The \\1 ... \\9 and \\0 and & can be used in replace patterns, just like with sed(1).
 
-Lines and patterns can be highlighted. While pattern highlighting is similar to search ("hi /pattern/" for  marking and "hi" resets) the line highlighting (or tagging) is very close to filtering. See tagging later.
+Lines and patterns can be highlighted. While pattern highlighting is similar to search ("hi /pattern/" for  marking and "hi" resets) the line highlighting (or tagging) is very close to filtering. See color tagging of lines later.
 
-There are short-hands for the search and highlight commands, these use the the cursor selected word as pattern. In order, ^H for "high", ^J for search, ^K for the line tagging. Just to complete the h-j-k-l line, ^L for repeat search.
+There are short-hands for the search and highlight commands, these use the the cursor selected word as pattern. In order, Ctrl-H for "high", Ctrl-J for search, Ctrl-K for the line tagging. Just to complete the h-j-k-l line, Ctrl-L for repeat search.
 
-Some examples:
+Some example commands:
+.br
+
 .br
 Searching C prototypes:
 .br
@@ -133,31 +137,33 @@ convert .desktop filename, copied from lsdir, to menu entry
 
 .SS Filtering, Folding, brace matching
 
-The file view has a filter, a possibility to hide lines. In fact there are seven levels, like views, for filtering. Filter bits are line attributes. There are commands to switch levels, and ones for switch and duplicate. Increment level "il", decrement level "dl", and switch and duplicate: "il2", "dl2". The Meta-BACKSLASH key is for cycling thru the filter levels. The filtered view has shadow lines, the lines currently hidden. Shadowing can be switched on/off, see "set shadow". Editing commands act on the visible lines only, except file handling commands (save/file/...), that work on all lines.
+The file view has a filter, a possibility to hide lines. In fact there are seven levels, like views, for filtering. Filter bits are line attributes. There are commands to switch levels, and ones for switch and duplicate. Increment level "il", decrement level "dl", and switch and duplicate: "il2", "dl2". The Alt-BACKSLASH key is for cycling thru the filter levels. The filtered view has shadow lines, the lines currently hidden. Shadowing can be switched on/off, see "set shadow".
+
+Editing commands act on the visible lines only, except file handling commands (save/file/...), that work on all lines. The hierarchy of lines remain, but you change only the buffers of visible lines. Changing to a different filter level (see F: in the status line) there is like a new view of the same file. The filter is changing with the level, the focus line and search, highlight and tag patterns are common.
 
 Standard filter rules: all, less, more
 
 Filtering acts like an embedded grep, works by rules but manual change is also possible. There are three commands for filtering: "all ...",  "less ..." and "more ...".  All they have (common) targets: 'alter',  'selection',  'function', the ':<N>' target and the regexp pattern based one. Abbreviations: 'alt', 'sele', 'func'.
 
-The 'alt' targets the altered lines (all changes since open, regardless of saves). The 'sele' means selected lines. The 'func' is for the function (or block) headers and footers, works with {...} blocks, like in C, Perl and Tcl/Tk sources. The :<line> targets the <line> line.
+The 'alt' targets the altered lines (all changes since open, regardless of saves). The 'sele' means selected lines. The 'func' is for the function (or block) headers and footers, works with {...} blocks, like in C, Perl, Sh, Bash, Java sources (Python support is ongoing). The :<line> targets the <line> line.
 
 The <regexp-pattern> target is for filtering by regular expression, like in search or tag. Look at the examples. Filter regexp patterns should be separated by / " ' or !.
 
-The plain "all" command (and also "all //") makes all lines visible. The Meta-EQUAL keystroke is for making temporarily all lines visible and back (this is a toggle).
+The plain "all" command (and also "all //") makes all lines visible. The Alt-EQUAL key is for making temporarily all lines visible and back (this is a toggle). On the status line F:1* means filter-tmp-all is active in level 1 and F:1= is the normal case.
 
 Manual changes: exclude and extend
 
-Hide away the focus line with ^E (Exclude) and in turn, ^U (more Up), ^N (more dowN) for extend the area of visible lines. The "more sele" command makes the selection range visible, and "less sele" hides the selected lines.
+Hide away the focus line with Ctrl-E (Exclude) and in turn, Ctrl-U (more Up), Ctrl-N (more dowN) for extend the area of visible lines. The "more sele" command makes the selection range visible, and "less sele" hides the selected lines.
 
 Folding blocks
 
-Folding is very close to regexp based filtering. There are internal regexp patterns to perform these tasks: fold block ("fb" or ^F10), fold this function ("this" or ^F11).
+Folding is very close to regexp based filtering. There are internal regexp patterns to perform these tasks: fold block ("fb" or Shift-F10), fold this function ("this" or Shift-F11).
 
-Block is something within curly braces while function is what C, Perl, Tcl/Tk or Java languages mean. C++ namespaces and Java classes are recognised.
+Block is something within curly braces while function is what C, Perl, Bash or Java languages mean. C++ namespaces and Java classes are recognised, or not.
 
 Highlight (or tag) lines
 
-Use the "tag ..." command to mark lines by colour. Change tagging state of the focus line by "tf" command or use ^F1.
+Use the "tag ..." command to mark lines by colour. Change tagging state of the focus line by "tf" command or use Alt-T.
 
 The syntax for tagging is the same as for filtering: tag alter | selection | :<line> | /<regexp>/. The "tag //" command tags all visible lines while "tag" resets tagging on visible lines.
 
@@ -181,35 +187,35 @@ Examples:
 
 Brace matching and folding (again)
 
-Find matching brace (by F9 key) for characters ({[< and >]}). The char constants (like '\\0' or '{') are not counted, but double quote strings and comments are processed as regular text. The tomatch function searches the peer character within the visible lines. The ^F9 is similar, but this does the search on all lines and the target is made visible.
+Find matching brace (by F9 key) for characters ({[< and >]}). The char constants (like '\\0' or '{') are not counted, but double quote strings and comments are processed as regular text. The tomatch function searches the peer character within the visible lines. The Shift-F9 ("fmatch") is similar, but this does the search on all lines and the target is made visible.
 
-The ^F10 works like the ^F9 action before, but the whole content of the block between the braces gets visible or hidden. This is a toggle. The ^F11 key (or "thisf" command) unhides/hides the whole function (or block, in other languages).
+The Shift-F10 ("fblock") works like the above mentioned Shift-F9, but the whole content of the block between the braces gets visible or hidden. This is a toggle. The Shift-F11 key (or "thisf" command) unhides/hides the whole function (or block, in other languages).
 
 .SS Settings, configuration, projects
 
 Use the "set" command to view settings and "set ..." for changing configuration, for example "set tabs 4" to change the tab size. The global configuration is in /etc/eda/edarc while ~/.eda/edarc is for custom settings. There are other resource files also: edaseq (/etc/eda/), edakeys (/usr/local/share/eda/) and edamacro (/usr/local/share/eda/). Copy /usr/local/share/eda/edamacro to ~/.eda/ and build your custom macro library.
 
-The edakeys allows custom key-bindings, edaseq is very important is for the special key-sequence recognition and association. Use the key tester, 'eda -k', to check the key combinations in your environment. These two files should not be changed except you really know what to do.
+The edakeys allows custom key-bindings, edaseq is very important it is for the special key-sequence recognition and association. Use the key tester, 'eda -k', to check the key combinations in your environment. These two files should changed with care. If eda does not start because syntax failure, use 'eda -n filename' to skip config processing (in this session the key sequence bindings are not working).
 
-Load configuration files with the "rc" and "macros" commands. You can change and save the defaults. To apply a resource change immediately use the "set ..." command. Copy the current text line to command line by ^X, add the "set " prefix and press enter to evaluate the setting. Macros are loaded only at start-up, see details in the edamacro(5) man page.
+Load your configuration files with the "rc", "macros" and "keys" commands. You can change and save the defaults. To apply a resource change immediately use the "set ..." command. Copy the current text line to command line by Ctrl-X, add the "set " prefix and press enter to evaluate the setting. Macros can be reloaded with "remac". Sequences and key bindings are loaded once at start-up.
 
-See current command table with "cmds". The abbreviation of a command name is marked by a dot character.
+See current command table with "cmds". The shortest abbreviation of a command name is marked by a dot character.
 
-There are short-hands for frequently used settings: fw (find word), fsp (find search path), fsea (find search arguments, file name patterns), Meta-GRAVEACC (set prefix on/off), Meta-MINUS (set smart indent on/off).
+There are short-hands for frequently used settings: fw (find word), fsp (find search path), fsea (find search arguments, file name patterns), Alt-@ (set prefix on/off), Alt-Minus (set smart indent on/off). Check the cmds.txt file, that a cheatsheet page and the defaults by group. The output of "cmds" is similar but the actual values and macros. With 'eda -k' key-tester you can check the sequences and the key->function relation.
 
 Projects may have additional settings, like initial directory, tabs size, path of tags file and the files to load by default. To save a project use the "sp <project_name>" command. This creates the project_name.proj file in ~/.eda/ as a template and adds initial directory and file list. Copy the required settings from edarc to this file and adjust them to projects needs. Projects can be loaded at start-up with the "-p project_name" option. Once a project is loaded you can use the "sp" command to save current files to it while the settings remain.
 
 .SS Pipelines and external commands
 
-Use of external commands are another key feature in eda. Some examples: make, find/egrep, sh with commands, version control tools. The external commands output appears in special windows like "*make*", "*find*", "*sh*" and "*svn*" for example.
+Use of external commands are another key feature in eda. Some examples: make, find/egrep, sh with commands, version control tools. The external commands output appears in special windows like "*make*", "*find*", "*sh*" and "*svn*" "*hg*" "*git*" for example.
 
 These buffers are parser ready: pressing the <enter> key in the focus line eda tries to find file position and jump to. This depends on the type of buffer.
 
-Special buffers are not editable. When such a buffer is dropped (F4 or qq) the originating regular file, where from the jump started, will be selected. The find/egrep buffer has the Meta-W for doing this switch back and forth.
+Special buffers are not editable. When such a buffer is dropped (F4 or qq) the originating regular file, where from the jump started, will be selected. The find/egrep buffer has the Alt-W for doing this switch back and forth.
 
-The "find /pattern/" command starts the find/egrep search with <pattern> according to the find_opts setting. The Meta-Q key is for starting the search with the current word under cursor. The "locate /pattern/" command does the similar search but only in the opened regular buffers. This is the internal egrep. The "make <target>" command starts make with Makefile, where target is optional, its default is usually all.
+The "find /pattern/" command starts the find/egrep search with <pattern> according to the find_opts setting. The Alt-Q key is for starting the search with the current word under cursor. The "locate /pattern/" command does the similar search but only in the opened regular buffers. This is the internal egrep. The "make <target>" command starts make with Makefile, where target is optional, its default is usually all.
 
-Some special buffers are generated internally, like the ring list of buffers (Meta-R or "ring"), the directory listing ("ls ..." command), the list of currently available commands and macros ("cmds") or "locate /pattern/" for internal search.
+Some special buffers are generated internally, like the ring list of buffers (Alt-R or "ring"), the directory listing ("ls ..." command), the list of currently available commands and macros ("cmds") or "locate /pattern/" for internal search.
 
 Examples:
 .nf
@@ -246,15 +252,44 @@ select lines to reindent, call indent as filter and copy back
 
 \fBEda\fR supports the use of tags by the external ctags(1) program. The tags are loaded automatically if \-t command line option entered or later by the "lt" command.  Tags file can be generated on the fly by "sh ctags -R ." or by "make tags" with a proper Makefile.
 
-The usage is simple: jump to <symbol> with F11 or by "j <symbol>" command. Return back to the start place by ^T. View the value of symbolic name (#define) by Shift-F11. The name and path of tags file is configurable. See the "set" command for configuration and projects.
+The usage is simple: jump to <symbol> with F11 or by "j <symbol>" command. Return back to the start place by Ctrl-T. View the value of symbolic name (#define) by Shift-F11. The name and path of tags file is configurable. See the "set" command for configuration and projects.
 
 File status changes on the disk are checked regularly (by file name and the stat() call) and reported with a trace message.
 
-Screen redraw can be forced by ^R or "redraw". Mouse handling is switched off by default. To switch on/off use the "mouse" command.
+Screen redraw can be forced by Ctrl-R or "redraw". Mouse handling is switched off by default. To switch on/off use the "mouse" command.
 
-To view the current block name (function name) press F1 key or "vbn". Inserting block name (function name) use ^B, for variable name use ^V, for file name use ^G.
+To view the current block name (function name) press Shift-F2 key or "vbn". Inserting block name (function name) use Ctrl-B, for variable name use Ctrl-V, for file name use Ctrl-G.
 
-To copy the current text line to command line use ^X. Changing case of current word under cursor by ^F5 or "wcase". There are some fancy stuff also, like the "time" and "xtitle" commands.
+To copy the current text line to command line use Ctrl-X. Changing case of current word under cursor by Ctrl-W or "wcase". There are some fancy stuff also, like the "xtitle" commands.
+.br
+
+.SS Some new stuff.
+
+The palette (theme colors) change with Alt-? (Alt-questionmark). Set it in edarc.
+.br
+
+The filter_cmd and filter_shadow_cmd functions for feeding external process with selecton. The former just the visible selection lines, the latter with shadow line marks also. Very useful for printing (a2ps), or something external with awk, perl, python.
+.br
+
+The "m1" command for extending the filter by 1 line up and down.
+.br
+
+The scroll functions, by line Alt-J and Alt-K and by screen Alt-B / Alt-Space.
+.br
+
+There are often filenames in text. Just move the cursor into the string and press Ctrl-] to open it.
+.br
+
+The clhistory browser is available also with Alt-< / Alt-> very important on console.
+.br
+
+The "fword" command toggles whole word onfig in find / locate.
+.br
+
+The "fspath" changes the search (external find) path, for exmple 'fsp /usr/include /etc/eda'.
+.br
+
+The "fseargs" changes the filename shell pattern for the external search, for example 'fsea *.sh *.pl *.py' or 'fsea *.[ch]'.
 .br
 
 .SH "BUGS"

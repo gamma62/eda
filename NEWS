@@ -1,8 +1,8 @@
 
-* 2018, january, rc2 for 0.9.97
+* 2018, jan-feb, rc4 for 0.9.97
 
-    - parser, motion history, scroll, macros, improvements and fixes
-    - bugfix: key sequence with backspace on cmdline
+    - parser, scroll, macros, manuals and cmds.txt, improvements and fixes
+    - bugfixes, cmdline: sequence with backspace, strip blanks
 
 * 2017, august, december, rc1 for 0.9.97
 

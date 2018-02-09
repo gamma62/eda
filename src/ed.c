@@ -397,6 +397,8 @@ event_handler (void)
 			if (ret && ch == KEY_RETURN) {
 				/* save buffer to cmdline history */
 				cmdline_to_clhistory (cnf.cmdline_buff, cnf.cmdline_len);
+				//fix: strip_blanks
+				cnf.cmdline_len = strlen(cnf.cmdline_buff);
 
 				if (cnf.cmdline_len > 0) {
 					ti = parse_cmdline (cnf.cmdline_buff, cnf.cmdline_len, args_buff);
@@ -483,12 +485,12 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		abeg = 0;
 	} else {
 		for (i=0; i<ilen; i++) {
-			if (ibuff[i] ==' ' || ibuff[i] =='\t')
+			if (ibuff[i] == ' ' || ibuff[i] == '\t')
 				break;
 		}
 		clen = i;
 		for (i=clen; i<ilen; i++) {
-			if (ibuff[i] !=' ' && ibuff[i] !='\t')
+			if (ibuff[i] != ' ' && ibuff[i] != '\t')
 				break;
 		}
 		abeg = i;

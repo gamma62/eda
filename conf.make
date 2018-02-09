@@ -1,4 +1,4 @@
-VERSION=0.9.83
+VERSION=0.9.97rc4
 sysconfdir=/etc
 prefix=/usr/local
 datadir=/usr/local/share
