@@ -7,7 +7,7 @@
 * 2017, august, december, rc1 for 0.9.97
 
     - engine tests, show commands with macros, clipboard I/O with macros, improved selection overwrite
-    - improved key tester and bettre edakeys configuration, new macros
+    - improved key tester and better edakeys configuration, new macros
     - bugfixes: save as file overwrite, bookmarks reference cleanup, cmdline history, curpos update in prefix_macro
     - FreeBSD 11.1-RELEASE ncurses6.0.0 workaround
 
