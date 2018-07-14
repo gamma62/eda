@@ -682,7 +682,7 @@ wr_select (int fd, int with_shadow)
 					snprintf(mid_buff, 30, "--- 1 line ---\n");
 				}
 				length = strlen(mid_buff);
-				out = write (fd, mid_buff, length);
+				out = write (fd, mid_buff, (size_t)length);
 				if (out != length) {
 					SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 						fd, out, length, strerror(errno));
@@ -691,7 +691,7 @@ wr_select (int fd, int with_shadow)
 				count++;
 			}
 			/* line buffer, important */
-			out = write (fd, lp_src->buff, lp_src->llen);
+			out = write (fd, lp_src->buff, (size_t)lp_src->llen);
 			if (out != lp_src->llen) {
 				SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 					fd, out, lp_src->llen, strerror(errno));

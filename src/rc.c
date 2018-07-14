@@ -318,13 +318,13 @@ set (const char *argz)
 			ret = 1;
 			for(x=0; x < 10; x++) {
 				y = strlen(cnf.vcs_tool[x]);
-				if (y==0 || !strncmp(subtoken, cnf.vcs_tool[x], y)) {
+				if (y==0 || !strncmp(subtoken, cnf.vcs_tool[x], (size_t)y)) {
 					break;
 				}
 			}
 			if (x < 10 && subsublen > 0) {
 				y = sizeof(cnf.vcs_tool[x]);
-				strncpy(cnf.vcs_tool[x], subtoken, y-1);
+				strncpy(cnf.vcs_tool[x], subtoken, (size_t)y);
 				cnf.vcs_tool[x][y-1] = '\0';
 				ret = 0;
 				SET_CHECK_X( cnf.vcs_path[x], subsublen, subsubtoken );
@@ -629,12 +629,12 @@ process_macrofile (int noconfig)
 						ret = 161; /*string for key name very long, cannot be zerolength*/
 						break;
 					}
-					strncpy(name, &inputline[pmatch[1].rm_so], iy);
+					strncpy(name, &inputline[pmatch[1].rm_so], (size_t)iy);
 					name[iy] = '\0';
 
 					if (iy > 0 && (ki = index_key_string(name)) < KLEN) {
 						fkey = keys[ki].key_value;
-						ptr = REALLOC((void *)macros, sizeof(MACROS)*(MLEN+1));
+						ptr = REALLOC((void *)macros, sizeof(MACROS) * (size_t)(MLEN+1));
 						if (ptr == NULL) {
 							ret = 162; /*realloc*/
 							break;
@@ -647,8 +647,12 @@ process_macrofile (int noconfig)
 							ix = sizeof(macros[MLEN].name)-1;
 							if (ix > pmatch[2].rm_eo - pmatch[2].rm_so)
 								ix = pmatch[2].rm_eo - pmatch[2].rm_so;
-							strncpy(macros[MLEN].name, &inputline[pmatch[2].rm_so], ix);
-							macros[MLEN].name[ix] = '\0';
+							if (ix > 0) {
+								strncpy(macros[MLEN].name, &inputline[pmatch[2].rm_so], (size_t)ix);
+								macros[MLEN].name[ix] = '\0';
+							} else {
+								macros[MLEN].name[0] = '\0';
+							}
 						}
 
 						macros[MLEN].mflag = 0;
@@ -667,7 +671,7 @@ process_macrofile (int noconfig)
 						ret = 164; /*string for function name very long, cannot be zerolength*/
 						break;
 					}
-					strncpy(name, &inputline[pmatch[1].rm_so], iy);
+					strncpy(name, &inputline[pmatch[1].rm_so], (size_t)iy);
 					name[iy] = '\0';
 
 					if (iy > 0 && (ti = index_func_fullname(name)) < TLEN) {
@@ -684,8 +688,12 @@ process_macrofile (int noconfig)
 							ix = sizeof(mac->maclist[mac->items].m_args)-1;
 							if (ix > pmatch[2].rm_eo - pmatch[2].rm_so)
 								ix = pmatch[2].rm_eo - pmatch[2].rm_so;
-							strncpy(mac->maclist[mac->items].m_args, &inputline[pmatch[2].rm_so], ix);
-							mac->maclist[mac->items].m_args[ix] = '\0';
+							if (ix > 0) {
+								strncpy(mac->maclist[mac->items].m_args, &inputline[pmatch[2].rm_so], (size_t)ix);
+								mac->maclist[mac->items].m_args[ix] = '\0';
+							} else {
+								mac->maclist[mac->items].m_args[0] = '\0';
+							}
 						}
 
 						mac->mflag |= table[ti].tflag;
@@ -786,7 +794,7 @@ process_project (int noconfig)
 	char str[CMDLINESIZE];
 	char *ptr;
 	int section = 0;	/* 1 for project config, 2 for project files */
-	int length[3];		/* prefix patterns */
+	unsigned length[3];	/* prefix patterns */
 
 	if (noconfig) {
 		return 0;
@@ -821,15 +829,15 @@ process_project (int noconfig)
 		strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 
 		if (section == 0) {
-			if ((len >= length[0]) && (strncmp(str, PROJECT_HEADER, length[0]) == 0)) {
+			if ((len >= (int)length[0]) && (strncmp(str, PROJECT_HEADER, length[0]) == 0)) {
 				section = 1;
 				continue;
 			}
 		} else if (section == 1) {
-			if ((len >= length[1]) && (strncmp(str, PROJECT_FILES, length[1]) == 0)) {
+			if ((len >= (int)length[1]) && (strncmp(str, PROJECT_FILES, length[1]) == 0)) {
 				section = 2;
 				continue;
-			} else if ((len > length[2]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
+			} else if ((len > (int)length[2]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
 				ptr = str+length[2];
 				len -= length[2];
 				if (len > 1)
@@ -1228,7 +1236,7 @@ save_clhistory (void)
 		/* the most recent item is useless */
 		while (runner->next != NULL) {
 			if (runner->len > 0) {
-				snprintf(str, runner->len+2, "%s\n", runner->buff);
+				snprintf(str, (size_t)runner->len+2, "%s\n", runner->buff);
 				len = strlen(str);
 				if (fwrite (str, sizeof(char), len, fp) != len) {
 					break;

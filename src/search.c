@@ -922,19 +922,20 @@ int
 repeat_change (int ch)
 {
 	int ret = 0;
-	char *s;
+	CHDATA *s1;
+	char *s2;
 	unsigned als;
 	static CHDATA *chp = NULL;
 	int cnt=0;
 	int restore_focus = CURR_FILE.focus;
 
 	if (ch == 0xff) {
-		s = (char *) MALLOC(sizeof(CHDATA));
-		if (s == NULL) {
+		s1 = (CHDATA *) MALLOC(sizeof(CHDATA));
+		if (s1 == NULL) {
 			chp = NULL;
 			ret = 4 | 8;
 		} else {
-			chp = (CHDATA *)s;
+			chp = (CHDATA *)s1;
 
 			chp->change_count = 0;
 			chp->lx = CURR_LINE;
@@ -948,13 +949,13 @@ repeat_change (int ch)
 
 			/* initial allocation for rep_buff[]; macro will reserve enough space */
 			als = REP_ASIZE(0);
-			s = (char *) MALLOC(als);
-			if (s == NULL) {
+			s2 = (char *) MALLOC(als);
+			if (s2 == NULL) {
 				FREE(chp);
 				chp = NULL;
 				ret = 4 | 8;
 			} else {
-				chp->rep_buff = s;
+				chp->rep_buff = s2;
 				chp->rep_length = 0;
 				chp->rflag = 0xff;	/* initially: rep_buff isn't const */
 				/**/

@@ -480,7 +480,8 @@ insert_line_before (LINE *lp, const char *extbuff)
 static int
 abbrev_filename (char *gname)
 {
-	int i, j;
+	int i;
+	unsigned j;
 
 	if (gname[0] != '/') {
 		;
@@ -624,7 +625,7 @@ TEST_ACCESS_TYPE
 testaccess (struct stat *test)
 {
 	int groupsize=0;
-	int check_group=0;
+	unsigned check_group=0;
 	int i=0;
 	TEST_ACCESS_TYPE ta_return = TEST_ACCESS_NONE;
 
@@ -1454,7 +1455,8 @@ drop_all (void)
 		if ((cnf.fdata[ri].fflag & FSTAT_OPEN) == 0)
 			continue;
 
-		/* if there is bg proc running... */
+		/* if there is bg proc running... set cnf.ring_curr is mandatory */
+		cnf.ring_curr = ri;
 		stop_bg_process();	/* drop_all() */
 
 		/* remove all lines */
@@ -1531,10 +1533,8 @@ save_file (const char *newfname)
 			FH_LOG(LOG_NOTICE, "save as [%s] -> [%s] ", CURR_FILE.fname, fname_p);
 		}
 
-		/* if there is bg proc running... this an explicit call */
-		if (CURR_FILE.pipe_output != 0) {
-			stop_bg_process();	/* save_file() */
-		}
+		/* if there is bg proc running... */
+		stop_bg_process();	/* save_file() */
 	}
 
 	/* backup */
@@ -1571,7 +1571,7 @@ save_file (const char *newfname)
 			lp->lflag |= LSTAT_ALTER;
 			lp->lflag &= ~LSTAT_CHANGE;
 		}
-		cnt = fwrite (lp->buff, sizeof(char), lp->llen, fp);
+		cnt = fwrite (lp->buff, sizeof(char), (size_t)lp->llen, fp);
 		if (cnt != lp->llen) {
 			FH_LOG(LOG_ERR, "fwrite [%s] failed line=%d (%d!=%d) (%s)",
 				fname_p, CURR_FILE.lineno, cnt, lp->llen, strerror(errno));
@@ -1659,16 +1659,17 @@ backup_file (const char *fname, char *backup_name)
 	while (1) {
 		out = 0;
 		in = read(fd, data, blksize);
-		if (in == 0) {
+		if (in > 0) {
+			out = write(bkp, data, (size_t)in);
+			if (out != in) {
+				FH_LOG(LOG_ERR, "write [%s] failed (%d!=%d) (%s)", backup_name, out, in, strerror(errno));
+				break;
+			}
+		} else if (in == 0) {
 			break;	/* normal eof */
-		} else if (in == -1) {
+		} else { // (in == -1)
 			FH_LOG(LOG_ERR, "read [%s] failed while backup (%s)", fname, strerror(errno));
 			break;	/* error */
-		}
-		out = write(bkp, data, in);
-		if (out != in) {
-			FH_LOG(LOG_ERR, "write [%s] failed (%d!=%d) (%s)", backup_name, out, in, strerror(errno));
-			break;
 		}
 	}
 	FREE(data); data = NULL;
@@ -1727,7 +1728,7 @@ write_out_chars (int fd, const char *buffer, int length)
 {
 	int out;
 	if (length > 0) {
-		out = write (fd, buffer, length);
+		out = write (fd, buffer, (size_t)length);
 		if (out != length) {
 			FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 				fd, out, length, strerror(errno));
@@ -1764,7 +1765,7 @@ write_out_all_visible (int fd, int ring_i, int with_shadow)
 						snprintf(mid_buff, 30, "--- 1 line ---\n");
 					}
 					length = strlen(mid_buff);
-					out = write (fd, mid_buff, length);
+					out = write (fd, mid_buff, (size_t)length);
 					if (out != length) {
 						FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 							fd, out, length, strerror(errno));
@@ -1773,7 +1774,7 @@ write_out_all_visible (int fd, int ring_i, int with_shadow)
 					count++;
 				}
 				/* line buffer, important */
-				out = write (fd, lp->buff, lp->llen);
+				out = write (fd, lp->buff, (size_t)lp->llen);
 				if (out != lp->llen) {
 					FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 						fd, out, lp->llen, strerror(errno));
@@ -1803,7 +1804,7 @@ write_out_all_lines (int fd, int ring_i)
 		lp = cnf.fdata[ring_i].top->next;
 		while (TEXT_LINE(lp)) {
 			/* out */
-			out = write (fd, lp->buff, lp->llen);
+			out = write (fd, lp->buff, (size_t)lp->llen);
 			if (out != lp->llen) {
 				FH_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
 					fd, out, lp->llen, strerror(errno));

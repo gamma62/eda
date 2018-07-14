@@ -127,7 +127,7 @@ clhistory_push (const char *buff, int len)
 	CMDLINE *ptr=NULL;
 
 	ptr = (CMDLINE *) MALLOC(sizeof(CMDLINE));
-	if (ptr == NULL) {
+	if (ptr == NULL || len < 1) {
 		return 1;
 	}
 
@@ -150,7 +150,7 @@ clhistory_push (const char *buff, int len)
 
 		/* copy */
 		ptr->len = MIN(CMDLINESIZE-1, len);
-		strncpy(ptr->buff, buff, ptr->len);
+		strncpy(ptr->buff, buff, (size_t)ptr->len);
 		ptr->buff[ptr->len] = '\0';
 
 		HIST_LOG(LOG_DEBUG, "command added, cnf.clhist_size %d, prev [%s] %d",
@@ -250,7 +250,7 @@ clhistory_rm_olddup (char *buff, int len, int depth)
 		while (runner != NULL && item < depth) {
 			if (runner->len == len) {
 				/* zero-length items should not be here */
-				if (strncmp(runner->buff, buff, len) == 0) {
+				if (strncmp(runner->buff, buff, (size_t)len) == 0) {
 					clhistory_unlink(runner);
 					removed++;
 					break;
@@ -298,7 +298,7 @@ clhistory_prev (void)
 		*/
 		if (cnf.cmdline_len > 0) {
 			cnf.clhistory->len = (cnf.cmdline_len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.cmdline_len;
-			strncpy(cnf.clhistory->buff, cnf.cmdline_buff, cnf.clhistory->len);
+			strncpy(cnf.clhistory->buff, cnf.cmdline_buff, (size_t)cnf.clhistory->len);
 			cnf.clhistory->buff[cnf.clhistory->len] = '\0';
 		} else {
 			cnf.clhistory->len = 0;
@@ -314,9 +314,9 @@ clhistory_prev (void)
 		prefixlength = MIN(cnf.clpos,cnf.cmdline_len);
 		prefixlength = MIN(prefixlength,7);
 		try = cnf.clhistory->prev;
-		while (try != NULL) {
+		while (prefixlength >= 0 && try != NULL) {
 			if ((try->len >= prefixlength) &&
-			    (strncmp(try->buff, cnf.cmdline_buff, prefixlength) == 0))
+			    (strncmp(try->buff, cnf.cmdline_buff, (size_t)prefixlength) == 0))
 			{
 				cnf.clhistory = try;
 				break;
@@ -333,7 +333,7 @@ clhistory_prev (void)
 
 	if (cnf.clhistory->len > 0) {
 		cnf.cmdline_len = (cnf.clhistory->len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.clhistory->len;
-		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, cnf.cmdline_len);
+		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, (size_t)cnf.cmdline_len);
 		cnf.cmdline_buff[cnf.cmdline_len] = '\0';
 	} else {
 		cnf.cmdline_len = 0;
@@ -379,9 +379,9 @@ clhistory_next (void)
 		prefixlength = MIN(cnf.clpos,cnf.cmdline_len);
 		prefixlength = MIN(prefixlength,7);
 		try = cnf.clhistory->next;
-		while (try != NULL) {
+		while (prefixlength >= 0 && try != NULL) {
 			if ((try->len >= prefixlength) &&
-			    (strncmp(try->buff, cnf.cmdline_buff, prefixlength) == 0))
+			    (strncmp(try->buff, cnf.cmdline_buff, (size_t)prefixlength) == 0))
 			{
 				cnf.clhistory = try;
 				break;
@@ -401,7 +401,7 @@ clhistory_next (void)
 
 	if (cnf.clhistory->len > 0) {
 		cnf.cmdline_len = (cnf.clhistory->len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.clhistory->len;
-		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, cnf.cmdline_len);
+		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, (size_t)cnf.cmdline_len);
 		cnf.cmdline_buff[cnf.cmdline_len] = '\0';
 	} else {
 		cnf.cmdline_len = 0;
@@ -572,14 +572,16 @@ ed_cmdline (int ch)
 
 				/* characters after cursor will be lost */
 				choices = NULL;
-				ii = get_fname(cnf.cmdline_buff+ix, CMDLINESIZE-ix, &choices);
-				if (ii >= 1) {
-					cnf.cmdline_len = strlen(cnf.cmdline_buff);
-					cnf.clpos = cnf.cmdline_len;	/* after last */
-					if (cnf.clpos > cnf.maxx - 1)
-						cnf.cloff = cnf.clpos - cnf.maxx + 10;
-					if (ii > 1 && choices != NULL) {
-						tracemsg("%s", choices);	/* limited lines */
+				if (CMDLINESIZE > ix) {
+					ii = get_fname(cnf.cmdline_buff+ix, (unsigned)(CMDLINESIZE-ix), &choices);
+					if (ii >= 1) {
+						cnf.cmdline_len = strlen(cnf.cmdline_buff);
+						cnf.clpos = cnf.cmdline_len;	/* after last */
+						if (cnf.clpos > cnf.maxx - 1)
+							cnf.cloff = cnf.clpos - cnf.maxx + 10;
+						if (ii > 1 && choices != NULL) {
+							tracemsg("%s", choices);	/* limited lines */
+						}
 					}
 				}
 				FREE(choices); choices = NULL;
@@ -918,7 +920,7 @@ select_word (const LINE *lp, int lncol)
 			beg--;
 		}
 		len = MIN(end-beg+1, TAGSTR_SIZE-1);
-		strncpy (symbol, &lp->buff[beg], len);
+		strncpy (symbol, &lp->buff[beg], (size_t)len);
 		symbol[len] = '\0';
 	}
 

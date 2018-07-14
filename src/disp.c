@@ -87,7 +87,7 @@ upd_statusline (void)
 	lenleft = strlen(obuff_left);
 
 	/* right wing */
-	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? CURR_LINE->buff[CURR_FILE.lncol] : 0;
+	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? (unsigned)CURR_LINE->buff[CURR_FILE.lncol] : 0;
 	snprintf(obuff_right, sizeof(obuff_right)-1, "%5d,%-3d (0x%02X) ",
 		CURR_FILE.lineno, CURR_FILE.curpos, hexa);
 	lenright = strlen(obuff_right);
@@ -481,7 +481,7 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 
 	/* wclrtoeol? -- does not work well, selection lines are shown upto lineend only */
 	padsize = MIN(CMDLINESIZE-1, cnf.maxx-cnf.pref);
-	memset(obuff, ' ', padsize);
+	memset(obuff, ' ', (size_t)padsize);
 	obuff[padsize] = '\0';
 
 	/* text: i:ibuff[] --> j:obuff[]

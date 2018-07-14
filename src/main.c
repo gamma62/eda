@@ -372,7 +372,7 @@ leave (const char *reason)
 static void
 set_defaults(void)
 {
-	unsigned i=0, groupsize=0;
+	int i=0, groupsize=0, logsize=0;
 	char *ptr=NULL;
 
 	memset(&cnf, 0, sizeof(cnf));
@@ -546,7 +546,8 @@ set_defaults(void)
 		cnf.l2_altpwd = 0;
 	}
 
-	for(i=0; i < sizeof(cnf.log) / sizeof(cnf.log[0]); i++) {
+	logsize = (sizeof(cnf.log) / sizeof(cnf.log[0]));
+	for(i=0; i < logsize; i++) {
 		cnf.log[i] = 0;
 	}
 

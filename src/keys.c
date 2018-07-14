@@ -71,7 +71,8 @@ int
 key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 {
 	NODE *node = NULL;
-	int ch=0, resize=0, delay=0, ready=0, i=0, mok=0, meta_key=0, node_seq_items=0;
+	int ch=0, resize=0, delay=0, ready=0, mok=0, meta_key=0, node_seq_items=0;
+	unsigned i=0;
 
 	while (!ready) {
 		ch = wgetch (wind);
@@ -409,8 +410,8 @@ process_esc_seq (const char *str, NODE *tree)
 	int leaves[20];
 	NODE *node, *ptr;
 	NODE **ptr2;
-	unsigned lcount=0, i=0;
-	int j=0, ki=0;
+	unsigned lcount=0, i=0, j=0;
+	int ki=0;
 
 	p = str;
 
@@ -556,7 +557,7 @@ process_esc_seq (const char *str, NODE *tree)
 void
 free_seq_tree (NODE *node)
 {
-	int i;
+	unsigned i=0;
 
 	if (node != NULL) {
 		if (node->branch != NULL) {

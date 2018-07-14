@@ -205,9 +205,9 @@ ringlist_parser (const char *dataline)
 	}
 
 	rx = bmx = -1;
-	if (regexp_match(dataline, "([0-9]+)", 1, xmatch) == 0) {
+	if (regexp_match(dataline, "^([0-9]+)", 1, xmatch) == 0) {
 		rx = atoi(xmatch);
-	} else if (regexp_match(dataline, "[[:blank:]]+bookmark[[:blank:]]+([0-9]+):", 1, xmatch) == 0) {
+	} else if (regexp_match(dataline, "^\tbookmark ([0-9]+):", 1, xmatch) == 0) {
 		bmx = atoi(xmatch);
 	}
 
@@ -314,10 +314,11 @@ one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
 {
 	int perm=0;
 	long long size;
+	int nlink;
+	unsigned uid, gid;
 	time_t t;
 	struct tm *tm_p;
 	char tbuff[20];
-	int nlink, uid, gid;
 	int got;
 	char linkname[FNAMESIZE];
 	linkname[0] = '\0';
@@ -443,7 +444,7 @@ lsdir (const char *dirpath)
 	*/
 	if (cnf.lsdir_opts) {
 		length = 9;
-		strncpy(one_line, "$ lsdir -", length+1);
+		strncpy(one_line, "$ lsdir -", 10);
 		if (cnf.lsdir_opts & LSDIR_L)
 			one_line[length++] = 'l';
 		if (cnf.lsdir_opts & LSDIR_A)
@@ -452,9 +453,10 @@ lsdir (const char *dirpath)
 		one_line[length] = '\0';
 	} else {
 		length = 8;
-		strncpy(one_line, "$ lsdir ", length+1);
+		strncpy(one_line, "$ lsdir ", 9);
 	}
-	snprintf(one_line+length, ONE_SIZE-length-1, "%s\n", dirpath);
+	// ONE_SIZE-length-1 > 0
+	snprintf(one_line+length, (size_t)(ONE_SIZE-length-1), "%s\n", dirpath);
 	if ((lp = insert_line_before (CURR_FILE.bottom, one_line)) != NULL) {
 		CURR_FILE.num_lines++;
 	} else {
@@ -484,7 +486,12 @@ lsdir (const char *dirpath)
 		}
 
 		item_count++;
-		items = (LSDIRITEM *) REALLOC((void *)items, sizeof(LSDIRITEM)*item_count);
+		if (item_count > 0) {
+			items = (LSDIRITEM *) REALLOC((void *)items, sizeof(LSDIRITEM) * (size_t)item_count);
+		} else {
+			item_count = 0;
+			FREE(items); items = NULL;
+		}
 		if (items == NULL) {
 			break;
 		}
@@ -515,7 +522,9 @@ lsdir (const char *dirpath)
 	/* qsort() and append_line() calls
 	*/
 	if (items != NULL) {
-		qsort (items, item_count, sizeof(LSDIRITEM), lsdir_item_cmp);
+		if (item_count > 0) {
+			qsort (items, (size_t)item_count, sizeof(LSDIRITEM), lsdir_item_cmp);
+		}
 
 		for (ii=0; ii<item_count; ii++) {
 			lx = append_line (lp, items[ii].one_line);
@@ -743,7 +752,7 @@ parse_open (void)
 	if (beg <= end) {
 		len = end-beg+1;
 		if (len < FNAMESIZE) {
-			strncpy (strz, &lp->buff[beg], len);
+			strncpy (strz, &lp->buff[beg], (size_t)len);
 			strz[len] = '\0';
 			PD_LOG(LOG_DEBUG, "strz [%s]", strz);
 			add_file(strz);
@@ -822,7 +831,7 @@ general_parser (void)
 	if (!TEXT_LINE(CURR_LINE)) {
 		return;
 	}
-	if ((CURR_LINE->llen == 0) || (CURR_LINE->buff[0] == '$')) {
+	if ((CURR_LINE->llen <= 0) || (CURR_LINE->buff[0] == '$')) {
 		return;
 	}
 
@@ -831,7 +840,7 @@ general_parser (void)
 	if (dataline == NULL) {
 		return;
 	}
-	strncpy(dataline, CURR_LINE->buff, CURR_LINE->llen);
+	strncpy(dataline, CURR_LINE->buff, (size_t)CURR_LINE->llen);
 	dataline[CURR_LINE->llen] = '\0';
 	if (CURR_LINE->llen > 0) {
 		dataline[CURR_LINE->llen-1] = '\0';	/* newline */
@@ -1748,7 +1757,7 @@ xterm_title (const char *xtitle)
 		PD_LOG(LOG_ERR, "fcntl F_SETFL failed: %s", strerror(errno));
 		return (-1);
 	}
-	wlen = write(1, (void *)xtbuf, blen);
+	wlen = write(1, (void *)xtbuf, (size_t)blen);
 	if (wlen != blen) {
 		PD_LOG(LOG_ERR, "write failed: (%d!=%d) (%s)", wlen, blen, strerror(errno));
 	}

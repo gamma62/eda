@@ -128,8 +128,8 @@ get_fname (char *path, unsigned maxsize, char **choices)
 {
 	char prop[CMDLINESIZE];
 	glob_t globbuf;
-	int r=0, i=0, j=0, len=0, new=0, s=0;
-	unsigned request=0, als=0;
+	int r=0, i=0;
+	unsigned request=0, s=0, als=0, new=0, len=0, j=0;
 	char *qq;
 
 	if (path == NULL || maxsize <= 1) {
@@ -526,9 +526,9 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
 
 	if (outbuffsize < 1) {
 		return;
-	} else if (inpath == NULL || inpath[0] == '\0') {
-		outpath[0] = '\0';
-	} else {
+	}
+	outpath[0] = '\0';
+	if (inpath != NULL && inpath[0] != '\0') {
 		ilen = strlen(inpath);
 		ilen = MIN(ilen, outbuffsize-1);
 		while (ilen > 1 && inpath[ilen-1] == '/') {
@@ -536,10 +536,10 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
 		}
 		last = slash_index (inpath, ilen, 0, SLASH_INDEX_FWD, SLASH_INDEX_GET_LAST);
 		if (last == -1) {
-			strncpy(outpath, &inpath[0], ilen);
+			strncpy(outpath, &inpath[0], (size_t)ilen);
 			outpath[ilen] = '\0';
-		} else {
-			strncpy(outpath, &inpath[last+1], ilen-last-1);
+		} else if (ilen-last > 1) {
+			strncpy(outpath, &inpath[last+1], (size_t)(ilen-last-1));
 			outpath[ilen-last-1] = '\0';
 		}
 	}
@@ -559,10 +559,10 @@ mydirname (char *outpath, const char *inpath, int outbuffsize)
 
 	if (outbuffsize < 2) {
 		return;
-	} else if (inpath == NULL || inpath[0] == '\0') {
-		outpath[0] = '.';
-		outpath[1] = '\0';
-	} else {
+	}
+	outpath[0] = '.';
+	outpath[1] = '\0';
+	if (inpath != NULL && inpath[0] != '\0') {
 		ilen = strlen(inpath);
 		ilen = MIN(ilen, outbuffsize-1);
 		while (ilen > 1 && inpath[ilen-1] == '/') {
@@ -575,8 +575,8 @@ mydirname (char *outpath, const char *inpath, int outbuffsize)
 		} else if (last == 0) {
 			outpath[0] = '/';
 			outpath[1] = '\0';
-		} else {
-			strncpy(outpath, &inpath[0], last);
+		} else if (last > 0) {
+			strncpy(outpath, &inpath[0], (size_t)last);
 			outpath[last] = '\0';
 		}
 	}
@@ -609,7 +609,7 @@ canonicalpath (const char *path)
 	if (dir[0] != '/') {
 		/* insert PWD into the dir */
 		csere (&dir, &size, 0, 0, "/", 1);
-		csere (&dir, &size, 0, 0, cnf._pwd, cnf.l1_pwd);
+		csere (&dir, &size, 0, 0, cnf._pwd, (int)cnf.l1_pwd);
 	}
 
 	/* simple replacement (dot-slash) and (slash-slash) */
@@ -731,7 +731,7 @@ pidof (const char *progname)
 	char entry[FNAMESIZE+1];
 	int in;
 	unsigned long blksize = FNAMESIZE;
-	int pn_length = 0, entry_length = 0, offset = 0;
+	unsigned pn_length = 0, entry_length = 0;
 	int retval = -1, pid = 0;
 
 	dir = opendir (procdir);
@@ -758,13 +758,12 @@ pidof (const char *progname)
 			if (in > 0) {
 				entry[in] = '\0';
 				entry_length = strlen(entry);
-				offset = entry_length - pn_length;
-				if (offset == 0) {
+				if (entry_length == pn_length) {
 					if (strncmp(progname, entry, pn_length) == 0) {
 						retval = pid;
 					}
-				} else if (offset > 0 && entry[offset-1] == '/') {
-					if (strncmp(progname, &entry[offset], pn_length) == 0) {
+				} else if (entry_length > pn_length && entry[entry_length-pn_length-1] == '/') {
+					if (strncmp(progname, &entry[entry_length-pn_length], pn_length) == 0) {
 						retval = pid;
 					}
 				}

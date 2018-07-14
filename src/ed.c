@@ -150,7 +150,8 @@ app_resize (void)
 int
 run_macro_command (int mi, char *args_inbuff)
 {
-	int ii=0, ix=0, iy=0, jj=0, kk=0, xx=0, args_cnt=0, exec=0;
+	int ix=0, iy=0, jj=0, kk=0, xx=0, args_cnt=0, exec=0;
+	unsigned ii=0;
 	char dup_buffer[CMDLINESIZE];
 	char dup_fname[FNAMESIZE];
 	char *args[MAXARGS+1];

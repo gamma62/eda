@@ -318,7 +318,7 @@ tag_load_file (void)
 		}
 		else if (line_format == 2) {	/* extended */
 			/* get the type */
-			tp->type = buff[i++];
+			tp->type = (TAGTYPE)buff[i++];
 
 			/*
 			 * lineno or pattern --- mandatory
@@ -600,9 +600,9 @@ tag_jump2_pattern (const char *fname, const char *pattern, int lineno)
 		fnp = fname;
 	} else {
 		cnf.tag_j2path[cnf.tag_j2len] = '\0';
-		rest = sizeof(cnf.tag_j2path) - cnf.tag_j2len;
+		rest = sizeof(cnf.tag_j2path) - (size_t)cnf.tag_j2len;
 		if (rest > 0) {
-			strncat(&cnf.tag_j2path[cnf.tag_j2len], fname, rest);
+			strncat(&cnf.tag_j2path[cnf.tag_j2len], fname, (size_t)rest);
 			fnp = cnf.tag_j2path;
 		} else {
 			TAGS_LOG(LOG_ERR, "tag jump, cannot get path to %s from tags file", fname);

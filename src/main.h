@@ -53,7 +53,7 @@
 /* with space for text lines '\0' */
 #define ALLOCSIZE(len)	((size_t) (((len) | LINESIZE_MIN) + 1))
 
-/* bigger allocation steps for change() -- required: 0xff >= CMDLINESIZE ....... miert is? ez a feltetel nem teljesul */
+/* bigger allocation steps for change() */
 /* 0xff space reserved after allocation */
 #define REP_ASIZE(len)	((size_t) (((len) | 0x1f) + 0xff + 1))
 
@@ -355,7 +355,7 @@ struct node_tag {
 	int ch;			/* element of sequence		*/
 	int leaf;		/* key_value if this is a LEAF	*/
 	NODE **branch;		/* array of branches or NULL	*/
-	int bcount;		/* branch array size or 0	*/
+	unsigned bcount;	/* branch array size or 0	*/
 };
 
 /* main context */
@@ -416,10 +416,10 @@ struct config_tag
 	char _pwd[FNAMESIZE];
 	char _altpwd[FNAMESIZE];
 	char myhome[FNAMESIZE];
-	int l1_home;
-	int l1_pwd;
-	int l2_altpwd;
-	int l2_myhome;
+	unsigned l1_home;
+	unsigned l1_pwd;
+	unsigned l2_altpwd;
+	unsigned l2_myhome;
 
 	BOOKMARK bookmark[10];	/* set bookmarks by back reference from the LINE */
 
@@ -478,7 +478,7 @@ struct macros_tag
 	int fkey;		/* key value, mandatory */
 	char name[32];		/* command name, optional */
 	int mflag;		/* items' ORed TSTAT_ values */
-	int items;		/* items count in the list */
+	unsigned items;		/* items count in the list */
 	MACROITEMS *maclist;	/* list of macro items */
 };
 

@@ -84,10 +84,13 @@ ishell_cmd (const char *ext_cmd)
 	int ret=0;
 	char ext_argstr[CMDLINESIZE];
 	char head[30];
-	int i=0, j=0, se=0, sh=0;
+	unsigned i=0, j=0, se=0, sh=0;
 
 	se = sizeof(ext_argstr);
 	sh = sizeof(head);
+	if (se < 1 || sh < 2) {
+		return (-1);
+	}
 	memset(ext_argstr, 0, se);
 	memset(head, 0, sh);
 
@@ -150,7 +153,8 @@ vcstool (const char *ext_cmd)
 {
 	int ret=0;
 	char tname[20];
-	int i, slen;
+	int i;
+	unsigned slen;
 
 	/* toolname is mandatory */
 	if (ext_cmd[0] == '\0') {
@@ -496,12 +500,15 @@ read_extcmd_line (char *ext_cmd, int lineno, char *buff, int siz)
 	if (pipe_fp == NULL) {
 		return (1);
 	}
+	if (buff == NULL || siz < 1) {
+		return (1);
+	}
 
 	memset(cache, '\0', 1024);
 	while ((p = fgets(cache, 1023, pipe_fp)) != NULL) {
 		if (++lno == lineno) {
-			memset(buff, '\0', siz);
-			strncpy(buff, cache, siz-1);
+			memset(buff, '\0', (size_t)siz);
+			strncpy(buff, cache, (size_t)siz);
 
 			slen = strlen(buff);
 			if (slen > 0 && buff[slen-1] == '\n')
