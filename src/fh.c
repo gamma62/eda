@@ -1602,6 +1602,10 @@ save_file (const char *newfname)
 			fullpath = canonicalpath(CURR_FILE.fname);
 			mydirname(CURR_FILE.dirname, fullpath, FNAMESIZE);
 			FREE(fullpath); fullpath = NULL;
+			if (cnf.gstat & GSTAT_AUTOTITLE) {
+				/* update the title */
+				upd_termtitle ();
+			}
 		}
 		/* ctime */
 		tracemsg("file saved: %s", ctime(&CURR_FILE.stat.st_mtime));

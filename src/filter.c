@@ -260,7 +260,12 @@ filter_base (int action, const char *expr)
 			ret = 0;
 		}
 
+	} else if (len < 3) {
+		/* the minimum is required */
+		return(0);
+
 	} else {
+
 		/* altered lines */
 		if (strncmp(expr, "alter", len)==0) {
 			lx = CURR_FILE.top->next;
@@ -282,6 +287,23 @@ filter_base (int action, const char *expr)
 			lineno = 1;
 			while (TEXT_LINE(lx)) {
 				if (lx->lflag & LSTAT_SELECT) {
+					if (action & (FILTER_MORE | FILTER_ALL))
+						lx->lflag &= ~fmask;
+					else if (action & FILTER_LESS)
+						lx->lflag |= fmask;
+				} else if (action & FILTER_ALL) {
+					lx->lflag |= fmask;
+				}
+				lx = lx->next;
+				lineno++;
+			}
+			ret = 0;
+
+		} else if (strncmp(expr, "aliens", len)==0) {
+			lx = CURR_FILE.top->next;
+			lineno = 1;
+			while (TEXT_LINE(lx)) {
+				if (alien_count(lx) > 0) {
 					if (action & (FILTER_MORE | FILTER_ALL))
 						lx->lflag &= ~fmask;
 					else if (action & FILTER_LESS)
@@ -319,7 +341,7 @@ filter_base (int action, const char *expr)
 			/* regcomp fail is possible */
 			ret = filter_regex (action, fmask, expr);
 		}
-	}/* len */
+	} /* len */
 
 	/* skip to next if line not visible, and
 	 * pull focus line to middle

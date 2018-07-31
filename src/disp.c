@@ -168,24 +168,20 @@ upd_statusline (void)
 void
 upd_termtitle (void)
 {
-	static int last_ri = -1;
 	char xtbuff[FNAMESIZE+10];
 
-	if (last_ri != cnf.ring_curr) {
-		last_ri = cnf.ring_curr;
-		if (CURR_FILE.fflag & FSTAT_SPECW) {
-			xterm_title("eda");
+	if (CURR_FILE.fflag & FSTAT_SPECW) {
+		xterm_title("eda");
+	} else {
+		if (strncmp(CURR_FILE.dirname, cnf._home, cnf.l1_home) == 0) {
+			snprintf(xtbuff, sizeof(xtbuff), "%s (~%s) - eda",
+				CURR_FILE.basename, &CURR_FILE.dirname[cnf.l1_home]);
 		} else {
-			if (strncmp(CURR_FILE.dirname, cnf._home, cnf.l1_home) == 0) {
-				snprintf(xtbuff, sizeof(xtbuff), "%s (~%s) - eda",
-					CURR_FILE.basename, &CURR_FILE.dirname[cnf.l1_home]);
-			} else {
-				snprintf(xtbuff, sizeof(xtbuff), "%s (%s) - eda",
-					CURR_FILE.basename, &CURR_FILE.dirname[0]);
-			}
-			xtbuff[sizeof(xtbuff)-1] = '\0';
-			xterm_title(xtbuff);
+			snprintf(xtbuff, sizeof(xtbuff), "%s (%s) - eda",
+				CURR_FILE.basename, &CURR_FILE.dirname[0]);
 		}
+		xtbuff[sizeof(xtbuff)-1] = '\0';
+		xterm_title(xtbuff);
 	}
 
 	return;
@@ -572,6 +568,28 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 
 	return;
 } /* text_line() */
+
+/* get the count of alien characters in the line
+*/
+int
+alien_count (LINE *lp)
+{
+	const char *ibuff = lp->buff;
+	int llen = lp->llen;
+	int i, j, pos;
+	int count = 0;
+
+	i = j = pos = 0;
+	while (i<llen && ibuff[i] != '\0') {
+		/* until we have wide char support... */
+		if (ibuff[i] < 0 || ibuff[i] >= 0x7f) {
+			count++;
+		}
+		i++;
+	}
+
+	return count;
+}
 
 /*
 * get current cursor position (absolute, independent from offset)

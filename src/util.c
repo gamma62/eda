@@ -130,7 +130,8 @@ get_fname (char *path, unsigned maxsize, char **choices)
 	glob_t globbuf;
 	int r=0, i=0;
 	unsigned request=0, s=0, als=0, new=0, len=0, j=0;
-	char *qq;
+	char *qq, *pos;
+	int offset = 0;
 
 	if (path == NULL || maxsize <= 1) {
 		return -1;
@@ -138,6 +139,16 @@ get_fname (char *path, unsigned maxsize, char **choices)
 
 	*choices = NULL;
 	globbuf.gl_offs = 0;
+	if ((pos = strchr(path, '*')) != NULL) {
+		offset = pos - path;
+	}
+	if ((pos = strchr(path, '?')) != NULL) {
+		if (offset == 0) {
+			offset = pos - path;
+		} else {
+			offset = (offset < pos - path) ? offset : pos - path;
+		}
+	}
 	prop[0] = '\0';
 	strncat(prop, path, sizeof(prop)-2);
 	strncat(prop, "*", 2);
@@ -152,23 +163,25 @@ get_fname (char *path, unsigned maxsize, char **choices)
 			strncpy(path, globbuf.gl_pathv[0], maxsize-1);
 			path[maxsize-1] = '\0';
 
-		} else /* r>1 */ {
-			/* guess the common prefix */
-			len = strlen(path);	/* original length */
-			new = maxsize-1;
-			strncpy(path, globbuf.gl_pathv[0], new);
-			for (i=1; i<r; i++) {
-				for (j=len; j<new; j++) {
-					if (path[j] == '\0' ||
-					    globbuf.gl_pathv[i][j] == '\0' ||
-					    path[j] != globbuf.gl_pathv[i][j])
-					{
-						new = j;
-						break;
+		} else { /* r>1 */
+			if (offset == 0) {
+				/* no shell pattern -- guess the common prefix */
+				len = strlen(path);	/* original length */
+				new = maxsize-1;
+				strncpy(path, globbuf.gl_pathv[0], new);
+				for (i=1; i<r; i++) {
+					for (j=len; j<new; j++) {
+						if (path[j] == '\0' ||
+						    globbuf.gl_pathv[i][j] == '\0' ||
+						    path[j] != globbuf.gl_pathv[i][j])
+						{
+							new = j;
+							break;
+						}
 					}
 				}
+				path[new] = '\0';
 			}
-			path[new] = '\0';
 
 			/* return choices, but limit number of bytes, 500? */
 			request = 1;
@@ -179,12 +192,12 @@ get_fname (char *path, unsigned maxsize, char **choices)
 					request += s+1;
 					i++;
 				} else {
-					r = i;
+					r = i; // skip the rest, mark with "..."
 					break;
 				}
 			}
 
-			als = ALLOCSIZE(request+2);
+			als = ALLOCSIZE(request+10);
 			qq = (char *) MALLOC(als);
 			if (qq != NULL) {
 				*choices = qq;	/* save for return, to be freed by caller */
@@ -193,6 +206,8 @@ get_fname (char *path, unsigned maxsize, char **choices)
 					strncat(qq, globbuf.gl_pathv[i], request);
 					strncat(qq, " ", 2);
 				}
+				if ((size_t)r < globbuf.gl_pathc)
+					strncat(qq, "...", 3);
 			} else {
 				r = -r;
 				/* beep(); beep(); */
@@ -210,7 +225,9 @@ get_fname (char *path, unsigned maxsize, char **choices)
 } /* get_fname */
 
 /*
- * internal utility to glob/expand filename
+ * internal utility to glob/expand filename -- mostly TILDE expansion
+ * for validating existing filenames
+ * and directory names where the file does not exist
  */
 int
 glob_name (char *fname, unsigned maxsize)

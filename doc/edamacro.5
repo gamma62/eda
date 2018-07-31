@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2018-03-04" "0.9.97" ""
+.TH "EDAMACRO" "5" "2018-07-29" "0.9.97" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -629,7 +629,7 @@ switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each re
 .br
 
 .SS anything else
-mouse_support nop show_commands version xterm_title
+mouse_support nop pwd show_commands uptime version xterm_title
 .br
 .TP 15
 .B mouse_support
@@ -637,9 +637,15 @@ switch on/off experimental mouse support, (cursor repositioning by mouse click, 
 .TP 5
 .B nop
 no operation, does nothing, only for testing
+.TP 5
+.B pwd
+print working directory name
 .TP 15
 .B show_commands
 show table of commands with keyboard shortcuts
+.TP 8
+.B uptime
+show the output of the uptime command
 .TP 9
 .B version
 show the version string

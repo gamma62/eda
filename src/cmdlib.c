@@ -75,6 +75,45 @@ version (void)
 }
 
 /*
+** pwd - print working directory name
+*/
+int
+pwd (void)
+{
+	char buffer[1024];
+
+	read_extcmd_line ("pwd", 1, buffer, sizeof(buffer));
+	tracemsg ("pwd %s", buffer);
+
+	return (0);
+}
+
+/*
+** uptime - show the output of the uptime command
+*/
+int
+uptime (void)
+{
+	char buffer[1024];
+	char cmd[100];
+
+	read_extcmd_line ("uptime", 1, buffer, sizeof(buffer));
+	tracemsg ("system uptime %s", buffer);
+
+	tracemsg ("pid %d", cnf.pid);
+
+	snprintf(cmd, sizeof(cmd), "ps -o etime -p %d", cnf.pid);
+	read_extcmd_line (cmd, 2, buffer, sizeof(buffer));
+	tracemsg ("elapsed time %s", buffer);
+
+	snprintf(cmd, sizeof(cmd), "ps -o start -p %d", cnf.pid);
+	read_extcmd_line (cmd, 2, buffer, sizeof(buffer));
+	tracemsg ("time of start %s", buffer);
+
+	return (0);
+}
+
+/*
 ** delete_lines - delete all or selected lines,
 **	parameter must be "all" or "selection"
 */

@@ -239,8 +239,15 @@ run_command (int ti, const char *args_inbuff, int fkey)
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
 
-		CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
-			ti, table[ti].name, fkey, args_inbuff);
+		if (fkey != KEY_NONE) {
+			; /* for development only */
+			CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
+				ti, table[ti].name, fkey, args_inbuff);
+		} else {
+			; /* for development only */
+			CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] args=[%s]",
+				ti, table[ti].name, args_inbuff);
+		}
 
 		if (table[ti].tflag & TSTAT_ARGS) {
 			REC_LOG(LOG_DEBUG, "command %d [%s] [%s]", ti, table[ti].fullname, args_inbuff);
@@ -273,6 +280,7 @@ event_handler (void)
 	unsigned delay_cnt_4stat = 0;
 	int clear_trace_next_time = 0;
 	char args_buff[CMDLINESIZE];
+	int last_ri = -1;
 
 	wclear (cnf.wstatus);
 	wclear (cnf.wbase);
@@ -306,8 +314,13 @@ event_handler (void)
 		 */
 		if (ch != ERR) {
 			upd_statusline ();
-			if (cnf.gstat & GSTAT_AUTOTITLE)
-				upd_termtitle ();
+			if (cnf.gstat & GSTAT_AUTOTITLE) {
+				/* update the title if necessary */
+				if (last_ri != cnf.ring_curr) {
+					last_ri = cnf.ring_curr;
+					upd_termtitle ();
+				}
+			}
 			if (cnf.trace > 0) {
 				UPD_LOG(LOG_DEBUG, "full update with trace in this cycle");
 				if (CURR_FILE.focus < cnf.trace+1)

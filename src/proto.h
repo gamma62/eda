@@ -79,6 +79,8 @@ extern int ed_common (int ch);
 /* cmdlib.c */
 extern int nop (void);					/* public */
 extern int version (void);				/* public */
+extern int pwd (void);					/* public */
+extern int uptime (void);				/* public */
 extern int delete_lines (const char *args);		/* public */
 extern int strip_lines (const char *args);		/* public */
 extern int ringlist_parser (const char *dataline);
@@ -131,6 +133,7 @@ extern void upd_statusline (void);
 extern void upd_termtitle (void);
 extern void upd_cmdline (void);
 extern void upd_text_area (int focus_line_only);
+extern int alien_count (LINE *lp);
 extern int get_pos (LINE *lp, int lncol);
 extern int get_col (LINE *lp, int curpos);
 extern int set_position_by_pointer (MEVENT pointer);

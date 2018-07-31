@@ -204,12 +204,14 @@ TABLE table[] = {
 	{ "wcase",	KEY_C_W, 2,		PN(word_case),		0x02},
 	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
 	{ "version",	KEY_NONE, 7,		PN(version),		0x00},
-	{ "mouse",	KEY_NONE, 5,		PN(mouse_support),	0x00},
-	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
+	{ "pwd",	KEY_NONE, 3,		PN(pwd),		0x00},
+	{ "uptime",	KEY_NONE, 6,		PN(uptime),		0x00},
 	{ "xtitle",	-1, 4,			PN(xterm_title),	0x01},
 	{ "msg",	-1, 3,			PN(message),		0x01},
 	{ "xmsg",	-1, 4,			PN(msg_from_text),	0x00},
 	{ "stop",	KEY_NONE, 4,		PN(stop_bg_process),	0x00},
+	{ "mouse",	KEY_NONE, 5,		PN(mouse_support),	0x00},
+	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
 
 	/* functions for macros (function pointers reference) */
 

@@ -424,7 +424,15 @@ lsdir_cmd (const char *ext_cmd)
 		glob_name(dirpath, sizeof(dirpath));
 		xlen = strlen(dirpath);
 
-		if (stat(dirpath, &test)==0 && (S_ISDIR(test.st_mode))) {
+		/* if this is a filename, try to get the dirname */
+		if (stat(dirpath, &test)==0 && (S_ISREG(test.st_mode))) {
+			while (xlen>0 && dirpath[xlen-1] != '/')
+				xlen--;
+			if (xlen>0 && dirpath[xlen-1] == '/')
+				dirpath[xlen] = '\0';
+		}
+
+		if (xlen>0 && stat(dirpath, &test)==0 && (S_ISDIR(test.st_mode))) {
 			if (dirpath[xlen-1] != '/') {
 				dirpath[xlen++] = '/';
 				dirpath[xlen] = '\0';
@@ -637,10 +645,10 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		if (setsid() == -1)
 			perror("setsid");
 
+		/* set big terminal size for the child process */
+		setenv("COLUMNS", "512", 1);
+
 		if (opts & OPT_INTERACT) {
-			/* try fixing wordwrap */
-			if (setenv("COLUMNS", "130", 1) == -1)
-				perror("setenv COLUMNS");
 			/* greetings */
 			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
 				getpid(), getppid(), getsid(0), getpgid(0));
