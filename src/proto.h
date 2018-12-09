@@ -18,6 +18,10 @@
 * along with Eda.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*
+* public functions must in table[] available user calls directly or in macros
+* the macro flag is just a remark, that these are shorter ones, calling an engine or so
+*/
 #ifndef _PROTOTYPES_H_
 #define _PROTOTYPES_H_
 
@@ -34,6 +38,8 @@ extern void reset_cmdline (void);
 extern int ed_cmdline (int ch);
 extern void cmdline_to_clhistory (char *buff, int len);
 extern int ed_text (int ch);
+extern int typing_tutor (void);				/* public */
+extern int typing_tutor_handler (int ch);
 extern int keypress_enter (void);			/* public */
 extern int go_home (void);				/* public */
 extern int go_smarthome (void);				/* public */
@@ -41,6 +47,7 @@ extern int go_end (void);				/* public */
 extern char *select_word (const LINE *lp, int lncol);
 extern int prev_nonblank (void);			/* public */
 extern int next_nonblank (void);			/* public */
+extern void wc (int *lin, int *w, int *ch);
 extern void set_position (int ri, int lineno, LINE *lp);
 extern int go_left (void);				/* public */
 extern int go_right (void);				/* public */
@@ -90,13 +97,14 @@ extern int lsdir (const char *dirpath);
 #define SIMPLE_PARSER_WINKIN 1
 extern int simple_parser (const char *dline, int jump_mode);
 extern int python_parser (const char *dline);
-extern int parse_open (void);
+extern int parse_open (void);				/* public */
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */
 extern int search_word (void);				/* public, macro */
 extern int tag_line_byword (void);			/* public, macro */
 extern int prefix_macro (void);				/* public, macro */
+extern int tabhead_macro (void);			/* public, macro */
 extern int smartind_macro (void);			/* public, macro */
 extern int shadow_macro (void);				/* public, macro */
 extern int incr_filter_cycle (void);			/* public, macro */
@@ -113,7 +121,7 @@ extern int ins_varname (void);				/* public */
 extern int ins_bname (void);				/* public */
 extern int view_bname (void);				/* public */
 extern int ins_filename (void);				/* public */
-extern int xterm_title (const char *xtitle);
+extern int xterm_title (const char *xtitle);		/* public */
 extern int rotate_palette (void);			/* public */
 extern int bm_set (const char *args);			/* public */
 extern int bm_clear (const char *args);			/* public */
@@ -127,10 +135,13 @@ extern int bm_jump7 (void);				/* public, macro */
 extern int bm_jump8 (void);				/* public, macro */
 extern int bm_jump9 (void);				/* public, macro */
 extern int process_diff (void);				/* public */
+extern int internal_hgdiff (void);			/* public, macro */
 
 /* disp.c */
 extern void upd_statusline (void);
+extern void upd_status_typing_tutor (void);
 extern void upd_termtitle (void);
+extern void show_tabheader (void);
 extern void upd_cmdline (void);
 extern void upd_text_area (int focus_line_only);
 extern int alien_count (LINE *lp);
@@ -142,21 +153,21 @@ extern int last_screen_row (void);
 extern void update_curpos (int ri);
 extern void update_focus (MOTION_TYPE motion_type, int ri);
 extern void upd_trace (void);
-extern void init_colors (int palette);
+extern int init_colors_and_cpal (void);
+extern int color_palette_parser (const char *input);
+extern void color_test (void);
 
 /* ed.c */
 extern void editor (void);
-extern void app_resize (void);
 extern int run_macro_command (int mi, char *cmdline_buffer);
 extern int run_command (int ti, const char *cmdline_buffer, int fkey);
-extern int force_redraw (void);				/* public */
 extern int index_func_fullname (const char *fullname);
 extern int index_key_string (const char *key_string);
 extern int index_key_value (int key_value);
 extern int index_macros_fkey (int fkey);
 
 /* keys.c */
-extern int key_handler (WINDOW *wind, NODE *seq_tree, int testing);
+extern int key_handler (NODE *seq_tree, int testing);
 extern int process_seqfile (int noconfig);
 extern void free_seq_tree (NODE *node);
 extern void key_test (void);
@@ -179,7 +190,7 @@ extern LINE *insert_line_before (LINE *lp, const char *extbuff);
 extern int check_files (void);
 extern int restat_file (int ring_i);
 extern TEST_ACCESS_TYPE testaccess (struct stat *test);
-extern int read_lines (FILE *fp, LINE **linep, int *lineno);
+extern int read_lines (FILE *fp, LINE **linep, int *lineno, int *fflag);
 extern int read_file (const char *fname, const struct stat *test);
 extern int query_scratch_fname (const char *fname);
 extern int scratch_buffer (const char *fname);
@@ -203,20 +214,26 @@ extern int filter_more (const char *expr);		/* public, macro */
 extern int filter_less (const char *expr);		/* public, macro */
 extern int filter_m1 (void);				/* public */
 extern int filter_base (int action, const char *expr);
+#define PURIFY_CLANG 2
+#define PURIFY_OTHER 4
 extern int filter_func (int action, int fmask);
+extern void purify_for_matching_clang (char *outb, const char *inbuff, int len);
+extern void purify_for_matching_other (char *outb, const char *inbuff, int len);
 extern char *block_name (int ri);
 extern int filter_tmp_all (void);			/* public */
 extern int filter_expand_up (void);			/* public */
 extern int filter_expand_down (void);			/* public */
 extern int filter_restrict (void);			/* public */
 extern int incr_filter_level (void);			/* public */
-extern int decr_filter_level (void);			/* public */
 extern int incr2_filter_level (void);			/* public */
+extern int decr_filter_level (void);			/* public */
 extern int decr2_filter_level (void);			/* public */
+extern int common_space (int length);
 extern int tomatch (void);				/* public */
 #define TOMATCH_DONT_SET_FOCUS 0
 #define TOMATCH_SET_FOCUS 1
-extern LINE *tomatch_eng (LINE *, int *, int *, int set_focus);
+#define TOMATCH_WITH_PURIFY (PURIFY_CLANG | PURIFY_OTHER)
+extern LINE *tomatch_eng (LINE *, int *, int *, int config_bits);
 extern int forcematch (void);				/* public */
 extern int fold_block (void);				/* public */
 extern int fold_thisfunc (void);			/* public */
@@ -231,7 +248,8 @@ extern LINE *lll_goto_lineno (int ri, int lineno);
 
 /* main.c */
 extern void tracemsg (const char *format, ...);
-extern void record (const char *, const char *);
+extern void record (const char *func, const char *param);
+extern void put_string_to_file (const char *fn, const char *s);
 
 /* pipe.c */
 extern int shell_cmd (const char *ext_cmd);		/* public */
@@ -244,8 +262,7 @@ extern int filter_cmd (const char *ext_cmd);		/* public */
 extern int filter_shadow_cmd (const char *ext_cmd);	/* public */
 extern int lsdir_cmd (const char *ext_cmd);		/* public */
 extern int show_define (const char *fname, int lineno);
-extern int read_extcmd_line (char *ext_cmd, int lineno, char *buff, int siz);
-extern int finish_in_fg (void);				/* public */
+extern int read_extcmd_line (const char *ext_cmd, int lineno, char *buff, int siz);
 extern int read_stdin (void);
 extern int read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, int opts);
 extern int readout_pipe (int ring_i);
@@ -326,25 +343,23 @@ extern int split_block (const char *curpos);		/* public */
 extern int join_block (const char *separator);		/* public */
 
 /* tags.c */
-extern int tag_load_file (void);			/* public */
+extern int tag_load_file (const char *tags_file);	/* public */
 extern int tag_rm_all (void);
 extern int tag_view_info (const char *arg_symbol);	/* public */
 extern int tag_jump_to (const char *arg_symbol);	/* public */
 extern int tag_jump_back (void);			/* public */
 
 /* util.c */
-extern char *get_last_word (const char *dataline, int len);
-
 extern int get_rest_of_line (char **, int *, const char *, int, int);
-extern int get_fname (char *path, unsigned maxsize, char **choices);
-extern int glob_name (char *fname, unsigned maxsize);
+extern int glob_tab_expansion (char *path, unsigned maxsize, char **choices);
+extern int glob_tilde_expansion (char *path, unsigned maxsize);
 #define STRIP_BLANKS_FROM_END    0x01
 #define STRIP_BLANKS_FROM_BEGIN  0x02
 #define STRIP_BLANKS_SQUEEZE     0x04
 extern int strip_blanks (int operation, char *str, int *length);
 extern int count_prefix_blanks (const char *buff, int llen);
 extern int yesno (const char *str);
-extern int fname_ext (const char *cfname);
+extern FXTYPE fname_ext (const char *cfname);
 #define SLASH_INDEX_REVERSE   1
 #define SLASH_INDEX_FWD       0
 #define SLASH_INDEX_GET_FIRST 1

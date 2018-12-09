@@ -29,15 +29,15 @@
  * reserved keys could be appended to keys[]
  */
 
+#define KEY_NONE	(0)	/* default, no-op value, the first in keys.h */
+
 #define KEY_RETURN	0x0d	/* reserved */
 #define KEY_TAB		0x09	/* reserved */
 #define KEY_ESC		0x1b	/* reserved */
-#define KEY_C_RSQBRAC	0x1d
 #define KEY_META	0x2000	/* reserved: internal use only! */
 			/* Meta/Alt character flag */
 #define KEY_CTRL	0x4000	/* reserved: internal use only! */
 			/* special characters with Ctrl- or Shift- */
-#define KEY_NONE	(0)	/* default, no-op value */
 
 #ifndef KEY_BACKSPACE
 #define KEY_BACKSPACE	0x10F	/* reserved (maybe 0x107 aka 0407) */
@@ -80,7 +80,7 @@
 #define KEY_F9		(KEY_F0+9)	/* 111 */
 #define KEY_F10		(KEY_F0+10)	/* 112 */
 #define KEY_F11		(KEY_F0+11)	/* 113 */
-#define KEY_F12		(KEY_F0+12)	/* 114 reserved for text-area cmdline switch */
+#define KEY_F12		(KEY_F0+12)	/* 114 */
 
 /* SHIFT_FUNC 115-120
 */
@@ -255,5 +255,12 @@
 #define KEY_C_RIGHT	(KEY_CTRL | 4)
 #define KEY_C_PPAGE	(KEY_CTRL | 5)
 #define KEY_C_NPAGE	(KEY_CTRL | 6)
+
+#define KEY_M_UP	(KEY_META | 1)
+#define KEY_M_DOWN	(KEY_META | 2)
+#define KEY_M_LEFT	(KEY_META | 3)
+#define KEY_M_RIGHT	(KEY_META | 4)
+#define KEY_M_PPAGE	(KEY_META | 5)
+#define KEY_M_NPAGE	(KEY_META | 6)
 
 #endif

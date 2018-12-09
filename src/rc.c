@@ -39,11 +39,10 @@
 
 /* global config */
 extern CONFIG cnf;
+
 extern TABLE table[];
-extern const int TLEN;
 extern KEYS keys[];
-extern const int KLEN;
-extern const int RES_KLEN;
+extern const int TLEN, KLEN, RES_KLEN;
 extern MACROS *macros;
 extern int MLEN;
 
@@ -62,8 +61,9 @@ static void
 set_usage (int show_what)
 {
 	if (show_what == SHOW_CURRENT_VALUES) {
-		tracemsg ("prefix %d shadow %d smartind %d move_reset %d case_sensitive %d",
+		tracemsg ("prefix %d tabhead %d shadow %d smartind %d move_reset %d case_sensitive %d",
 			(cnf.gstat & GSTAT_PREFIX) ? 1 : 0,
+			(cnf.gstat & GSTAT_TABHEAD) ? 1 : 0,
 			(cnf.gstat & GSTAT_SHADOW) ? 1 : 0,
 			(cnf.gstat & GSTAT_SMARTIND) ? 1 : 0,
 			(cnf.gstat & GSTAT_MOVES) ? 1 : 0,
@@ -71,8 +71,8 @@ set_usage (int show_what)
 		tracemsg ("autotitle %d backup_nokeep %d close_over %d save_inode %d",
 			(cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0,
 			(cnf.gstat & GSTAT_NOKEEP) ? 1 : 0,
-			(cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0,
-			(cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
+			(cnf.gstat & GSTAT_CLOS_OVER) ? 1 : 0,
+			(cnf.gstat & GSTAT_SAV_INODE) ? 1 : 0);
 		tracemsg ("indent %s %d  tabsize %d",
 			(cnf.gstat & GSTAT_INDENT) ? "tab" : "space",
 			cnf.indentsize,
@@ -83,11 +83,11 @@ set_usage (int show_what)
 			cnf.make_path, cnf.make_opts);
 		tracemsg ("sh path %s diff path [%s]",
 			cnf.sh_path, cnf.diff_path);
-		tracemsg ("tags file [%s]",
-			cnf.tags_file);
+		tracemsg ("tags file [%s] lsdirsort %d",
+			cnf.tags_file, cnf.lsdirsort); 
 		tracemsg ("...see other settings in rcfile");
 	} else if (show_what == SHOW_USAGE) {
-		tracemsg ("set {prefix | shadow | smartindent | move_reset | case_sensitive} {on|off}");
+		tracemsg ("set {prefix | tabhead | shadow | smartindent | move_reset | case_sensitive} {on|off}");
 		tracemsg ("set {tabsize COUNT} | {indent {tab|space} COUNT}");
 		tracemsg ("set {autotitle | backup_nokeep | close_over | save_inode } {yes|no}");
 		tracemsg ("set {find_opts OPTIONS}");
@@ -202,7 +202,19 @@ set (const char *argz)
 			if (cnf.fdata[ri].fflag & FSTAT_OPEN)
 				update_curpos(ri);
 		}
-		if (cnf.bootup) tracemsg ("prefix %d", (cnf.gstat & GSTAT_PREFIX) ? 1 : 0);
+		//if (cnf.bootup) tracemsg ("prefix %d", (cnf.gstat & GSTAT_PREFIX) ? 1 : 0);
+
+	} else if (strncmp(token, "tabhead", 7)==0) {
+		SET_CHECK_B( GSTAT_TABHEAD );
+		if (ret==0) {
+			cnf.head = (y==1) ? 2 : 1;
+		}
+		/* update! */
+		for (ri=0; ri<RINGSIZE; ri++) {
+			if (cnf.fdata[ri].focus > TEXTROWS-1)
+				cnf.fdata[ri].focus = TEXTROWS;
+		}
+		//if (cnf.bootup) tracemsg ("tabhead %d", (cnf.gstat & GSTAT_TABHEAD) ? 1 : 0);
 
 	} else if (strncmp(token, "shadow", 6)==0) {
 		SET_CHECK_B( GSTAT_SHADOW );
@@ -220,7 +232,7 @@ set (const char *argz)
 		SET_CHECK_B( GSTAT_CASES );
 		if (cnf.bootup) tracemsg ("case_sensitive %d", (cnf.gstat & GSTAT_CASES) ? 1 : 0);
 
-	} else if (strncmp(token, "autotitle", 4)==0) {
+	} else if (strncmp(token, "autotitle", 9)==0) {
 		SET_CHECK_B( GSTAT_AUTOTITLE );
 		if (cnf.bootup) tracemsg ("autotitle %d", (cnf.gstat & GSTAT_AUTOTITLE) ? 1 : 0);
 
@@ -229,12 +241,12 @@ set (const char *argz)
 		if (cnf.bootup) tracemsg ("backup_nokeep %d", (cnf.gstat & GSTAT_NOKEEP) ? 1 : 0);
 
 	} else if (strncmp(token, "close_over", 10)==0) {
-		SET_CHECK_B( GSTAT_CLOSE_OVER );
-		if (cnf.bootup) tracemsg ("close_over %d", (cnf.gstat & GSTAT_CLOSE_OVER) ? 1 : 0);
+		SET_CHECK_B( GSTAT_CLOS_OVER );
+		if (cnf.bootup) tracemsg ("close_over %d", (cnf.gstat & GSTAT_CLOS_OVER) ? 1 : 0);
 
 	} else if (strncmp(token, "save_inode", 10)==0) {
-		SET_CHECK_B( GSTAT_SAVE_INODE );
-		if (cnf.bootup) tracemsg ("save_inode %d", (cnf.gstat & GSTAT_SAVE_INODE) ? 1 : 0);
+		SET_CHECK_B( GSTAT_SAV_INODE );
+		if (cnf.bootup) tracemsg ("save_inode %d", (cnf.gstat & GSTAT_SAV_INODE) ? 1 : 0);
 
 	} else if (strncmp(token, "tabsize", 4)==0) {
 		/* decimal */
@@ -336,19 +348,33 @@ set (const char *argz)
 		}
 	}
 
-	/* terminal color settings */
-	else if (strncmp(token, "palette", 7)==0) {
+	/* terminal color settings, color palette string parser -- shared prefix "palette"
+	*/
+	else if (!cnf.bootup && strncmp(token, "palette", 7)==0) {
+		if (sublen > 0) {
+			if ((subtoken[x] >= '0') && (subtoken[x] <= '9')) {
+				x = strtol(subtoken, NULL, 0);
+				if (x >= 0 && x < cnf.palette_count)
+					cnf.palette = x;
+			} else {
+				/* pass input string to parser */
+				subtoken[sublen] = ' '; /* overwrite zero, one multiword argument required */
+				ret = color_palette_parser(subtoken);
+			}
+		}
+	}
+
+	/* lsdir sort settings */
+	else if (!strncmp(token, "sort", 4) || !strncmp(token, "lsdirsort", 9)) {
 		if (sublen > 0) {
 			x = strtol(subtoken, NULL, 0);
-			if (x >= 0 && x <= PALETTE_MAX) {
-				if (x != cnf.palette) {
-					cnf.palette = x;
-					if (cnf.bootup)
-						init_colors (cnf.palette);
+			if (x >= 0 && x <= 2) {
+				if (x != cnf.lsdirsort) {
+					cnf.lsdirsort = x;
 				}
 			}
 		}
-		if (cnf.bootup) tracemsg ("palette %d", cnf.palette);
+		if (cnf.bootup) tracemsg ("lsdirsort %d", cnf.lsdirsort);
 	}
 
 	/* syslog log levels by module */
@@ -418,8 +444,10 @@ process_rcfile (int noconfig)
 		{
 			while (ret==0) {
 				if (fgets (str, CMDLINESIZE, fp) == NULL) {
-					if (ferror(fp))
+					if (ferror(fp)) {
+						ERRLOG(0xE096);
 						ret = 8;
+					}
 					break;
 				}
 				++rcline;
@@ -533,8 +561,10 @@ process_keyfile (int noconfig)
 		{
 			while (ret==0) {
 				if (fgets (str, CMDLINESIZE, fp) == NULL) {
-					if (ferror(fp))
+					if (ferror(fp)) {
+						ERRLOG(0xE095);
 						ret = 8;
+					}
 					break;
 				}
 				++kline;
@@ -573,8 +603,8 @@ process_macrofile (int noconfig)
 	int fkey, ti, ki;
 	void *ptr=NULL;
 	MACROS *mac=NULL;
-	char pattern_header[100];
-	char pattern_item[100];
+	char pattern_header[SEARCHSTR_SIZE];
+	char pattern_item[SEARCHSTR_SIZE];
 	regex_t regexp_header, regexp_item;
 	regmatch_t pmatch[3];
 
@@ -594,9 +624,11 @@ process_macrofile (int noconfig)
 	strncpy(macfile[1], PROGHOME "/edamacro", sizeof(macfile[1]));
 
 	if (regcomp (&regexp_header, pattern_header, REG_EXTENDED | REG_NEWLINE)) {
+		ERRLOG(0xE08D);
 		return (1);
 	}
 	if (regcomp (&regexp_item, pattern_item, REG_EXTENDED | REG_NEWLINE)) {
+		ERRLOG(0xE08C);
 		regfree (&regexp_header);
 		return (1);
 	}
@@ -610,6 +642,7 @@ process_macrofile (int noconfig)
 			{
 				if (fgets (inputline, CMDLINESIZE, fp) == NULL) {
 					if (ferror(fp)) {
+						ERRLOG(0xE094);
 						ret = 160; /*ferror*/
 					}
 					break;
@@ -636,6 +669,7 @@ process_macrofile (int noconfig)
 						fkey = keys[ki].key_value;
 						ptr = REALLOC((void *)macros, sizeof(MACROS) * (size_t)(MLEN+1));
 						if (ptr == NULL) {
+							ERRLOG(0xE003);
 							ret = 162; /*realloc*/
 							break;
 						}
@@ -677,6 +711,7 @@ process_macrofile (int noconfig)
 					if (iy > 0 && (ti = index_func_fullname(name)) < TLEN) {
 						ptr = REALLOC((void *)mac->maclist, sizeof(MACROITEMS)*(mac->items+1));
 						if (ptr == NULL) {
+							ERRLOG(0xE002);
 							ret = 165; /*realloc*/
 							break;
 						}
@@ -774,7 +809,7 @@ reload_macros (void)
 
 	ret = process_macrofile(0);
 	if (ret) {
-		tracemsg ("loading macros failed");
+		tracemsg ("loading macros failed (%d)", ret);
 	} else {
 		tracemsg ("%d macros loaded", MLEN);
 	}
@@ -789,12 +824,13 @@ int
 process_project (int noconfig)
 {
 	char projfile[sizeof(cnf.myhome)+SHORTNAME];
-	int pline=0, len=0, ret=0;
+	int pline=0, ret=0;
 	FILE *fp;
 	char str[CMDLINESIZE];
 	char *ptr;
 	int section = 0;	/* 1 for project config, 2 for project files */
-	unsigned length[3];	/* prefix patterns */
+	int len, length[3];	/* prefix patterns */
+	int focus;
 
 	if (noconfig) {
 		return 0;
@@ -818,6 +854,7 @@ process_project (int noconfig)
 	{
 		if (fgets (str, CMDLINESIZE, fp) == NULL) {
 			if (ferror(fp)) {
+				ERRLOG(0xE093);
 				ret = 8;
 			}
 			break;
@@ -829,15 +866,15 @@ process_project (int noconfig)
 		strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, str, &len);
 
 		if (section == 0) {
-			if ((len >= (int)length[0]) && (strncmp(str, PROJECT_HEADER, length[0]) == 0)) {
+			if ((len >= length[0]) && (strncmp(str, PROJECT_HEADER, (size_t)length[0]) == 0)) {
 				section = 1;
 				continue;
 			}
 		} else if (section == 1) {
-			if ((len >= (int)length[1]) && (strncmp(str, PROJECT_FILES, length[1]) == 0)) {
+			if ((len >= length[1]) && (strncmp(str, PROJECT_FILES, (size_t)length[1]) == 0)) {
 				section = 2;
 				continue;
-			} else if ((len > (int)length[2]) && (strncmp(str, PROJECT_CHDIR, length[2]) == 0)) {
+			} else if ((len > length[2]) && (strncmp(str, PROJECT_CHDIR, (size_t)length[2]) == 0)) {
 				ptr = str+length[2];
 				len -= length[2];
 				if (len > 1)
@@ -851,9 +888,12 @@ process_project (int noconfig)
 					ret = 1;
 					break;
 				}
-				/* save this value as current workdir */
-				strncpy(cnf._pwd, ptr, sizeof(cnf._pwd));
-				cnf._pwd[sizeof(cnf._pwd)-1] = '\0';
+				/* after chdir(ptr) ... save current workdir */
+				if (getcwd(cnf._pwd, sizeof(cnf._pwd)-1) == NULL) {
+					/* fallback */
+					strncpy(cnf._pwd, ptr, sizeof(cnf._pwd));
+					cnf._pwd[sizeof(cnf._pwd)-1] = '\0';
+				}
 				cnf.l1_pwd = strlen(cnf._pwd);
 				/* do not call set() */
 				continue;
@@ -867,6 +907,16 @@ process_project (int noconfig)
 			ret = set (str);
 			if (ret) ret += 100;
 		} else if (section == 2) {
+			/* settings after a filename: focus */
+			if (strncmp(str, "focus=", 6) == 0) {
+				if (cnf.ring_size > 0 && CURR_FILE.fflag & FSTAT_OPEN) {
+					focus = strtol(str+6, NULL, 10);
+					if (focus > 0) /* cnf.maxy is undefined at this point! */
+						CURR_FILE.focus = focus;
+				}
+				continue;
+			}
+			/**/
 			ret = simple_parser(str, SIMPLE_PARSER_JUMP);
 			if (ret) ret += 200;
 		}
@@ -918,6 +968,8 @@ save_project (const char *projectname)
 		datasize = ftell(fp);
 		als = ALLOCSIZE(datasize+1);
 		if ((data = (char *) MALLOC(als)) == NULL) {
+			ERRLOG(0xE02A);
+			tracemsg ("failed to save project");
 			fclose(fp);
 			return (-1);
 		}
@@ -925,6 +977,10 @@ save_project (const char *projectname)
 		memset(str, 0, sizeof(str));
 		while (ret==0) {
 			if (fgets (str, sizeof(str)-1, fp) == NULL) {
+				if (ferror(fp)) {
+					ERRLOG(0xE092);
+					ret = 8;
+				}
 				break;
 			}
 			len = strlen(str);
@@ -951,31 +1007,35 @@ save_project (const char *projectname)
 	}
 
 	if ((fp = fopen(projfile, "w")) == NULL) {
-		FH_LOG(LOG_ERR, "fopen/w [%s] failed (%s)", projfile, strerror(errno));
 		tracemsg ("cannot write %s project file", projfile);
 		ret = -1;
 	} else {
 		fprintf(fp, "%s\n%s %s\n", PROJECT_HEADER, PROJECT_CHDIR, cnf._pwd);
 		if (dlen > 0) {
 			if (fwrite (data, sizeof(char), dlen, fp) != dlen)
+				ERRLOG(0xE0A5);
 				ret = 2;
 		}
 		if (!ret) {
 			fprintf(fp, "\n%s\n", PROJECT_FILES);
 		}
 		memset(str, 0, sizeof(str));
-		for (ri=0; ret==0 && ri<RINGSIZE; ri++) {
+		ri = cnf.ring_curr;
+		do {
 			if ((cnf.fdata[ri].fflag & FSTAT_OPEN) &&
 			((cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) == 0))
 			{
-				snprintf(str, sizeof(str)-1, "%s:%d\n", cnf.fdata[ri].fname, cnf.fdata[ri].lineno);
+				snprintf(str, sizeof(str)-1, "%s:%d\nfocus=%d\n",
+					cnf.fdata[ri].fname, cnf.fdata[ri].lineno, cnf.fdata[ri].focus);
 				len = strlen(str);
 				if (fwrite (str, sizeof(char), len, fp) != len) {
+					ERRLOG(0xE0A4);
 					ret = 2;
 					break;
 				}
 			}
-		}
+			ri = (ri<RINGSIZE-1) ?  ri+1 : 0;
+		} while (ri != cnf.ring_curr);
 		fclose(fp);
 	}
 	FREE(data);
@@ -1225,7 +1285,7 @@ save_clhistory (void)
 	if (runner == NULL)
 		return;
 
-	strncpy(histfile, cnf.myhome, sizeof(histfile));
+	strncpy(histfile, cnf.myhome, sizeof(cnf.myhome));
 	strncat(histfile, "history", SHORTNAME);
 
 	if ((fp = fopen(histfile, "w")) != NULL) {
@@ -1239,6 +1299,7 @@ save_clhistory (void)
 				snprintf(str, (size_t)runner->len+2, "%s\n", runner->buff);
 				len = strlen(str);
 				if (fwrite (str, sizeof(char), len, fp) != len) {
+					ERRLOG(0xE0A3);
 					break;
 				}
 				items++;

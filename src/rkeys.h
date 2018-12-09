@@ -12,7 +12,6 @@
 	{ KN(KEY_DOWN), 0 },
 	{ KN(KEY_LEFT), 0 },
 	{ KN(KEY_RIGHT), 0 },
-	{ KN(KEY_F12), 0 },
 	{ KN(KEY_C_C), 0 },
 	{ KN(KEY_C_H), 0 },
 	{ KN(KEY_C_I), 0 },
@@ -20,4 +19,4 @@
 	{ KN(KEY_C_Q), 0 },
 	{ KN(KEY_C_S), 0 },
 	{ KN(KEY_C_Z), 0 },
-#define RESERVED_KEYS 21
+#define RESERVED_KEYS 20

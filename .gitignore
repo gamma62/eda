@@ -1,24 +1,3 @@
-# Object files
 *.o
-*.ko
-
-# Precompiled Headers
-
-# Libraries
-*.a
-*.la
-*.lo
-
-# Shared objects
-*.so
-*.so.*
-
-# Executables
-src/eda
-
-# Misc
 *~
-eda*.tgz
-hgpull.sh
-github_
-
+src/eda

@@ -9,14 +9,14 @@
 #
 
 prefix		off
+tabhead		off
 shadow		on
 smartindent	on
-move_reset	on
 case_sensitive	on
 autotitle	off
 
-# color palette: 0 dark (XTerm), 1 light (gnome-terminal)
-palette		1
+# unset selection after move the selection
+move_reset	on
 
 # unlink backup file (except the forced backup case)
 backup_nokeep	on
@@ -32,35 +32,36 @@ save_inode	yes
 indent		tab	1
 tabsize		8
 
-# find options
-find_path	/usr/bin/find
-# the '-nH' option is mandatory, '-w' is optional, must be the last
-#find_opts	. -type f ( -name '*.[ch]' -o -name '*.sh' -o -name '*.pl' ) -exec egrep -nH -w
-find_opts	. -type f ( -name '*.[ch]' ) -exec egrep -nH -w
+# additional color palette configurations (see eda -c)
+#palette xterm 20_.60_.70_.10_. 20b.60b.70b.10b. 02_.42_.07_.01_. 03_.43_.07_.01_. 74_.06_.20_.74_.
+
+# color palette number (select from defined strings by number)
+#palette 0
 
 # ctags settings
 tags_file	./tags
 
+# find options
+find_path	/usr/bin/find
+# the '-nH' option is mandatory, '-w' is optional, must be the last
+find_opts	. -type f ( -name '*.[ch]' ) -exec egrep -nH -w
+#find_opts	. -type f ( -name '*.py' ) -exec egrep -nH -w
+#find_opts	. -type f ( -name '*.sh' -o -name '*.pl' ) -exec egrep -nH -w
+
 # version control systems: toolname and path
 #vcstool		cvs	/usr/bin/cvs
-#vcstool		svn	/usr/bin/svn
-#vcstool		hg	/usr/bin/hg
+#vcstool		svn	/usr/bin/svnlite
+#vcstool		hg	/usr/local/bin/hg
+#vcstool		git	/usr/local/bin/git
 
 # make options
 make_path	/usr/bin/make
 make_opts	-w
 
 # mandatory tools
-sh_path		/bin/sh
+sh_path		/usr/local/bin/bash
 diff_path	/usr/bin/diff
 
 # some filter examples
-#a2ps -1 -f8 -R -Egnuc -T4
-#a2ps -1 -f10 -r -s simplex -t "title" -B -b "header" -P xerox535
 #a2ps -1 -f10 --no-header --sides=duplex
-#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -
-#indent -kr  -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
-#indent -gnu -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -cp0 -bli0 -npsl -
-#indent -gnu -fc1 -i4 -bli0 -nut -bap -l100 -
 #xmllint --format -
-#xmllint --valid -

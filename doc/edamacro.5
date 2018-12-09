@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2018-07-29" "0.9.97" ""
+.TH "EDAMACRO" "5" "2018-12-08" "0.9.97" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -18,7 +18,6 @@ Lets start with an example macro.
     KEY_S_F1        manual
     #Description: show the eda manual
             shell_cmd man -P cat eda
-            finish_in_fg
             go_top
     .
 .fi
@@ -407,7 +406,7 @@ tag_load_file tag_view_info tag_jump_to tag_jump_back
 .br
 .TP 15
 .B tag_load_file
-load or reload the content of "tags" file as configured in "tags_file" resource
+load or reload the content of "tags" file, the path configured in "tags_file" resource or given as argument
 .TP 15
 .B tag_view_info
 view symbol definition in a notification, gained from "tags" file
@@ -512,18 +511,21 @@ is_special
 .br
 .TP 12
 .B is_special
-show buffer type or set buffer type, regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools) regular filenames can be changed to equivalent name of same inode
+show buffer or set buffer ftype, for regular file types (c/cpp/c++, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools); or change fname to special buffer
 .br
 
 .SS Buffer views and UI changes, directory and buffer lists
-rotate_palette prefix_macro smartind_macro shadow_macro list_buffers lsdir_cmd force_redraw
+rotate_palette prefix_macro tabhead_macro smartind_macro shadow_macro list_buffers lsdir_cmd
 .br
 .TP 16
 .B rotate_palette
-change color palette setting in cycle
+change color palette setting in cycle, if there are more than the default
 .TP 14
 .B prefix_macro
 set on/off the prefix of the lines
+.TP 15
+.B tabhead_macro
+set on/off the tab header under status line
 .TP 16
 .B smartind_macro
 set on/off the smartindent setting
@@ -532,13 +534,10 @@ set on/off the smartindent setting
 set on/off the shadow marker (hidden lines counter)
 .TP 14
 .B list_buffers
-open a special buffer with a list of open files and bookmarks
+open a special buffer with a list of open files and bookmarks, switch to the open buffer or (re)generate it
 .TP 11
 .B lsdir_cmd
-create directory listing in special buffer for easy navigation and opening, argument must be a directory
-.TP 14
-.B force_redraw
-force the screen redraw of current buffer
+create directory listing in special buffer for easy navigation and opening, the one optional argument must be a directory or a shell glob
 .br
 
 .SS Bookmarks, set and jump (Alt-0 sets next free)
@@ -606,14 +605,8 @@ switch the case of characters in the word under cursor
 .br
 
 .SS Only for macros and external processes
-finish_in_fg stop_bg_process go_text message msg_from_text recording_switch
+go_text message msg_from_text recording_switch stop_bg_process
 .br
-.TP 14
-.B finish_in_fg
-finish reading output of external process in foreground, read from pipe until process finished
-.TP 17
-.B stop_bg_process
-stop running background process of current buffer
 .TP 9
 .B go_text
 move cursor to the text area, useful for for macros
@@ -626,11 +619,17 @@ display text from the current line as message, mostly for macros
 .TP 18
 .B recording_switch
 switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
+.TP 17
+.B stop_bg_process
+stop running background process of current buffer
 .br
 
 .SS anything else
-mouse_support nop pwd show_commands uptime version xterm_title
+internal_hgdiff mouse_support nop pwd show_commands typing_tutor uptime version xterm_title
 .br
+.TP 17
+.B internal_hgdiff
+run hg diff on current file and process the outcome
 .TP 15
 .B mouse_support
 switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
@@ -643,6 +642,9 @@ print working directory name
 .TP 15
 .B show_commands
 show table of commands with keyboard shortcuts
+.TP 14
+.B typing_tutor
+start typing tutor on current file, the file shall be prepared, no tabs except indentation, line ends without space and text reformatted between margins
 .TP 8
 .B uptime
 show the output of the uptime command

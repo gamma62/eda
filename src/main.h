@@ -46,16 +46,14 @@
 #define MAXARGS		32		/* arg count max for args[] -- tokenization, read_pipe() */
 #define SHORTNAME	80		/* logfile, *_path, *_opts, rcfile, keyfile, bookmark sample */
 #define XPATTERN_SIZE	1024		/* for regexp pattern, after shorthand replacement, regexp_shorthands() */
-#define PALETTE_MAX	3
 
 #define LINESIZE_INIT	0x1000		/* text line, initial memory allocation ==4096 */
 #define LINESIZE_MIN	0x001f		/* (2^5-1) incr/decr step for realloc() ==31 */
 /* with space for text lines '\0' */
-#define ALLOCSIZE(len)	((size_t) (((len) | LINESIZE_MIN) + 1))
-
+#define ALLOCSIZE(len)	(((size_t) (len) | (size_t) LINESIZE_MIN) + 1)
 /* bigger allocation steps for change() */
 /* 0xff space reserved after allocation */
-#define REP_ASIZE(len)	((size_t) (((len) | 0x1f) + 0xff + 1))
+#define REP_ASIZE(len)	(((size_t) (len) | (size_t) 0x1f) + 0xff + 1)
 
 #ifdef DEVELOPMENT_VERSION
 #define MAIN_LOG(prio, fmt, args...)	if (cnf.log[0]>0 && cnf.log[0]>=prio) syslog(prio, "MAIN: " fmt, ##args)
@@ -70,6 +68,7 @@
 #define PD_LOG(prio, fmt, args...)	if (cnf.log[9]>0 && cnf.log[9]>=prio) syslog(prio, "PD:%s: " fmt, __FUNCTION__, ##args)
 #define REC_LOG(prio, fmt, args...)	if (cnf.log[10]>0 && cnf.log[10]>=prio) syslog(prio, "REC: " fmt, ##args)
 #define UPD_LOG(prio, fmt, args...)	if (cnf.log[11]>0 && cnf.log[11]>=prio) syslog(prio, "UPD: " fmt, ##args)
+#define UPD_LOG_AVAIL(prio)	(cnf.log[11] > 0 && cnf.log[11] >= (prio))
 #else
 #define MAIN_LOG(prio, fmt, args...)	;
 #define FH_LOG(prio, fmt, args...)	;
@@ -83,37 +82,41 @@
 #define PD_LOG(prio, fmt, args...)	;
 #define REC_LOG(prio, fmt, args...)	;
 #define UPD_LOG(prio, fmt, args...)	;
+#define UPD_LOG_AVAIL(prio)	(0)
 #endif
 
 /* for wgetch() and timers */
 #define CUST_ESCDELAY	5		/* set global variable ESCDELAY (miliseconds?) */
 #define CUST_WTIMEOUT	100		/* wgetch timeout (miliseconds); higher ==> less CPU time */
-#define RESIZE_DELAY	7		/* internal counter for wgetch timeouts before reporting KEY_RESIZE */
 #define FILE_CHDELAY	(1000/CUST_WTIMEOUT*5)	/* file re-stat timing, 5 seconds */
 #define ZOMBIE_DELAY	(1000/CUST_WTIMEOUT*1)	/* check process alive, 1 second */
 #define REFRESH_EVENT	(-2)		/* force display refresh */
 
 /* bit masks for global flags */
 #define GSTAT_PREFIX	0x00000001	/* view prefix area */
-#define GSTAT_SHADOW	0x00000002	/* view filter shadow lines */
-#define GSTAT_SMARTIND	0x00000004	/* smart indent for new lines */
-#define GSTAT_MOUSE	0x00000008	/* mouse support */
+#define GSTAT_TABHEAD	0x00000002	/* view tab header under status line */
+#define GSTAT_SHADOW	0x00000004	/* view filter shadow lines */
+#define GSTAT_SMARTIND	0x00000008	/* smart indent for new lines */
 #define GSTAT_MOVES	0x00000010	/* selection move clears selection bit */
 #define GSTAT_CASES	0x00000020	/* case sensitive filter/tag/search */
 #define GSTAT_INDENT	0x00000040	/* tab indent (or space indent) */
 #define GSTAT_NOKEEP	0x00000080	/* backup nokeep (drop backup file after succesfull save) */
-#define GSTAT_SILENT	0x00000100	/* silent mode, non-interactive */
-#define GSTAT_UPDNONE	0x00000200	/* no screen update required */
-#define GSTAT_UPDFOCUS	0x00000400	/* only focus line update required */
-#define GSTAT_AUTOTITLE 0x00000800	/* automatic set of xterm title */
-#define GSTAT_CLOSE_OVER 0x00001000	/* close the shell buffer after "over" command */
-#define GSTAT_SAVE_INODE 0x00002000	/* save file with original inode, replace content; transparent for hardlink/symlink */
-#define GSTAT_LOCATE	0x00004000	/* use external or internal search method, default 0, external find/egrep */
-#define GSTAT_RECORD	0x00008000	/* macro recording flag */
-#define GSTAT_FIXCR	0x00010000	/* fix CR and CR/LF in input stream */
-/*			0x00020000	*/
+#define GSTAT_AUTOTITLE 0x00000100	/* automatic set of xterm title */
+#define GSTAT_CLOS_OVER 0x00000200	/* close the shell buffer after "over" command */
+#define GSTAT_SAV_INODE 0x00000400	/* save file with original inode, replace content; transparent for hardlink/symlink */
+#define GSTAT_MOUSE	0x00000800	/* mouse support flag */
+// other switches
+#define GSTAT_LOCATE	0x00001000	/* use external find/egrep or internal search method */
+#define GSTAT_RECORD	0x00002000	/* macro recording flag */
+#define GSTAT_TYPING	0x00004000	/* typing tutor */
+#define GSTAT_FIXCR	0x00008000	/* fix CR and CR/LF in input stream */
+// internal flags
+#define GSTAT_SILENCE	0x00010000	/* macro run flag -- silent mode, disable tracemsg */
+#define GSTAT_MACRO_FG	0x00020000	/* macro run flag -- in non-interactive mode force finish_in_fg */
+#define GSTAT_UPDNONE	0x00040000	/* no screen update required */
+#define GSTAT_UPDFOCUS	0x00080000	/* only focus line update required */
+#define GSTAT_REDRAW	0x00100000	/* force redraw flag */
 
-#define TILDE		"~"
 #define TOP_MARK	"<<top>>\n"		/* pass LINESIZE_MIN */
 #define BOTTOM_MARK	"<<eof>>\n"		/* pass LINESIZE_MIN */
 #define REPLACE_QUEST	"replace: Yes/No/Rest/Quit ?"
@@ -195,40 +198,18 @@
 /* for variable/function name selection */
 #define IS_ID(ch)	( ((ch) >= 'a' && (ch) <= 'z') || ((ch) >= 'A' && (ch) <= 'Z') || \
 			((ch) >= '0' && (ch) <= '9') || ((ch) == '_') )
-#define IS_BLANK(ch)	((ch) == ' ' || (ch) == '\t')
+#define IS_BLANK(ch)	((ch) == ' ' || (ch) == '\t' || (ch) == '\n')
 #define TOHEX(ch)	(((ch) >= 0 && (ch) < 10) ? ('0'+(ch)) : ('A'+(ch)-10))
 
 /* text area size -- only after bootup */
-#define TEXTROWS	(cnf.maxy-2)		/* screen rows in text area */
-#define TEXTCOLS	(cnf.maxx-cnf.pref)	/* screen columns for text in text area */
+#define TEXTROWS	(cnf.maxy-1-cnf.head)	/* number of rows in text area */
+#define TEXTCOLS	(cnf.maxx-cnf.pref)	/* number of columns in text area */
 
 /* filter targets */
 #define FILTER_ALL	0x1
 #define FILTER_MORE	0x2
 #define FILTER_LESS	0x4
-
-/* function or block levels */
-#define OPEN_CURBRAC	0x7B
-#define CLOSE_CURBRAC	0x7D
-#define IL_NONE		0
-#define IL_HEADER	1
-#define IL_BEGIN	2
-#define IL_INTERN	4
-#define IL_END		8
-
-/* some function and block header patterns for various file types
- */
-#define C_HEADER_PATTERN	"([:a-zA-Z0-9_]+)[[:blank:]]*[(]"
-#define C_STRUCTURE_PATTERN	"^(struct|enum|union|class|namespace)[[:blank:]]+([a-zA-Z0-9_]*)|^typedef[[:blank:]]+(struct|enum|union)[[:blank:]]+([a-zA-Z0-9_]*)"
-#define HEADER_PATTERN_END	"[)][[:blank:]]*[{][[:blank:]]*$"
-/**/
-#define PERL_HEADER_PATTERN	"^sub[[:blank:]]+([:.a-zA-Z0-9_]+)"
-#define TCL_HEADER_PATTERN	"^proc[[:blank:]]+([:.a-zA-Z0-9_]+)"
-#define SHELL_HEADER_PATTERN	"^function[[:blank:]]+([a-zA-Z0-9_]+)|^([a-zA-Z0-9_]+)[[:blank:]]*[(][)]"
-#define HEADER_PATTERN_END2	"[[:blank:]]*[{][[:blank:]]*(#.*)?$"
-/**/
-#define PYTHON_HEADER_PATTERN	"^[[:blank:]]*def[[:blank:]]+([a-zA-Z0-9_]*)"
-#define TEXT_HEADER_PATTERN	"^[^[:blank:]]+"
+#define FILTER_GET_SYMBOL	0x8
 
 /* options for pipe i/o processing
 */
@@ -290,23 +271,19 @@ struct line_tag
 
 typedef enum filetype_enum
 {
-	UNKNOWN_FILETYPE = -1,
+	C_FILETYPE = 1,
+	PERL_FILETYPE = 2,
+	SHELL_FILETYPE = 4,
+	PYTHON_FILETYPE = 8,
 
-	C_FILETYPE = 0,
-	PERL_FILETYPE,
-	TCL_FILETYPE,
-	PYTHON_FILETYPE,
-	SHELL_FILETYPE,
-
-	TEXT_FILETYPE
+	TEXT_FILETYPE = 0
 } FXTYPE;
 
 /* for the file ring */
 struct fdata_tag
 {
-	char fname[FNAMESIZE];	/* filename, relative to cwd, or absolute path */
-	char basename[FNAMESIZE];
-	char dirname[FNAMESIZE];
+	char fname[FNAMESIZE];	/* filename or special buffer name for display */
+	char fpath[FNAMESIZE];	/* original filename, relative or absolute path, after stat() call */
 	struct stat stat;
 
 	/* ri allocation here (FSTAT_OPEN bit) */
@@ -358,13 +335,31 @@ struct node_tag {
 	unsigned bcount;	/* branch array size or 0	*/
 };
 
+enum color_palette_bits {
+	COLOR_NORMAL_TEXT     = 0,
+	COLOR_TAGGED_TEXT     = 1,
+	COLOR_HIGH_TEXT       = 2,
+	COLOR_SEARCH_TEXT     = 3,
+	COLOR_FOCUS_FLAG      = 4,	/* FOCUS + NORMAL...SEARCH -> 4 5 6 7 */
+	COLOR_SELECT_FLAG     = 8,	/* SELECT + NORMAL...SEARCH -> 8 9 10 11 */
+	/* COLOR_SELECT_FLAG + COLOR_FOCUS_FLAG + NORMAL...SEARCH -> 12 13 14 15 */
+	COLOR_STATUSLINE_TEXT = 16,
+	COLOR_TRACEMSG_TEXT   = 17,
+	COLOR_SHADOW_TEXT     = 18,
+	COLOR_CMDLINE_TEXT    = 19	/* CPAL_BITS -1 */
+};
+
+#define CPAL_BITS  20
+
+typedef struct color_palette {
+	char name[30];			/* the name for this color configuration */
+	int bits[CPAL_BITS+1];		/* each cpal item: (cpairs index: 0x3f | bold flag: 0x40 | reverse flag: 0x80) */
+} CPAL;
+
 /* main context */
 struct config_tag
 {
-	int maxx, maxy;		/* terminal dimensions */
-	WINDOW *wstatus;	/* the first line of the screen, the status line */
-	WINDOW *wtext;		/* middle of the screen, text area */
-	WINDOW *wbase;		/* the last line of the screen, the command line */
+	int maxx, maxy;		/* terminal dimensions --- LINES and COLS */
 
 	uid_t uid, euid;		/* user */
 	gid_t gid, egid, groups[50];	/* group */
@@ -372,13 +367,14 @@ struct config_tag
 	time_t starttime;
 
 	int gstat;		/* GSTAT_ */
+	int head;		/* line count above text area */
 	int pref;		/* prefix length */
 	int indentsize;		/* 1 (tab), or 4 (sp) */
 	int tabsize;		/* 8 */
 	int trace;		/* rows in trace/message */
 	char tracerow[TRACESIZE][CMDLINESIZE];
 
-	int palette;		/* color setting, 0...PALETTE_MAX */
+	int lsdirsort;		/* sort by name/mtime/size */
 	int bootup;
 	int noconfig;
 	int lsdir_opts;		/* options for directory listing */
@@ -413,13 +409,15 @@ struct config_tag
 	char project[SHORTNAME];
 
 	char _home[FNAMESIZE];
+	char _althome[FNAMESIZE];
 	char _pwd[FNAMESIZE];
 	char _altpwd[FNAMESIZE];
 	char myhome[FNAMESIZE];
 	unsigned l1_home;
+	unsigned l2_althome;
 	unsigned l1_pwd;
 	unsigned l2_altpwd;
-	unsigned l2_myhome;
+	unsigned l3_myhome;
 
 	BOOKMARK bookmark[10];	/* set bookmarks by back reference from the LINE */
 
@@ -433,8 +431,25 @@ struct config_tag
 
 	char automacro[CMDLINESIZE];	/* testing */
 
+	int tutor_pass;
+	int tutor_fail;
+	time_t tutor_start;
+
+	unsigned int cpairs[8*8];	/* this array is filled once with color pairs, later we use indexes to the items here */
+	CPAL cpal;			/* actual configuration */
+	CPAL *palette_array;		/* additional configurations loaded from rc file, can be empty */
+	int palette_count;		/* can be zero */
+	int palette;			/* color setting, actual index, for the rotation */
+
+	char *temp_buffer;	/* ever increasing buffer for purify based tomatch, folding and everything */
+	unsigned temp_als;	/* the ALLOCSIZE for temp_buffer */
+
+	unsigned errlog[128], errsiz, ie;
+
 	char log[12];		/* logging, flags by modules */
 };
+
+#define ERRLOG(err)		cnf.errlog[cnf.ie % cnf.errsiz] = (err); cnf.ie++;
 
 /* search&replace */
 struct change_data_tag

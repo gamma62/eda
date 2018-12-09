@@ -64,6 +64,7 @@ filter_regex (int action, int fmask, const char *expr)
 	ret = regcomp (&reg, expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
 		tracemsg("%s", errbuff);
 	} else {
@@ -110,7 +111,8 @@ regexp_match (const char *buff, const char *expr, int nsub, char *match)
 	ret = regcomp (&reg, expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
-		REPL_LOG(LOG_CRIT, "internal pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
+		ERRLOG(0xE082);
+		tracemsg("internal pattern [%s]: regcomp failed: %s", expr_new, errbuff);
 		ret = -1;
 	} else {
 		ret = regexec(&reg, buff, 10, pmatch, 0);
@@ -159,6 +161,7 @@ internal_search (const char *pattern)
 	ret = regcomp (&reg, pattern, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", pattern, ret, errbuff);
 		tracemsg("%s", errbuff);
 		return (1);
@@ -253,7 +256,7 @@ search_goto_pattern (int ri, const char *pattern, int *new_lineno)
 	regexp_shorthands (expr_tmp, expr_new, sizeof(expr_new));
 	ret = regcomp (&reg, expr_new, REG_NOSUB | REG_NEWLINE);
 	if (ret) {
-		/* search regexp by ctags */
+		/* external - search regexp by ctags */
 		REPL_LOG(LOG_ERR, "(ctags) regcomp failed [%s]: %d", expr_new, ret);
 		lx = NULL;
 	} else {
@@ -303,6 +306,18 @@ color_tag (const char *expr)
 		next_lp (cnf.ring_curr, &lx, NULL);
 		while (TEXT_LINE(lx)) {
 			lx->lflag &= ~fmask;	/* reset-off */
+			next_lp (cnf.ring_curr, &lx, NULL);
+		}
+		return (ret);
+	}
+	/* pattern // would be cut to empty string and regcomp failure: empty (sub)expression, correct
+	 * tag // should behave as tag /.?/ ... add a shorthand for convenience
+	 */
+	else if (!strncmp(expr, "//", 2)) {
+		lx = CURR_FILE.top;
+		next_lp (cnf.ring_curr, &lx, NULL);
+		while (TEXT_LINE(lx)) {
+			lx->lflag |= fmask;	/* set on */
 			next_lp (cnf.ring_curr, &lx, NULL);
 		}
 		return (ret);
@@ -362,6 +377,7 @@ color_tag (const char *expr)
 	ret = regcomp (&reg, expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
 		tracemsg("%s", errbuff);
 	} else {
@@ -430,6 +446,7 @@ highlight_word (const char *expr)
 	ret = regcomp (&(CURR_FILE.highlight_reg), expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &(CURR_FILE.highlight_reg), errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
 		tracemsg("%s", errbuff);
 		/* FSTAT_TAG5 not set */
@@ -589,6 +606,7 @@ regexp_shorthands (const char *pattern, char *ext_pattern, int length)
 int
 tag_focusline (void)
 {
+	cnf.gstat |= GSTAT_UPDFOCUS;
 	if (TEXT_LINE(CURR_LINE)) {
 		/* toggle */
 		if (CURR_LINE->lflag & LSTAT_TAG1)
@@ -637,6 +655,7 @@ search (const char *expr)
 	ret = regcomp (&(CURR_FILE.search_reg), expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &(CURR_FILE.search_reg), errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
 		tracemsg("%s", errbuff);
 		/* FSTAT_TAG2 not set, do not regfree(&(CURR_FILE.search_reg)); */
@@ -751,9 +770,11 @@ repeat_search (void)
 	}
 
 	/* start search */
+	CURR_FILE.fflag &= ~FSTAT_CMD; /* force text area */
 	if (CURR_LINE->lflag & LSTAT_TOP) {
-		CURR_LINE = CURR_LINE->next;
-		CURR_FILE.lineno++;
+		go_home();
+		go_down(); /* sets GSTAT_UPDFOCUS */
+		cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS); /* update full page */
 	}
 
 	/* initial shift in the line */
@@ -865,6 +886,7 @@ change (const char *argz)
 	ret = regcomp (&(CURR_FILE.search_reg), expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &(CURR_FILE.search_reg), errbuff, ERRBUFF_SIZE);
+		/* external */
 		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
 		tracemsg("%s", errbuff);
 		/* FSTAT_TAG{2|3} not set, do not regfree(&(CURR_FILE.search_reg)); */
@@ -932,6 +954,7 @@ repeat_change (int ch)
 	if (ch == 0xff) {
 		s1 = (CHDATA *) MALLOC(sizeof(CHDATA));
 		if (s1 == NULL) {
+			ERRLOG(0xE02E);
 			chp = NULL;
 			ret = 4 | 8;
 		} else {
@@ -951,6 +974,7 @@ repeat_change (int ch)
 			als = REP_ASIZE(0);
 			s2 = (char *) MALLOC(als);
 			if (s2 == NULL) {
+				ERRLOG(0xE02D);
 				FREE(chp);
 				chp = NULL;
 				ret = 4 | 8;
@@ -965,8 +989,8 @@ repeat_change (int ch)
 
 	} else if (ch=='y' || ch=='Y') {
 		if (chp->rflag)
-			accum_replacement (chp);
-		if (do_replacement (chp)) {
+			ret = accum_replacement (chp);
+		if (ret == -1 || do_replacement (chp)) {
 			ret = 4;	/* malloc error */
 		} else {
 			chp->change_count++;
@@ -987,8 +1011,8 @@ repeat_change (int ch)
 	} else if (ch=='r' || ch=='R') {
 		while ((ret == 0) && TEXT_LINE(chp->lx)) {
 			if (chp->rflag)
-				accum_replacement (chp);
-			if (do_replacement (chp)) {
+				ret = accum_replacement (chp);
+			if (ret == -1 || do_replacement (chp)) {
 				ret = 4;	/* malloc error */
 			} else {
 				chp->change_count++;
@@ -999,7 +1023,6 @@ repeat_change (int ch)
 		}
 		/* original lncol should be updated */
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-		ret |= 1;
 
 	} else if (ch=='q' || ch=='Q' || ch==KEY_ESC) {
 		ret = 3;
@@ -1017,6 +1040,7 @@ repeat_change (int ch)
 				tracemsg ("change: no match");
 			} else {
 				tracemsg ("change count %d", chp->change_count);
+				ret = 0; // finished, no problem
 			}
 			REPL_LOG(LOG_DEBUG, "(end) ch 0x%x: line %d change_count %d", ch, chp->lineno, chp->change_count);
 		}
@@ -1167,6 +1191,7 @@ accum_replacement (CHDATA *chp)
 			als = REP_ASIZE(idx+sublen);
 			s = (char *) REALLOC((void *)chp->rep_buff, als);
 			if (s == NULL) {
+				ERRLOG(0xE004);
 				return (-1);
 			}
 			chp->rep_buff = s;

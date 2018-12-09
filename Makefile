@@ -21,28 +21,18 @@
 include conf.make
 
 all:
+	cd doc && $(MAKE)
 	cd src && $(MAKE)
 
 install:
+	cd doc && $(MAKE) install
 	cd src && $(MAKE) install
-	install -d -m 755 -p  $(DESTDIR)$(mandir)/man1/
-	install -m 644 -p doc/eda.1  $(DESTDIR)$(mandir)/man1/
-	install -d -m 755 -p  $(DESTDIR)$(mandir)/man5/
-	install -m 644 -p doc/edamacro.5  $(DESTDIR)$(mandir)/man5/
-	install -d -m 755 -p  $(DESTDIR)$(datadir)/eda
-	install -m 644 -p doc/cmds.txt doc/eda-icon.png doc/eda.desktop doc/eda.menu  $(DESTDIR)$(datadir)/eda/
-	install -d -m 755 -p  $(DESTDIR)$(docdir)/eda
-	install -m 644 -p Copyright LICENSE ChangeLog NEWS README  $(DESTDIR)$(docdir)/eda/
 
 uninstall:
+	cd doc && $(MAKE) uninstall
 	cd src && $(MAKE) uninstall
-	if test -f $(DESTDIR)$(mandir)/man1/eda.1 ; then rm -f $(DESTDIR)$(mandir)/man1/eda.1 ; fi
-	if test -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; then rm -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; fi
-	-rm -f $(DESTDIR)$(datadir)/eda/*
-	-rmdir $(DESTDIR)$(datadir)/eda || true
-	-rm -f $(DESTDIR)$(docdir)/eda/*
-	-rmdir $(DESTDIR)$(docdir)/eda || true
 
 clean:
+	cd doc && $(MAKE) clean
 	cd src && $(MAKE) clean
 

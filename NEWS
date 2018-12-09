@@ -1,4 +1,16 @@
 
+* 2018, july-december, rc1 for 1.2.23
+
+    - typing tutor, simple and handy, with stats and scores
+    - new color palette handling, config in edarc, 'eda -c' for testing
+    - tabheader under status line with additional Meta-left/right (F8/Shift-F8 remains)
+    - Alt-y and Alt-r for shorthands and switches for ls and ring lists like Alt-w for find/make/sh buffers
+    - lsdir now with shell glob also, added set sort option (name/mtime/size)
+    - internal 'purify' engine, for tomatch, forcematch, filter_func, block_name and folding of blocks
+    - save/restore project: added focus setting
+    - macros for PRIMARY and CLIPBOARD i/o (using xsel)
+    - with other improvements and some bugfixes, see ChangeLog
+
 * 2018, jan-feb, rc4 for 0.9.97
 
     - parser, scroll, macros, manuals and cmds.txt, improvements and fixes

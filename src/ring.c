@@ -34,7 +34,8 @@ extern CONFIG cnf;
 /* local proto */
 
 /*
-** list_buffers - open a special buffer with a list of open files and bookmarks
+** list_buffers - open a special buffer with a list of open files and bookmarks,
+**	switch to the open buffer or (re)generate it
 */
 int
 list_buffers (void)
@@ -47,13 +48,17 @@ list_buffers (void)
 
 	/* open or reopen? */
 	ret = scratch_buffer("*ring*");
-	if (ret==0 && CURR_FILE.num_lines > 0) {
-		ret = clean_buffer();
+	if (ret==0) {
+		/* switch to */
+		if (origin != cnf.ring_curr && CURR_FILE.num_lines > 0)
+			return (0);
+		/* generate or regenerate */
+		if (CURR_FILE.num_lines > 0)
+			ret = clean_buffer();
 	}
 	if (ret) {
 		return (ret);
 	}
-	/* cnf.ring_curr is set now -- CURR_FILE and CURR_LINE alive */
 	CURR_FILE.num_lines = 0;
 	CURR_FILE.fflag |= (FSTAT_SPECW);
 	if (origin != cnf.ring_curr) {
@@ -73,8 +78,6 @@ list_buffers (void)
 		/* base data
 		*/
 		if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-			HIST_LOG(LOG_NOTICE, "r=%d [%s] origin:%d",
-				ri, cnf.fdata[ri].fname, cnf.fdata[ri].origin);
 			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s%s\n",
 				ri, cnf.fdata[ri].fname, cnf.fdata[ri].num_lines,
 				(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
@@ -83,8 +86,6 @@ list_buffers (void)
 				(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "int " : "",
 				(cnf.fdata[ri].pipe_output != 0) ? "pipe " : "");
 		} else {
-			HIST_LOG(LOG_NOTICE, "r=%d [%s] [%s]",
-				ri, cnf.fdata[ri].dirname, cnf.fdata[ri].basename);
 			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s\n",
 				ri, cnf.fdata[ri].fname, cnf.fdata[ri].num_lines,
 				(cnf.fdata[ri].fflag & FSTAT_RO) ? "R/O " : "R/W ",
@@ -156,8 +157,8 @@ set_bookmark (int bm_i)
 
 		/* allowed to overwrite other setting of the same bm_i (clear and set)
 		*/
-		if (cnf.bookmark[bm_i].ring == cnf.ring_curr)
-			clr_bookmark (bm_i);
+		clr_bookmark (bm_i);
+
 		cnf.bookmark[bm_i].ring = cnf.ring_curr;
 		CURR_LINE->lflag |= (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
 		HIST_LOG(LOG_NOTICE, "bookmark %d, bit set, ring %d (original lineno %d))",
@@ -168,22 +169,26 @@ set_bookmark (int bm_i)
 		bn = block_name(cnf.ring_curr);
 		if (bn != NULL && bn[0] != '\0') {
 			blen = strlen(bn);
-			csere(&sample, &slen, 0, slen, bn, blen);
-			csere(&sample, &slen, slen, 0, ": ", 2);
+			if (csere (&sample, &slen, 0, slen, bn, blen) || csere (&sample, &slen, slen, 0, ": ", 2)) {
+				FREE(sample); sample = NULL;
+			}
 		}
 		FREE(bn); bn = NULL;
-		csere(&sample, &slen, slen, 0, CURR_LINE->buff, CURR_LINE->llen);
-		if (sample) {
+
+		if (sample && !csere (&sample, &slen, slen, 0, CURR_LINE->buff, CURR_LINE->llen)) {
 			if (slen>0 && sample[slen-1]=='\n') {
 				sample[--slen] = '\0';	/* remove trailing newline */
 			}
 			strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN|STRIP_BLANKS_SQUEEZE, sample, &slen);
 			strncpy(cnf.bookmark[bm_i].sample, sample, sizeof(cnf.bookmark[bm_i].sample));
 			cnf.bookmark[bm_i].sample[sizeof(cnf.bookmark[bm_i].sample)-1] = '\0';
-			FREE(sample); sample = NULL;
-		}
 
-		tracemsg("bookmark %d set", bm_i);
+			tracemsg("bookmark %d set", bm_i);
+		} else {
+			tracemsg("bookmark set failed");
+		}
+		FREE(sample); sample = NULL;
+
 	}
 
 	return;
@@ -373,6 +378,7 @@ mhist_push (int ring_i, int lineno)
 	MHIST *mhp = NULL;
 
 	if ((mhp = (MHIST *) MALLOC(sizeof(MHIST))) == NULL) {
+		ERRLOG(0xE022);
 		return (1);
 	}
 

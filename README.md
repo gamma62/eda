@@ -1,16 +1,14 @@
 eda
 ===
 
-text editor and analyzer for programmers
+text editor and source code analyzer
 
  The eda program is a text editor, built to work on source code files.
- It is for editing all kinds of plain text but it was designed  for
- program development and code analysis.
- Eda has a simple and intuitive user interface, provides base editor
- features and heavy-weight tools in the background to help everyday work
- in program development.
+ It was designed for program development but can edit all kinds of text files.
+ Eda has a simple and intuitive user interface, provides the base editor features
+ and many tools in the background to help development efforts.
 
-Mostly for C, shell scripts, Perl or any similar structured language, C++, XML, Python.
+Mostly for C, shell scripts, Perl but also for Python, C++, XML/HTML, Java, Go, etc.
 
  * line based selection handling, cp, mv, rm and over
  * text line filter (7 levels) by regex patterns and manually
@@ -25,5 +23,5 @@ Mostly for C, shell scripts, Perl or any similar structured language, C++, XML, 
  * macro interface (with record)
  * shell fork
 
-See man pages eda(1), edamcro(5) and the cmds.txt for details.
+See man pages eda(1), edamcro(5) and cmds.txt for details.
 

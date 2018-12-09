@@ -23,6 +23,7 @@
 #include <config.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <syslog.h>
 #include "curses_ext.h"
 #include "main.h"
@@ -84,17 +85,17 @@ int
 message (const char *str)
 {
 	int silent;
-	silent = (cnf.gstat | GSTAT_SILENT);
+	silent = (cnf.gstat & GSTAT_SILENCE);
 
 	if (str && strlen(str) > 0) {
-		/* macros should be silent, but this is intentional */
+		/* macros should be silent, but this call is intentional */
 		if (silent)
-			cnf.gstat &= ~GSTAT_SILENT;
+			cnf.gstat &= ~GSTAT_SILENCE;
 
 		tracemsg("%s", str);
 
 		if (silent)
-			cnf.gstat |= GSTAT_SILENT;
+			cnf.gstat |= GSTAT_SILENCE;
 	}
 
 	return 0;
@@ -126,8 +127,12 @@ clhistory_push (const char *buff, int len)
 {
 	CMDLINE *ptr=NULL;
 
+	if (len < 1) {
+		return 1;
+	}
 	ptr = (CMDLINE *) MALLOC(sizeof(CMDLINE));
-	if (ptr == NULL || len < 1) {
+	if (ptr == NULL) {
+		ERRLOG(0xE036);
 		return 1;
 	}
 
@@ -204,11 +209,6 @@ clhistory_cleanup (int keep)
 	CMDLINE *runner;
 	int item=0;
 
-	if (keep > 0) {
-		HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d and should keep %d", cnf.clhist_size, keep);
-	} else {
-		HIST_LOG(LOG_DEBUG, "start with cnf.clhist_size %d to cleanup all", cnf.clhist_size);
-	}
 	reset_clhistory();
 
 	runner = cnf.clhistory;
@@ -226,12 +226,8 @@ clhistory_cleanup (int keep)
 	}
 
 	if (runner != NULL) {
-		HIST_LOG(LOG_DEBUG, "done, (kept %d, prev NULL %d, next NULL %d), cnf.clhist_size %d",
-			item, (runner->prev == NULL), (runner->next == NULL), cnf.clhist_size);
 		return (0);
 	} else {
-		HIST_LOG(LOG_ERR, "failed, (kept %d but runner is NULL), cnf.clhist_size %d",
-			item, cnf.clhist_size);
 		return (1);
 	}
 }
@@ -297,7 +293,7 @@ clhistory_prev (void)
 		/* copy to "workbuffer"
 		*/
 		if (cnf.cmdline_len > 0) {
-			cnf.clhistory->len = (cnf.cmdline_len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.cmdline_len;
+			cnf.clhistory->len = MIN(cnf.cmdline_len, CMDLINESIZE-1);
 			strncpy(cnf.clhistory->buff, cnf.cmdline_buff, (size_t)cnf.clhistory->len);
 			cnf.clhistory->buff[cnf.clhistory->len] = '\0';
 		} else {
@@ -332,7 +328,7 @@ clhistory_prev (void)
 	HIST_LOG(LOG_DEBUG, "---clhistory after skip to prev [%s]", cnf.clhistory->buff);
 
 	if (cnf.clhistory->len > 0) {
-		cnf.cmdline_len = (cnf.clhistory->len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.clhistory->len;
+		cnf.cmdline_len = MIN(cnf.clhistory->len, CMDLINESIZE-1);
 		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, (size_t)cnf.cmdline_len);
 		cnf.cmdline_buff[cnf.cmdline_len] = '\0';
 	} else {
@@ -400,7 +396,7 @@ clhistory_next (void)
 	HIST_LOG(LOG_DEBUG, "+++clhistory after skip to next [%s]", cnf.clhistory->buff);
 
 	if (cnf.clhistory->len > 0) {
-		cnf.cmdline_len = (cnf.clhistory->len > CMDLINESIZE-1) ? CMDLINESIZE-1 : cnf.clhistory->len;
+		cnf.cmdline_len = MIN(cnf.clhistory->len, CMDLINESIZE-1);
 		strncpy(cnf.cmdline_buff, cnf.clhistory->buff, (size_t)cnf.cmdline_len);
 		cnf.cmdline_buff[cnf.cmdline_len] = '\0';
 	} else {
@@ -556,6 +552,10 @@ ed_cmdline (int ch)
 			    (strncmp(cnf.cmdline_buff, "ch ", 3) == 0))
 			{
 				ix = 0;
+			} else if (cnf.cmdline_buff[0] == '|' && cnf.cmdline_buff[1] == '|') {
+				ix = 2;
+			} else if (cnf.cmdline_buff[0] == '|') {
+				ix = 1;
 			}
 
 			if ((ix > 0) &&
@@ -573,13 +573,12 @@ ed_cmdline (int ch)
 				/* characters after cursor will be lost */
 				choices = NULL;
 				if (CMDLINESIZE > ix) {
-					ii = get_fname(cnf.cmdline_buff+ix, (unsigned)(CMDLINESIZE-ix), &choices);
-					if (ii >= 1) {
+					if (!glob_tab_expansion(cnf.cmdline_buff+ix, (unsigned)(CMDLINESIZE-ix), &choices)) {
 						cnf.cmdline_len = strlen(cnf.cmdline_buff);
 						cnf.clpos = cnf.cmdline_len;	/* after last */
 						if (cnf.clpos > cnf.maxx - 1)
 							cnf.cloff = cnf.clpos - cnf.maxx + 10;
-						if (ii > 1 && choices != NULL) {
+						if (choices != NULL) {
 							tracemsg("%s", choices);	/* limited lines */
 						}
 					}
@@ -774,6 +773,120 @@ ed_text (int ch)
 } /* ed_text() */
 
 /*
+** typing_tutor - start typing tutor on current file,
+**	the file shall be prepared, no tabs except indentation,
+**	line ends without space and text reformatted between margins
+*/
+int
+typing_tutor(void)
+{
+	if ((CURR_FILE.fflag & FSTAT_SPECW)) {
+		tracemsg("cannot start typing tutor -- special buffer");
+		return (1);
+	}
+
+	CURR_FILE.fflag &= ~FSTAT_CMD; /* force text area */
+	if (CURR_LINE->lflag & LSTAT_TOP) {
+		go_home();
+		go_down();
+	}
+	if (!TEXT_LINE(CURR_LINE)) {
+		tracemsg("cannot start typing tutor -- no text lines");
+		return (1);
+	}
+
+	center_focusline();
+	cnf.tutor_pass = cnf.tutor_fail = 0;
+	cnf.tutor_start = time(NULL);
+	cnf.gstat |= GSTAT_TYPING;
+	tracemsg("let's start");
+
+	return (0);
+}
+
+/*
+* typing_tutor_handler - typing tutor input controller
+*/
+int
+typing_tutor_handler(int ch)
+{
+	int ret=16;
+	int all, etime;
+	float r, f, g;
+	char score[100];
+	int linecnt=0, wordcnt=0, charcnt=0;
+	int fch = CURR_LINE->buff[CURR_FILE.lncol];
+
+	if (KEY_ESC == ch || KEY_F4 == ch || KEY_F8 == ch) {
+		/* leave */
+		cnf.gstat &= ~GSTAT_TYPING;
+	} else if (CURR_FILE.lncol >= CURR_LINE->llen-1) {
+		if (KEY_RETURN != ch) {
+			beep();
+			cnf.tutor_fail++;
+		} else {
+			cnf.tutor_pass++;
+		}
+		go_right();
+	} else if (fch >= 0x20 && fch < 0x7f) {
+		if (ch != fch) {
+			beep();
+			cnf.tutor_fail++;
+			//tracemsg(" [%c] is wrong, type [%c]", ch, fch);
+		} else {
+			cnf.tutor_pass++;
+			go_right();
+		}
+		cnf.gstat |= GSTAT_UPDFOCUS;
+	} else {
+		// fch is non-ascii -- do not count, just move
+		go_right();
+		cnf.gstat |= GSTAT_UPDFOCUS;
+	}
+
+	if (CURR_FILE.lncol > CURR_LINE->llen-1) {
+		go_home();
+		go_down();
+		go_smarthome();
+		center_focusline();
+		cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
+	}
+
+	if (!TEXT_LINE(CURR_LINE))
+		cnf.gstat &= ~GSTAT_TYPING;
+
+	if (!(cnf.gstat & GSTAT_TYPING)) {
+		if (KEY_F4 == ch) {
+			quit_file ();
+		} else if (KEY_F8 == ch) {
+			next_file ();
+		} else if (KEY_ESC == ch) {
+			all = cnf.tutor_pass + cnf.tutor_fail;
+			r = (all > 0) ? 100.0 * cnf.tutor_pass / all : 0.0;
+			tracemsg("passed %d of %d (rate %.2f)", cnf.tutor_pass, all, r);
+			tracemsg("typo %d", cnf.tutor_fail);
+		} else {
+			tracemsg("--- stats --------");
+			all = cnf.tutor_pass + cnf.tutor_fail;
+			r = (all > 0) ? 100.0 * cnf.tutor_pass / all : 0.0;
+			tracemsg("%d chars, rate %.2f (typo %d)", cnf.tutor_pass, r, cnf.tutor_fail);
+			etime = time(NULL) - cnf.tutor_start;
+			f = (etime > 0) ? 1.0 * all / etime : 0.0;
+			wc(&linecnt, &wordcnt, &charcnt);
+			g = (etime > 0) ? 60.0 * wordcnt / etime : 0.0;
+			tracemsg("elapsed %d s, speed %.2f char/s, %.2f word/min", etime, f, g);
+			/**/
+			snprintf(score, sizeof(score), "%d chars, rate %.2f, speed %.2f c/s %.2f w/m\n",
+				cnf.tutor_pass, r, f, g);
+			put_string_to_file("tutor.log", score);
+		}
+		cnf.gstat |= GSTAT_REDRAW; //for upd_statusline
+	}
+
+	return (ret);
+}
+
+/*
 * movements in the text area; interface functions, handle current file's lncol/curpos/lnoff,
 * and engine functions, work with parameters
 */
@@ -896,6 +1009,7 @@ select_word (const LINE *lp, int lncol)
 
 	symbol = (char *) MALLOC(TAGSTR_SIZE);
 	if (symbol == NULL) {
+		ERRLOG(0xE035);
 		return symbol;
 	}
 	symbol[0]='\0';
@@ -1002,6 +1116,44 @@ next_nonblank (void)
 		cnf.gstat |= GSTAT_UPDNONE;
 
 	return(0);
+}
+
+/* wc - count chars, words, lines like wc(1) does it in the base system
+* do this on the lines of current buffer
+*/
+void
+wc (int *linecnt, int *wordcnt, int *charcnt)
+{
+	int len, inword;
+	char *p;
+	LINE *lp;
+
+	lp = CURR_FILE.top;
+	next_lp (cnf.ring_curr, &lp, NULL);
+
+	while (TEXT_LINE(lp)) {
+		*linecnt += 1;
+		*charcnt += lp->llen;
+
+		len = lp->llen;
+		p = lp->buff;
+
+		inword = 0;
+		while (len > 0) {
+			if (IS_BLANK(*p)) {
+				inword = 0;
+			} else if (!inword) {
+				inword = 1;
+				*wordcnt += 1;
+			}
+			len--;
+			p++;
+		}
+
+		next_lp (cnf.ring_curr, &lp, NULL);
+	}
+
+	return;
 }
 
 /* set new ring/lp/lineno position and unhide that line (internal function without any checks here)
@@ -1119,6 +1271,7 @@ go_up (void)
 	LINE *lp=CURR_LINE;
 	int fcnt=0;
 
+	cnf.gstat |= GSTAT_UPDFOCUS;
 	if (CURR_FILE.fflag & FSTAT_CMD) {
 		CURR_FILE.fflag &= ~FSTAT_CMD;
 	} else {
@@ -1128,14 +1281,14 @@ go_up (void)
 			CURR_FILE.lineno -= fcnt;
 			if (CURR_FILE.focus > 0) {
 				if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1)) {
-					if (CURR_FILE.focus > 1)
-						cnf.gstat |= GSTAT_UPDFOCUS;
-					/* else: scroll window */
+					if (CURR_FILE.focus == 1)
+						cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
 					update_focus(DECR_FOCUS_SHADOW, cnf.ring_curr);
 				} else {
-					cnf.gstat |= GSTAT_UPDFOCUS;
 					update_focus(DECR_FOCUS, cnf.ring_curr);
 				}
+			} else {
+				cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
 			}
 		}
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
@@ -1172,6 +1325,7 @@ go_down (void)
 	LINE *lp=CURR_LINE;
 	int fcnt=0;
 
+	cnf.gstat |= GSTAT_UPDFOCUS;
 	if (CURR_FILE.fflag & FSTAT_CMD) {
 		CURR_FILE.fflag &= ~FSTAT_CMD;
 	} else {
@@ -1181,14 +1335,14 @@ go_down (void)
 			CURR_FILE.lineno += fcnt;
 			if (CURR_FILE.focus < TEXTROWS-1) {
 				if ((cnf.gstat & GSTAT_SHADOW) && (fcnt > 1)) {
-					if (CURR_FILE.focus < TEXTROWS-2)
-						cnf.gstat |= GSTAT_UPDFOCUS;
-					/* else: scroll window */
+					if (CURR_FILE.focus == TEXTROWS-2)
+						cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
 					update_focus(INCR_FOCUS_SHADOW, cnf.ring_curr);
 				} else {
-					cnf.gstat |= GSTAT_UPDFOCUS;
 					update_focus(INCR_FOCUS, cnf.ring_curr);
 				}
+			} else {
+				cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
 			}
 		}
 		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
@@ -1479,6 +1633,7 @@ type_cmd (const char *str)
 		if (cnf.clpos - cnf.cloff > cnf.maxx-1)
 			cnf.cloff = cnf.clpos - cnf.maxx + 1;
 	}
+	cnf.gstat |= GSTAT_UPDNONE;
 
 	return (0);
 }
@@ -1515,10 +1670,7 @@ cp_text2cmd (void)
 
 /* csere - replace region in string with replacement,
 * reallocate space in blocks, als>=32 even if bufsize is zero,
-* this is a low-level function, does not LINE structure, for that
-* call milbuff() instead
 * return error if realloc failed
-*
 */
 int
 csere (char **buffer, int *bufsize, int from, int length, const char *replacement, int rl)
@@ -1545,6 +1697,7 @@ csere (char **buffer, int *bufsize, int from, int length, const char *replacemen
 		allocated = ALLOCSIZE(rl);
 		s = (char *) REALLOC((void *)buf, allocated);
 		if (s == NULL) {
+			ERRLOG(0xE00B);
 			return (-1);
 		}
 		buf = s;
@@ -1560,6 +1713,7 @@ csere (char **buffer, int *bufsize, int from, int length, const char *replacemen
 		if (als > allocated) {
 			s = (char *) REALLOC((void *)buf, als);
 			if (s == NULL) {
+				ERRLOG(0xE00A);
 				return (-1);
 			}
 			buf = s;
@@ -1592,10 +1746,11 @@ csere (char **buffer, int *bufsize, int from, int length, const char *replacemen
 		als = ALLOCSIZE(n);
 		if (als < allocated) {
 			s = (char *) REALLOC((void *)buf, als);
-			if (s != NULL) {
+			if (s == NULL) {
+				ERRLOG(0xE009); /* no pb */
+			} else {
 				buf = s;
 			}
-			/* no problem */
 		}
 		size = n;
 	}
@@ -1631,10 +1786,10 @@ csere0 (char **buffer, int from, int length, const char *replacement, int rl)
 	if (*buffer != NULL)
 		bufsize = strlen(*buffer);
 	if (from >= 0) {
-		ret = csere(buffer, &bufsize, from, length, replacement, rl);
+		ret = csere (buffer, &bufsize, from, length, replacement, rl);
 	} else {
 		/* append */
-		ret = csere(buffer, &bufsize, bufsize, length, replacement, rl);
+		ret = csere (buffer, &bufsize, bufsize, length, replacement, rl);
 	}
 
 	return (ret);
@@ -1666,6 +1821,7 @@ milbuff (LINE *lp, int from, int length, const char *replacement, int rl)
 		if (als > ALLOCSIZE(lp->llen)) {
 			s = (char *) REALLOC((void *)lp->buff, als);
 			if (s == NULL) {
+				ERRLOG(0xE008);
 				return (-1); /* lost of resource */
 			}
 			lp->buff = s;
@@ -2195,7 +2351,6 @@ ed_common (int ch)
 
 	switch (ch)
 	{
-	case KEY_F12:	/* switch between command and text area */
 	case KEY_ESC:	/* switch between command and text area */
 		switch_text_cmd();
 		break;
@@ -2204,6 +2359,8 @@ ed_common (int ch)
 		break;
 	case KEY_C_DOWN:	/* cmdline, get next from the history */
 		clhistory_next();
+		break;
+	case KEY_NONE:		/* ignore */
 		break;
 
 	default:

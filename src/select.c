@@ -33,6 +33,7 @@
 extern CONFIG cnf;
 
 /* local proto */
+static int over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end);
 static int shift_engine (int type);
 static int lcut_block_engine (int curpos, int left);
 
@@ -684,8 +685,7 @@ wr_select (int fd, int with_shadow)
 				length = strlen(mid_buff);
 				out = write (fd, mid_buff, (size_t)length);
 				if (out != length) {
-					SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
-						fd, out, length, strerror(errno));
+					ERRLOG(0xE0A2);
 					break;
 				}
 				count++;
@@ -693,8 +693,7 @@ wr_select (int fd, int with_shadow)
 			/* line buffer, important */
 			out = write (fd, lp_src->buff, (size_t)lp_src->llen);
 			if (out != lp_src->llen) {
-				SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
-					fd, out, lp_src->llen, strerror(errno));
+				ERRLOG(0xE0A1);
 				break;
 			}
 			count++;
@@ -714,7 +713,7 @@ wr_select (int fd, int with_shadow)
  *	the more in 'selection', delete rest
  *	relocate 'selection' curr_line upwards if it would be removed otherwise
 */
-int
+static int
 over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 {
 	int target_ri;
@@ -887,7 +886,7 @@ over_select (void)
 	}
 
 	/* drop source buffer */
-	if (cnf.gstat & GSTAT_CLOSE_OVER) {
+	if (cnf.gstat & GSTAT_CLOS_OVER) {
 		cnf.ring_curr = src_ri;
 		drop_file();
 	}
@@ -956,8 +955,8 @@ static int
 shift_engine (int type)
 {
 	LINE *lp=NULL;
-	int lineno=0, i=0;
-	char *first_chars=NULL;
+	int lineno=0, err=0;
+	char first_chars[64]; /* is tabsize=62 a limitation? */
 	int prefix=0;
 	long mod=0;
 
@@ -977,11 +976,16 @@ shift_engine (int type)
 	}
 
 	if (type == INDENT_RIGHT) {
-		for (i=0; i<cnf.indentsize; i++) {
-			csere (&first_chars, &prefix, 0, 0, ((cnf.gstat & GSTAT_INDENT) ? "\t" : " "), 1);
-		}
+		memset(first_chars, '\0', sizeof(first_chars));
+		prefix = (cnf.indentsize <= 62) ? cnf.indentsize : 62;
+		if (cnf.gstat & GSTAT_INDENT)
+			memset(first_chars, '\t', (size_t)prefix);
+		else
+			memset(first_chars, ' ', (size_t)prefix);
 	} else if (type == SHIFT_RIGHT) {
-		csere (&first_chars, &prefix, 0, 0, " ", 1);
+		prefix = 1;
+		first_chars[0] = ' ';
+		first_chars[1] = '\0';
 	}
 
 	/* do not change empty lines
@@ -997,7 +1001,8 @@ shift_engine (int type)
 				}
 				break;
 			case INDENT_RIGHT:
-				if (milbuff (lp, 0, 0, first_chars, prefix)) {
+				if (milbuff (lp, 0, 0, first_chars, (int)prefix)) {
+					err = 1;
 					break;
 				}
 				lp->lflag |= LSTAT_CHANGE;
@@ -1011,6 +1016,7 @@ shift_engine (int type)
 			case SHIFT_RIGHT:
 				first_chars[0] = lp->buff[0];
 				if (milbuff (lp, 0, 0, first_chars, 1)) {
+					err = 1;
 					break;
 				}
 				mod++;
@@ -1023,12 +1029,9 @@ shift_engine (int type)
 		next_lp (cnf.select_ri, &lp, NULL);
 	}
 
-	if (first_chars != NULL) {
-		FREE(first_chars);
-		first_chars = NULL;
-	}
-
-	if (mod==0) {
+	if (err) {
+		tracemsg ("failed");
+	} else if (mod==0) {
 		tracemsg ("nothing shifted");
 	} else {
 		if (SELECT_FI.curr_line->lflag & LSTAT_SELECT) {
@@ -1348,7 +1351,7 @@ join_block (const char *separator)
 
 	memset (errbuff, 0, ERRBUFF_SIZE);
 	if (separator[0] == '\0') {
-		strncpy (expr_tmp, "^$", 20);
+		strncpy (expr_tmp, "^$", 3);
 	} else if (separator[0] == '^') {
 		strncpy (expr_tmp, separator, sizeof(expr_tmp));
 		expr_tmp[sizeof(expr_tmp)-1] = '\0';
@@ -1363,8 +1366,8 @@ join_block (const char *separator)
 	ret = regcomp (&reg, expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
-		SELE_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		ERRLOG(0xE081);
+		tracemsg("internal pattern [%s]: regcomp failed: %s", expr_new, errbuff);
 		return (1);
 	}
 
@@ -1379,7 +1382,7 @@ join_block (const char *separator)
 	}
 	if (!TEXT_LINE(lp_target) || !(lp_target->lflag & LSTAT_SELECT)) {
 		SELE_LOG(LOG_DEBUG, "selection not visible");
-		tracemsg ("selection not visible");
+		tracemsg ("no selection lines");
 		return (0);
 	}
 	SELE_LOG(LOG_DEBUG, "target lineno %d", lineno);
@@ -1408,7 +1411,7 @@ join_block (const char *separator)
 
 	if (!(TEXT_LINE(lx)) || !(lx->lflag & LSTAT_SELECT)) {
 		SELE_LOG(LOG_DEBUG, "separator line not found");
-		tracemsg ("separator line not found");
+		tracemsg ("separator line not found (pattern [%s])", expr_new);
 		return (0);
 	}
 	SELE_LOG(LOG_DEBUG, "separator reached, lineno %d (old watch %d) padsize %d", lineno, cnf.select_w, padsize);

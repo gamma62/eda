@@ -34,7 +34,6 @@ extern CONFIG cnf;
 /* local proto */
 static TAG *tag_add (TAG *tp);
 static TAG *tag_rm (TAG *tp);
-static void get_tags_path_back (void);
 static int tag_do (const char *arg_symbol, int flag);
 static int tag_items (const char *symbol, TAGTYPE type, int flag);
 static int tag_jump2_pattern (const char *fname, const char *pattern, int lineno);
@@ -57,6 +56,7 @@ tag_add (TAG *tp)
 	TAG *tx = NULL;
 
 	if ((tx = (TAG *) MALLOC(sizeof(TAG))) == NULL) {
+		ERRLOG(0xE028);
 		return NULL;
 	}
 	if (tp == NULL) {
@@ -99,84 +99,17 @@ tag_rm (TAG *tp)
 } /* tag_rm */
 
 /*
-* save the relative path of current dir to "tags" file in cnf.tag_j2path[] and cnf.tag_j2len,
-* based on cnf.tags_file and cnf._pwd --experimental--
-*/
-static void
-get_tags_path_back (void)
-{
-	int i=0, j=0, k=0;
-
-	cnf.tag_j2path[0] = '\0';
-	cnf.tag_j2len = 0;
-
-	if (cnf.tags_file[0] == '/') {
-		strncpy(cnf.tag_j2path, cnf._pwd, sizeof(cnf.tag_j2path));
-		cnf.tag_j2path[sizeof(cnf.tag_j2path)-1] = '\0';
-
-		for (; cnf.tags_file[i] != '\0'; i++) {
-			if (cnf.tags_file[i] == '/') {
-				j = i;
-			}
-		}
-		for (i=0; i < j && cnf.tag_j2path[i] != '\0'; i++) {
-			if (cnf.tags_file[i] != cnf.tag_j2path[i]) {
-				break;
-			}
-		}
-
-		if (i == j) {
-			/* count directory levels from tags file to curdir */
-			k = 0;
-			for (i=j+1; cnf.tag_j2path[i] != '\0'; i++) {
-				if (cnf.tag_j2path[i] == '/') {
-					k++;
-				}
-			}
-			if (i > j+1 && cnf.tag_j2path[i-1] != '/') {
-				k++;	/* the last dir */
-			}
-			if (k > 0 && 3*k < SHORTNAME-1) {
-				cnf.tag_j2path[0] = '\0';
-				cnf.tag_j2len = 0;
-				while (--k >= 0) {
-					strncat(cnf.tag_j2path, "../", 4);
-					cnf.tag_j2len += 3;
-				}
-			}
-		}
-	} else {
-		j = -1;
-		i = k = 0;
-		if (cnf.tags_file[0] == '.' && cnf.tags_file[1] == '/') {
-			i = 2;
-		}
-		while (cnf.tags_file[i] != '\0' && k < (int)sizeof(cnf.tag_j2path)-1) {
-			cnf.tag_j2path[k] = cnf.tags_file[i];
-			if (cnf.tags_file[i] == '/') {
-				j = k;
-			}
-			i++;
-			k++;
-		}
-		cnf.tag_j2path[j+1] = '\0';
-		cnf.tag_j2len = j+1;
-	}
-
-	TAGS_LOG(LOG_DEBUG, "tags file [%s] -> path to tags [%s] %d", cnf.tags_file, cnf.tag_j2path, cnf.tag_j2len);
-}
-
-/*
 *
 * global functions
 *
 */
 
 /*
-** tag_load_file - load or reload the content of "tags" file as configured in "tags_file" resource
+** tag_load_file - load or reload the content of "tags" file,
+**	the path configured in "tags_file" resource or given as argument
 */
 int
-tag_load_file (void)
+tag_load_file (const char *tags_file)
 {
 	FILE *fp;
 	TAG *tp = NULL;
@@ -187,19 +120,40 @@ tag_load_file (void)
 	int ret=0, err1=0, err2=0, err3=0;
 	unsigned als=0;
 
+	if (tags_file != NULL && tags_file[0] != '\0') {
+		strncpy(cnf.tags_file, tags_file, sizeof(cnf.tags_file));
+		cnf.tags_file[sizeof(cnf.tags_file)-1] = '\0';
+	}
+
 	if (cnf.taglist != NULL) {
 		tag_rm_all();
 	}
 
-	glob_name(cnf.tags_file, sizeof(cnf.tags_file));
+	if (glob_tilde_expansion(cnf.tags_file, sizeof(cnf.tags_file)))
+		return (1);
 	if ((fp = fopen(cnf.tags_file,"r")) == NULL) {
 		tracemsg("cannot open tags file [%s]", cnf.tags_file);
 		return (0);
 	}
-	get_tags_path_back();	/* experimental */
+
+	/* get the directory part of tags file and add as prefix to the filenames */
+	cnf.tag_j2path[0] = '\0';
+	cnf.tag_j2len = 0;
+	mydirname(cnf.tag_j2path, cnf.tags_file, sizeof(cnf.tag_j2path));
+	cnf.tag_j2len = strlen(cnf.tag_j2path);
+	if (cnf.tag_j2len < (int)sizeof(cnf.tag_j2path)-1) {
+		cnf.tag_j2path[cnf.tag_j2len++] = '/';
+		cnf.tag_j2path[cnf.tag_j2len] = '\0';
+	} else {
+		cnf.tag_j2path[0] = '\0';
+		cnf.tag_j2len = 0;
+	}
+	TAGS_LOG(LOG_DEBUG, "tags file [%s] -> path to tags [%s] %d",
+		cnf.tags_file, cnf.tag_j2path, cnf.tag_j2len);
 
 	buff = MALLOC(TAGLINE_SIZE);
 	if (buff == NULL) {
+		ERRLOG(0xE027);
 		TAGS_LOG(LOG_ERR, "cannot allocate memory for reading tags file");
 		err2 = 1;
 		ret = 1;
@@ -209,6 +163,7 @@ tag_load_file (void)
 	{
 		if (fgets (buff, TAGLINE_SIZE, fp) == NULL) {
 			if (ferror(fp)) {
+				ERRLOG(0xE091);
 				ret=2;
 			}
 			/* drop this line */
@@ -260,22 +215,24 @@ tag_load_file (void)
 			;
 		buff[i++] = '\0';
 		als = ALLOCSIZE(x+1);
-		if ((tp->symbol = (char *) MALLOC(als)) != NULL)
-			strncpy(tp->symbol, pp, x+1);
-		else
+		if ((tp->symbol = (char *) MALLOC(als)) == NULL) {
+			ERRLOG(0xE026);
 			err2++;		/* err2 : malloc error */
-
+		} else {
+			strncpy(tp->symbol, pp, x+1);
+		}
 		/* get fname */
 		pp = &buff[i];
 		for (x=0; i<tlen && buff[i]!='\t'; i++, x++)
 			;
 		buff[i++] = '\0';
 		als = ALLOCSIZE(x+1);
-		if ((tp->fname = (char *) MALLOC(als)) != NULL)
-			strncpy(tp->fname, pp, x+1);
-		else
+		if ((tp->fname = (char *) MALLOC(als)) == NULL) {
+			ERRLOG(0xE025);
 			err2++;		/* err2 : malloc error */
-
+		} else {
+			strncpy(tp->fname, pp, x+1);
+		}
 		/* get all the rest */
 		pp = &buff[i];
 		j = i;
@@ -311,10 +268,12 @@ tag_load_file (void)
 			tp->type = TAG_FUNCTION;	/* or TAG_VARIABLE */
 			tp->lineno = 0;
 			als = ALLOCSIZE(x+1);
-			if ((tp->pattern = (char *) MALLOC(als)) != NULL)
-				strncpy(tp->pattern, pp, x+1);
-			else
+			if ((tp->pattern = (char *) MALLOC(als)) == NULL) {
+				ERRLOG(0xE024);
 				err2++;		/* err2 : malloc error */
+			} else {
+				strncpy(tp->pattern, pp, x+1);
+			}
 		}
 		else if (line_format == 2) {	/* extended */
 			/* get the type */
@@ -328,10 +287,12 @@ tag_load_file (void)
 			} else if (tp->type != TAG_UNDEF) {
 				tp->lineno = 0;
 				als = ALLOCSIZE(x+1);
-				if ((tp->pattern = (char *) MALLOC(als)) != NULL)
-					strncpy(tp->pattern, pp, x+1);
-				else
+				if ((tp->pattern = (char *) MALLOC(als)) == NULL) {
+					ERRLOG(0xE023);
 					err2++;		/* err2 : malloc error */
+				} else {
+					strncpy(tp->pattern, pp, x+1);
+				}
 			} else {
 				TAGS_LOG(LOG_ERR, "(unknown-tagtype) chunk=%d symbol [%s] type 0x%X",
 					chunk+comments, tp->symbol, tp->type);
@@ -601,8 +562,8 @@ tag_jump2_pattern (const char *fname, const char *pattern, int lineno)
 	} else {
 		cnf.tag_j2path[cnf.tag_j2len] = '\0';
 		rest = sizeof(cnf.tag_j2path) - (size_t)cnf.tag_j2len;
-		if (rest > 0) {
-			strncat(&cnf.tag_j2path[cnf.tag_j2len], fname, (size_t)rest);
+		if (rest > 1) {
+			strncat(&cnf.tag_j2path[cnf.tag_j2len], fname, (size_t)rest-1);
 			fnp = cnf.tag_j2path;
 		} else {
 			TAGS_LOG(LOG_ERR, "tag jump, cannot get path to %s from tags file", fname);

@@ -32,19 +32,26 @@
 
 /* global config */
 extern CONFIG cnf;
-/* extern int ESCDELAY; */
-extern MEVENT pointer;
 
+extern TABLE table[];
+extern KEYS keys[];
 #include "command.h"
+extern const int TLEN, KLEN, RES_KLEN;
 const int TLEN = sizeof(table)/sizeof(TABLE);
 const int KLEN = sizeof(keys)/sizeof(KEYS);
 const int RES_KLEN = RESERVED_KEYS;
+extern MACROS *macros;
 MACROS *macros;
+extern int MLEN;
 int MLEN;
+extern MEVENT mouse_event_pointer;
+MEVENT mouse_event_pointer;
 
 /* local proto */
+static int getmaxyx_and_offset_sanity (void);
 static void event_handler (void);
 static int parse_cmdline (char *ibuff, int ilen, char *args);
+static void errdump(void);
 
 /*
 * editor
@@ -53,37 +60,28 @@ void
 editor (void)
 {
 	initscr ();	/* Begin */
-	if (!has_colors()) {
-		endwin ();
-		fprintf(stderr, "terminal has no colors\n");
-		return;
-	} else {
-		use_default_colors();
-		start_color();
-	}
 	cbreak ();
 	noecho ();
 	nonl ();
 	typeahead (-1);
 
-	getmaxyx (stdscr, cnf.maxy, cnf.maxx);
-	if (cnf.maxy < 1 || cnf.maxx < 1) {
+	if (getmaxyx_and_offset_sanity()) {
 		fprintf(stderr, "cannot get terminal window size\n");
 		return;
 	}
-	cnf.wstatus = newwin (1, cnf.maxx, 0, 0);
-	cnf.wtext = newwin (cnf.maxy - 2, cnf.maxx, 1, 0);
-	cnf.wbase = newwin (1, cnf.maxx, cnf.maxy - 1, 0);
+	if (!has_colors()) {
+		endwin();
+		fprintf(stderr, "this terminal has no colors\n");
+		return;
+	}
+	start_color();
+	init_colors_and_cpal();
 
-	init_colors (cnf.palette);
-
-	/* keys */
-	keypad (cnf.wtext, TRUE);
-	keypad (cnf.wbase, TRUE);
+	/* function keys */
+	keypad (stdscr, TRUE);
 	/* timeouts */
 	ESCDELAY = CUST_ESCDELAY;
-	wtimeout (cnf.wtext, CUST_WTIMEOUT);
-	wtimeout (cnf.wbase, CUST_WTIMEOUT);
+	wtimeout (stdscr, CUST_WTIMEOUT);
 	/*
 	 * do not use signal handler on SIGWINCH because this inhibits KEY_RESIZE
 	 * and cannot delay the action; the library does malloc operations
@@ -95,11 +93,10 @@ editor (void)
 
 	event_handler ();
 
-	if (cnf.gstat & GSTAT_AUTOTITLE)
+	if (cnf.gstat & GSTAT_AUTOTITLE) /* try to restore title */
 		xterm_title ("xterm");
-	if (cnf.automacro[0] != '\0' && (cnf.noconfig == 0)) {
-		; /* after automacro (engine tests) skip refresh */
-	} else {
+	if (cnf.automacro[0] == '\0') {
+		/* not an engine test (automacro) */
 		clear();
 		refresh();
 	}
@@ -111,41 +108,37 @@ editor (void)
 } /* editor() */
 
 /*
-* handle resize event (KEY_RESIZE)
+* handle resize event (KEY_RESIZE), sanity for focus and curpos/lnoff
 */
-void
-app_resize (void)
+static int
+getmaxyx_and_offset_sanity (void)
 {
+	int ri;
+
 	/* get max values of stdscr */
 	getmaxyx (stdscr, cnf.maxy, cnf.maxx);
-	if (cnf.maxy < 1 || cnf.maxx < 1) {
-		return;
+	if (cnf.maxy < 1 || cnf.maxx < 1)
+		return (1);
+
+	/* fix focus and curpos/lnoff in each buffer */
+	for (ri=0; ri<RINGSIZE; ri++) {
+		if (cnf.fdata[ri].fflag & FSTAT_OPEN) {
+			if (cnf.fdata[ri].focus > TEXTROWS-1)
+				cnf.fdata[ri].focus = TEXTROWS-1;
+			update_curpos(ri);
+		}
 	}
 
-	/* reset begin screen values */
-	if ((cnf.wstatus == NULL) || (cnf.wtext == NULL) || (cnf.wbase == NULL)) {
-		return;
-	}
-	(cnf.wstatus)->_begy = 0;
-	(cnf.wstatus)->_begx = 0;
-	(cnf.wtext)->_begy = 1;
-	(cnf.wtext)->_begx = 0;
-	(cnf.wbase)->_begy = (short)(cnf.maxy - 1);
-	(cnf.wbase)->_begx = 0;
-
-	wresize (cnf.wstatus, 1, cnf.maxx);
-	wresize (cnf.wtext, cnf.maxy - 2, cnf.maxx);
-	wresize (cnf.wbase, 1, cnf.maxx);
-
-	if (CURR_FILE.focus > TEXTROWS-1) {
-		CURR_FILE.focus = TEXTROWS-1;
-	}
-	CURR_FILE.curpos = 0;
-	CURR_FILE.lnoff = 0;
-	CURR_FILE.lncol = 0;
+	/* reset cmdline position */
 	cnf.clpos = 0;
 	cnf.cloff = 0;
+
+	return (0);
 }
+
+/* for update optimization */
+static char upd_funcname[40];
+static int upd_event;
 
 int
 run_macro_command (int mi, char *args_inbuff)
@@ -159,6 +152,13 @@ run_macro_command (int mi, char *args_inbuff)
 	char args_ready[CMDLINESIZE];
 
 	if ( !(macros[mi].mflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
+		if (UPD_LOG_AVAIL(LOG_NOTICE)) {
+			upd_funcname[0] = 'm';
+			upd_funcname[1] = ':';
+			strncpy(&upd_funcname[2], macros[mi].name, sizeof(upd_funcname)-3);
+			upd_funcname[sizeof(upd_funcname)-1] = '\0';
+		}
+
 		strncpy(dup_fname, CURR_FILE.fname, FNAMESIZE);
 		dup_fname[FNAMESIZE-1] = '\0';
 		strncpy(dup_buffer, args_inbuff, CMDLINESIZE);
@@ -169,7 +169,7 @@ run_macro_command (int mi, char *args_inbuff)
 		CMD_LOG(LOG_NOTICE, "macro: run mi=%d name=[%s] key=0x%02x args=[%s] cnt=%d",
 			mi, macros[mi].name, macros[mi].fkey, args_inbuff, args_cnt);
 
-		cnf.gstat |= GSTAT_SILENT;
+		cnf.gstat |= (GSTAT_SILENCE | GSTAT_MACRO_FG); // macro flags
 		for (ii=0; ii < macros[mi].items; ii++) {
 			ix = macros[mi].maclist[ii].m_index;
 			if (table[ix].tflag & TSTAT_ARGS) {
@@ -223,7 +223,7 @@ run_macro_command (int mi, char *args_inbuff)
 				break;	/* stop macro */
 			}
 		}/* macros[mi].maclist[] */
-		cnf.gstat &= ~GSTAT_SILENT;
+		cnf.gstat &= ~(GSTAT_SILENCE | GSTAT_MACRO_FG);
 
 		/* force screen update */
 		cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
@@ -238,6 +238,10 @@ run_command (int ti, const char *args_inbuff, int fkey)
 	int exec = 0;
 
 	if ( !(table[ti].tflag & (CURR_FILE.fflag & FSTAT_CHMASK)) ) {
+		if (UPD_LOG_AVAIL(LOG_NOTICE)) {
+			strncpy(upd_funcname, table[ti].fullname, sizeof(upd_funcname)-1);
+			upd_funcname[sizeof(upd_funcname)-1] = '\0';
+		}
 
 		if (fkey != KEY_NONE) {
 			; /* for development only */
@@ -282,9 +286,7 @@ event_handler (void)
 	char args_buff[CMDLINESIZE];
 	int last_ri = -1;
 
-	wclear (cnf.wstatus);
-	wclear (cnf.wbase);
-	wclear (cnf.wtext);
+	wclear (stdscr);
 
 	clhistory_push("not used", 8);
 	if (!cnf.noconfig) {
@@ -294,7 +296,7 @@ event_handler (void)
 	memset(args_buff, 0, CMDLINESIZE);
 
 	/* optional automacro run */
-	if (cnf.ring_size > 0 && cnf.automacro[0] != '\0' && (cnf.noconfig == 0)) {
+	if (cnf.ring_size > 0 && cnf.automacro[0] != '\0') {
 		int autolength;
 		autolength = strlen(cnf.automacro);
 		ti = parse_cmdline (cnf.automacro, autolength, args_buff);
@@ -305,44 +307,62 @@ event_handler (void)
 			CMD_LOG(LOG_ERR, "macro [%s] does not exist", cnf.automacro);
 			drop_all();
 		}
+		if (cnf.ring_size > 0) {
+			cnf.automacro[0] = '\0';
+		} /* else: engine test */
 	}
+
+	upd_event = 0;
+	upd_funcname[0] = '\0';
 	while (cnf.ring_size > 0)
 	{
 
 		/*
-		 * regular screen update (REFRESH_EVENT used to force update)
+		 * regular screen update (REFRESH_EVENT and GSTAT_REDRAW used to force update)
 		 */
 		if (ch != ERR) {
-			upd_statusline ();
-			if (cnf.gstat & GSTAT_AUTOTITLE) {
-				/* update the title if necessary */
-				if (last_ri != cnf.ring_curr) {
-					last_ri = cnf.ring_curr;
-					upd_termtitle ();
+			if (ch == REFRESH_EVENT) //local trigger
+				cnf.gstat |= GSTAT_REDRAW; //external trigger
+			if (cnf.gstat & GSTAT_TYPING) {
+				upd_status_typing_tutor ();
+			} else {
+				upd_statusline (); //force update with GSTAT_REDRAW flag
+			}
+			/* update terminal title and/or tab header only if necessary */
+			if (last_ri != cnf.ring_curr || ch == REFRESH_EVENT || (cnf.gstat & GSTAT_REDRAW)) {
+				last_ri = cnf.ring_curr;
+				if (cnf.gstat & GSTAT_AUTOTITLE) {
+					upd_termtitle();
+				}
+				if (cnf.gstat & GSTAT_TABHEAD) {
+					show_tabheader();
 				}
 			}
 			if (cnf.trace > 0) {
-				UPD_LOG(LOG_DEBUG, "full update with trace in this cycle");
+				UPD_LOG(LOG_INFO, "page with trace [%d %s]", upd_event, upd_funcname);
 				if (CURR_FILE.focus < cnf.trace+1)
 					CURR_FILE.focus = cnf.trace+1;
 				upd_text_area (0);
 				upd_trace ();
 				clear_trace_next_time = 1;
 			} else if (clear_trace_next_time) {
-				UPD_LOG(LOG_DEBUG, "full update now, trace in previous cycle");
+				UPD_LOG(LOG_INFO, "page after trace [%d %s]", upd_event, upd_funcname);
 				upd_text_area (0);
 				clear_trace_next_time = 0;
 			} else {
 				if (!(cnf.gstat & GSTAT_UPDNONE)) {
 					if (cnf.gstat & GSTAT_UPDFOCUS) {
-						UPD_LOG(LOG_DEBUG, "update focus line only");
+						UPD_LOG(LOG_DEBUG, "focus [%d %s]", upd_event, upd_funcname);
+					} else if (upd_event < 16) {
+						UPD_LOG(LOG_NOTICE, "page [%d %s]", upd_event, upd_funcname);
 					} else {
-						UPD_LOG(LOG_DEBUG, "update full page");
+						UPD_LOG(LOG_NOTICE, "page [%d]", upd_event);
 					}
 					upd_text_area (cnf.gstat & GSTAT_UPDFOCUS);
 				}
 			}
 			cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
+			cnf.gstat &= ~GSTAT_REDRAW;
 			upd_cmdline ();
 
 			doupdate ();
@@ -353,28 +373,31 @@ event_handler (void)
 		 * wait for input, do cursor reposition
 		 */
 		if (CURR_FILE.fflag & FSTAT_CMD) {
-			wmove (cnf.wbase, 0, cnf.clpos-cnf.cloff);
-			ch = key_handler (cnf.wbase, cnf.seq_tree, 0);
+			wmove (stdscr, cnf.maxy-1, cnf.clpos-cnf.cloff);
 		} else {
-			wmove (cnf.wtext, CURR_FILE.focus, cnf.pref+CURR_FILE.curpos-CURR_FILE.lnoff);
-			ch = key_handler (cnf.wtext, cnf.seq_tree, 0);
+			wmove (stdscr, cnf.head + CURR_FILE.focus, cnf.pref + CURR_FILE.curpos-CURR_FILE.lnoff);
 		}
+		ch = key_handler (cnf.seq_tree, 0);
+		upd_event = 0;
+		upd_funcname[0] = '\0';
 
-		/* delayed window resize, loop up */
+		/* window resize */
 		if (ch == KEY_RESIZE) {
-			app_resize();
-			force_redraw();
+			(void) getmaxyx_and_offset_sanity();
+			ch = REFRESH_EVENT;
+			upd_event = 32; //resize
 			continue;
 		}
 
 		/* optional mouse positioning support, loop up */
 		if (ch == KEY_MOUSE) {
-			if (!set_position_by_pointer(pointer)) {
+			if (!set_position_by_pointer(mouse_event_pointer)) {
 				cnf.gstat |= GSTAT_UPDFOCUS;
 				CURR_FILE.fflag &= ~FSTAT_CMD;
 			} else {
 				ch = ERR;
 			}
+			upd_event = 64; //mouse
 			continue;
 		}
 
@@ -397,6 +420,7 @@ event_handler (void)
 					ch = REFRESH_EVENT;
 				}
 			}
+			upd_event = 128; //background tasks
 			continue;
 		}
 		ret = 0;
@@ -407,8 +431,14 @@ event_handler (void)
 		if (CURR_FILE.fflag & FSTAT_CMD) {
 			/* cmdline intern editing, (ret 0/1) */
 			ret = ed_cmdline (ch);		/* 0/1 */
+			upd_event = ret;
 
 			if (ret && ch == KEY_RETURN) {
+				if (cnf.cmdline_len == 7 && !strncmp(cnf.cmdline_buff, "errdump", 7)) {
+					errdump(); /* no history */
+					reset_cmdline();
+					continue;
+				}
 				/* save buffer to cmdline history */
 				cmdline_to_clhistory (cnf.cmdline_buff, cnf.cmdline_len);
 				//fix: strip_blanks
@@ -423,8 +453,11 @@ event_handler (void)
 						run_command (ti, args_buff, KEY_NONE);
 					} else {
 						/* warning */
+						cnf.gstat |= GSTAT_UPDNONE;
 						tracemsg("unknown command [%s]", cnf.cmdline_buff);
 					}
+				} else {
+					cnf.gstat |= GSTAT_UPDNONE;
 				}
 
 				/* reset workbench after parse and run */
@@ -439,20 +472,50 @@ event_handler (void)
 			/* change in progress (ret 8) */
 			repeat_change(ch);
 			ret = 8;	/* key handled */
+			upd_event = ret;
+
+		} else if (cnf.gstat & GSTAT_TYPING) {
+			typing_tutor_handler(ch);
+			ret = 16;	/* key handled */
+			upd_event = ret;
 
 		} else {
 			/* handle text-special cases here (ret 0/2) */
 			ret = ed_text (ch);		/* 0/2 */
+			upd_event = ret;
+			if (UPD_LOG_AVAIL(LOG_NOTICE)) {
+				if (upd_event && (upd_funcname[0] == '\0')) {
+					int ki;
+					ki = index_key_value(ch);
+					if (ki >= 0 && ki < KLEN)
+						snprintf (upd_funcname, sizeof(upd_funcname)-1,
+							"0x%04x %s", ch, keys[ki].key_string);
+				}
+			}
 		}
 
 		if (!ret && (cnf.ring_size > 0)) {
 			/* the common key-handlings (ret 0/4) */
 			ret = ed_common (ch);		/* 0/4 */
+			upd_event = ret;
 
 			/* warning */
 			if (ret == 0) {
 				cnf.gstat |= GSTAT_UPDNONE;
-				tracemsg("unbound key 0x%02X", ch);
+				if ((ch & KEY_META) && (ch & ~KEY_META) > 0x20 && (ch & ~KEY_META) < 0x7f) {
+					tracemsg("unbound key (Alt-%c)", (ch & ~KEY_META));
+				} else {
+					tracemsg("unbound key 0x%02X", ch);
+				}
+			}
+			if (UPD_LOG_AVAIL(LOG_NOTICE)) {
+				if (upd_event && (upd_funcname[0] == '\0')) {
+					int ki;
+					ki = index_key_value(ch);
+					if (ki >= 0 && ki < KLEN)
+						snprintf (upd_funcname, sizeof(upd_funcname)-1,
+							"0x%04x %s", ch, keys[ki].key_string);
+				}
 			}
 		}
 
@@ -461,10 +524,7 @@ event_handler (void)
 		save_clhistory ();
 	}
 
-	clhistory_cleanup(0);
-	FREE(cnf.clhistory);
-	cnf.clhistory = NULL;
-
+	return;
 } /* event_handler() */
 
 /*
@@ -562,19 +622,6 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 } /* parse_cmdline() */
 
 /*
-** force_redraw - force the screen redraw of current buffer
-*/
-int
-force_redraw (void)
-{
-	cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS);
-	wclear (cnf.wstatus);
-	wclear (cnf.wbase);
-	wclear (cnf.wtext);
-	return (0);
-}
-
-/*
 * search down fullname in table[].fullname, return index
 */
 int
@@ -632,4 +679,24 @@ index_macros_fkey (int fkey)
 		}
 	}
 	return (mi);
+}
+
+static void errdump(void)
+{
+	unsigned i, j;
+	if (cnf.ie > 0) {
+#ifndef DEVELOPMENT_VERSION
+	openlog("eda", LOG_PID, LOG_USER);
+#endif
+		for(i=0; i < cnf.errsiz; i++) {
+			j = (i+cnf.ie) % cnf.errsiz;
+			if (cnf.errlog[j])
+				syslog(LOG_ERR, "0x%04X", cnf.errlog[j]);
+			cnf.errlog[j] = 0;
+		}
+		cnf.ie = 0;
+#ifndef DEVELOPMENT_VERSION
+	closelog();
+#endif
+	}
 }

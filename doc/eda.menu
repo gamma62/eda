@@ -1,4 +1,0 @@
-?package(eda): needs="X11" section="Applications/Editors" \
-  title="eda" longtitle="text editor for programmers" \
-  icon="/usr/share/pixmaps/eda-icon.xpm" \
-  command="/usr/bin/xeda"

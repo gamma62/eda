@@ -1,5 +1,4 @@
 /* keys.h : generated file, don't edit! */
-	{ KN(KEY_C_RSQBRAC), 0 },
 	{ KN(KEY_NONE), 0 },
 	{ KN(KEY_PPAGE), 0 },
 	{ KN(KEY_NPAGE), 0 },
@@ -14,6 +13,7 @@
 	{ KN(KEY_F9), 0 },
 	{ KN(KEY_F10), 0 },
 	{ KN(KEY_F11), 0 },
+	{ KN(KEY_F12), 0 },
 	{ KN(KEY_S_F1), 0 },
 	{ KN(KEY_S_F2), 0 },
 	{ KN(KEY_S_F3), 0 },
@@ -159,3 +159,9 @@
 	{ KN(KEY_C_RIGHT), 0 },
 	{ KN(KEY_C_PPAGE), 0 },
 	{ KN(KEY_C_NPAGE), 0 },
+	{ KN(KEY_M_UP), 0 },
+	{ KN(KEY_M_DOWN), 0 },
+	{ KN(KEY_M_LEFT), 0 },
+	{ KN(KEY_M_RIGHT), 0 },
+	{ KN(KEY_M_PPAGE), 0 },
+	{ KN(KEY_M_NPAGE), 0 },
