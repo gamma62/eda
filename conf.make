@@ -1,4 +1,4 @@
-VERSION=1.2.23rc1
+VERSION=1.2.23rc2
 sysconfdir=/etc
 prefix=/usr/local
 datadir=/usr/local/share

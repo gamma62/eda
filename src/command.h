@@ -156,21 +156,22 @@ TABLE table[] = {
 	{ "vcstool",	-1, 7,			PN(vcstool),		0x01},
 	{ "pdiff",	KEY_NONE, 2,		PN(process_diff),	0x00},
 	{ "hgdiff",	KEY_NONE, 6,		PN(internal_hgdiff),	0x00},
+	{ "gitdiff",	KEY_NONE, 7,		PN(internal_gitdiff),	0x00},
 
 	/* resources, keys, macros, projects, buffer type */
-	{ "set",	-1, 3,			PN(set),		0x01},
+	{ "set",	-1, 3,			PN(set),		0x11},
 	{ "rc",		-1, 2,			PN(load_rcfile),	0x00},
 	{ "keys",	-1, 3,			PN(load_keyfile),	0x00},
 	{ "macros",	-1, 5,			PN(load_macrofile),	0x00},
 	{ "remac",	KEY_NONE, 3,		PN(reload_macros),	0x00},
 	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
-	{ "sp",		-1, 2,			PN(save_project),	0x01},
+	{ "sp",		-1, 2,			PN(save_project),	0x11},
 	{ "palette",	KEY_M_SLASH, 4,		PN(rotate_palette),	0x00},
 	{ "prefix",	KEY_M_AT, 4,		PN(prefix_macro),	0x00},
 	{ "tabhead",	KEY_M_EXCLAM, 4,	PN(tabhead_macro),	0x00},
 	{ "smartind",	KEY_M_MINUS, 5,		PN(smartind_macro),	0x00},
 	{ "shadow",	KEY_NONE, 6,		PN(shadow_macro),	0x00},
-	{ "is",		-1, 2,			PN(is_special),		0x01},
+	{ "is",		-1, 2,			PN(is_special),		0x11},
 
 	/* lists and parsers (press Enter) */
 	{ "ring",	KEY_M_R, 2,		PN(list_buffers),	0x00},

@@ -244,7 +244,7 @@ show_tabheader (void)
 {
 	int ri, len=0, plen=0, fnl, off;
 	char tabheader[RINGSIZE*20];
-	int space, after, before, ri0;
+	int space, after, before=0, ri0=0;
 
 	/* fill tabheader[] */
 	memset(tabheader, '\0', sizeof(tabheader));
@@ -264,7 +264,7 @@ show_tabheader (void)
 				sprintf(&tabheader[len], "<%s | ", &cnf.fdata[ri].fname[off+1]);
 			else
 				sprintf(&tabheader[len], "%s | ", &cnf.fdata[ri].fname[off]);
-			len += strlen(&tabheader[len]);
+			len += (int)strlen(&tabheader[len]);
 		}
 
 		ri = (ri<RINGSIZE-1) ?  ri+1 : 0;
@@ -1030,6 +1030,7 @@ shadow_empty_line (int focus, int count)
 }
 
 /* color configuration after nc colors set
+* --- cnf.cpairs[] regardless of COLORS is 8 or 64, we use the 8 base colors, hardcoded 0x3f index mask ---
 */
 int
 init_colors_and_cpal (void)
@@ -1040,10 +1041,10 @@ init_colors_and_cpal (void)
 	if (!cnf.bootup) {
 		/* init cnf.cpairs -- only once, after start_color() */
 		pair=1; /* skip pair 0 anyway */
-		for (bg=0; bg < COLORS; bg++) {
-			for (fg=0; fg < COLORS; fg++) {
+		for (bg=0; bg < 8; bg++) {
+			for (fg=0; fg < 8; fg++) {
 				if (init_pair(pair, fg, bg) != ERR) {
-					cnf.cpairs[bg*COLORS+fg] = COLOR_PAIR(pair);
+					cnf.cpairs[bg*8+fg] = COLOR_PAIR(pair);
 				}
 				pair++;
 			}
@@ -1062,7 +1063,7 @@ init_colors_and_cpal (void)
 	return 0;
 }
 
-static const char *color_names[] = {
+static const char *color_names[8] = {
 	"black",
 	"red",
 	"green",
@@ -1155,26 +1156,27 @@ color_test(void)
 	}
 	start_color();
 
-	// min 39x82
-	wprintw (stdscr, "eda: color test -- colors %d pairs %d -- lines %d cols %d\n",
-		COLORS, COLOR_PAIRS, LINES, COLS);
-	wprintw (stdscr, "\n");
+	// terminal size bare minimum: 34x80, good from 40x80
+	wprintw (stdscr, "eda: color test -- COLORS %d COLOR_PAIRS %d -- using 8 base colors\n",
+		COLORS, COLOR_PAIRS);
+	if (LINES >= 39) wprintw (stdscr, "\n");
 
 	/* init pairs -- skip pair 0 anyway */
 	pair=1;
-	for (bg=0; bg < COLORS; bg++) {
-		for (fg=0; fg < COLORS; fg++) {
+	for (bg=0; bg < 8; bg++) {
+		for (fg=0; fg < 8; fg++) {
 			if (init_pair(pair, fg, bg) != ERR) {
-				cnf.cpairs[bg*COLORS+fg] = COLOR_PAIR(pair);
+				cnf.cpairs[bg*8+fg] = COLOR_PAIR(pair);
 			}
 			pair++;
 		}
 	}
 
 	// print header
-	wprintw (stdscr, "%-*s ", width, " ");
-	for (fg=0; fg < COLORS; fg++) {
-		wprintw (stdscr, "%-*s ", width, color_names[fg]);
+	wprintw (stdscr, "%-*s", width, " ");
+	for (fg=0; fg < 8; fg++) {
+		wprintw (stdscr, "%-*s", width, color_names[fg]);
+		if (fg < 7) wprintw (stdscr, " ");
 	}
 	wprintw (stdscr, "\n");
 
@@ -1184,25 +1186,27 @@ color_test(void)
 		opt_bold = i & 1;
 		opt_reverse = i & 2;
 
-		for (bg=0; bg < COLORS; bg++) {
-			wprintw (stdscr, "%-*s ", width, color_names[bg]);
-			for (fg=0; fg < COLORS; fg++) {
+		for (bg=0; bg < 8; bg++) {
+			wprintw (stdscr, "%-*s", width, color_names[bg]);
+			for (fg=0; fg < 8; fg++) {
 				sprintf(buff, "{%d%d%c%c}", fg, bg, (opt_bold ? 'b' : '_'), (opt_reverse ? 'r' : '_'));
 				//sprintf(buff, "{%02x}", bg*8+fg + (opt_bold ? 0x40 : 0) + (opt_reverse ? 0x80 : 0));
-				attron( cnf.cpairs[bg*COLORS+fg] );
+				attron( cnf.cpairs[bg*8+fg] );
 				if (opt_bold)
 					attron(A_BOLD);
 				if (opt_reverse)
 					attron(A_REVERSE);
 				wprintw (stdscr, "%-*s", width, buff);
 				attrset(A_NORMAL);
-				wprintw (stdscr, " ");
+				if (fg < 7) wprintw (stdscr, " ");
 			}
 			wprintw (stdscr, "\n");
 		}
-		wprintw (stdscr, "\n");
+		if (LINES >= 39) wprintw (stdscr, "\n");
 	}
 	refresh ();
+	if (LINES > 34) wprintw (stdscr, "Press any key");
+	(void) wgetch(stdscr);
 
 	endwin ();	/* End */
 	return;

@@ -451,7 +451,7 @@ ed_cmdline (int ch)
 	int ret=1;
 	int ii, ix;
 	char *choices = NULL;
-	char insert[2];
+	char insert[20]; /* put stack protector to silence */
 
 	switch (ch)
 	{
@@ -662,7 +662,7 @@ ed_text (int ch)
 	int o_lnoff = CURR_FILE.lnoff;
 	int o_lncol = CURR_FILE.lncol;
 	int o_llen  = CURR_LINE->llen;
-	char insert[2];
+	char insert[20]; /* put stack protector to silence */
 
 	switch (ch)
 	{

@@ -50,6 +50,10 @@ static int key_c_left  = 0;
 static int key_c_right = 0;
 static int key_c_ppage = 0;
 static int key_c_npage = 0;
+static int key_m_up    = 0;
+static int key_m_down  = 0;
+static int key_m_left  = 0;
+static int key_m_right = 0;
 
 /* local proto */
 static int process_esc_seq (const char *str, NODE *tree);
@@ -112,6 +116,22 @@ key_handler (NODE *seq_tree, int testing)
 		} else if (ch == key_c_npage) {
 			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_NPAGE;
+			ready = 2;
+		} else if (ch == key_m_up) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_UP;
+			ready = 2;
+		} else if (ch == key_m_down) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_DOWN;
+			ready = 2;
+		} else if (ch == key_m_left) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_LEFT;
+			ready = 2;
+		} else if (ch == key_m_right) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_RIGHT;
 			ready = 2;
 
 		} else if (ch != ERR) {
@@ -464,6 +484,18 @@ process_esc_seq (const char *str, NODE *tree)
 		} else if (strncmp(key_name, "KEY_C_NPAGE", 11) == 0) {
 			key_c_npage = leaves[0];
 			return (0);
+		} else if (strncmp(key_name, "KEY_M_UP", 8) == 0) {
+			key_m_up = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_DOWN", 10) == 0) {
+			key_m_down = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_LEFT", 10) == 0) {
+			key_m_left = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_RIGHT", 11) == 0) {
+			key_m_right = leaves[0];
+			return (0);
 		}
 	}
 	if (leaves[0] != KEY_ESC) {
@@ -578,7 +610,7 @@ key_test (void)
 		BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED |
 		BUTTON1_TRIPLE_CLICKED |
 		BUTTON2_CLICKED | BUTTON3_CLICKED);
-	int ch=0, ki=0, maxx=0, maxy=0, ti=0;
+	int ch=0, ki=0, ti=0;
 
 	initscr ();	/* Begin */
 	cbreak ();
@@ -586,29 +618,19 @@ key_test (void)
 	nonl ();
 	clear ();
 	scrollok(stdscr, TRUE);
-	getmaxyx(stdscr, maxy, maxx);
 
 	keypad (stdscr, TRUE);
 	ESCDELAY = CUST_ESCDELAY;
 	wtimeout (stdscr, CUST_WTIMEOUT);
 
 	wprintw (stdscr, "eda: key_test -- escape sequences ((ESCDELAY=%d WTIMEOUT=%d))\n", ESCDELAY, CUST_WTIMEOUT);
-	wprintw (stdscr, "     format: escape key sequence => key code ... [function name]\n");
-	wprintw (stdscr, "     quit with Q or q\n");
-	wprintw (stdscr, "TERM=%s %dx%d -- %s\n", getenv("TERM"), maxy, maxx, curses_version());
-	wprintw (stdscr, "# 00000000 8x'0' (REP ECMA-048)\n");
-	wsetscrreg(stdscr, 5, maxy-1);
+	wprintw (stdscr, "        (on key press) detected escape key sequence => key name ... [function name]\n");
+	wprintw (stdscr, "quit with q\n");
+	wprintw (stdscr, "# //////// 8x'/' (REP ECMA-048)\n");
+	wprintw (stdscr, "# 00000000 8x'0'\n");
+	wsetscrreg(stdscr, 5, LINES-1);
 
 	while (ch != 'q') {
-#ifdef RAW
-		ch = wgetch(stdscr);
-		if (ch != ERR) {
-			if (ch == '\r' || ch == '\n')
-				wprintw (stdscr, "\n");
-			else
-				wprintw (stdscr, "%02X ", ch);
-		}
-#else
 		ch = key_handler (cnf.seq_tree, 2);
 
 		if (ch != ERR) {
@@ -652,7 +674,6 @@ key_test (void)
 			}
 			mouse_on = !mouse_on;
 		}
-#endif
 	}
 
 	endwin ();	/* End */

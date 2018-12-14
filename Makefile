@@ -31,6 +31,15 @@ install:
 uninstall:
 	cd doc && $(MAKE) uninstall
 	cd src && $(MAKE) uninstall
+	@if test -d $(DESTDIR)$(sysconfdir)/eda ; then \
+	  rmdir $(DESTDIR)$(sysconfdir)/eda 2>/dev/null || echo some files still in $(sysconfdir)/eda, directory not removed ; \
+	fi
+	@if test -d $(DESTDIR)$(datadir)/eda ; then \
+	  rmdir $(DESTDIR)$(datadir)/eda 2>/dev/null || echo some files still in $(datadir)/eda, directory not removed ; \
+	fi
+	@if test -d $(DESTDIR)$(docdir)/eda ; then \
+	  rmdir $(DESTDIR)$(docdir)/eda 2>/dev/null || echo some files still in $(docdir)/eda, directory not removed ; \
+	fi
 
 clean:
 	cd doc && $(MAKE) clean

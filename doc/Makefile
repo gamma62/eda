@@ -30,15 +30,19 @@ install:
 	install -d -m 755 -p  $(DESTDIR)$(datadir)/eda
 	install -m 644 -p cmds.txt eda-icon.png eda.desktop  $(DESTDIR)$(datadir)/eda/
 	install -d -m 755 -p  $(DESTDIR)$(docdir)/eda
-	install -m 644 -p Copyright LICENSE ChangeLog NEWS README  $(DESTDIR)$(docdir)/eda/
+	install -m 644 -p ../Copyright ../LICENSE ../ChangeLog ../NEWS ../README  $(DESTDIR)$(docdir)/eda/
 
 uninstall:
-	if test -f $(DESTDIR)$(mandir)/man1/eda.1 ; then rm -f $(DESTDIR)$(mandir)/man1/eda.1 ; fi
-	if test -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; then rm -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; fi
-	-rm -f $(DESTDIR)$(datadir)/eda/*
-	-rmdir $(DESTDIR)$(datadir)/eda || true
-	-rm -f $(DESTDIR)$(docdir)/eda/*
-	-rmdir $(DESTDIR)$(docdir)/eda || true
+	@if test -f $(DESTDIR)$(mandir)/man1/eda.1 ; then rm -f $(DESTDIR)$(mandir)/man1/eda.1 ; fi
+	@if test -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; then rm -f $(DESTDIR)$(mandir)/man5/edamacro.5 ; fi
+	@for f in cmds.txt eda-icon.png eda.desktop ; do \
+	  if test -f $(DESTDIR)$(datadir)/eda/$$f ; then rm -f $(DESTDIR)$(datadir)/eda/$$f ; fi ; \
+	done
+	@rmdir $(DESTDIR)$(datadir)/eda 2>/dev/null || true
+	@for f in Copyright LICENSE ChangeLog NEWS README  ; do \
+	  if test -f $(DESTDIR)$(docdir)/eda/$$f ; then rm -f $(DESTDIR)$(docdir)/eda/$$f ; fi ; \
+	done
+	@rmdir $(DESTDIR)$(docdir)/eda 2>/dev/null || true
 
 clean:
 	-rm -f *~

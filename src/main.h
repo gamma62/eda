@@ -121,7 +121,7 @@
 #define BOTTOM_MARK	"<<eof>>\n"		/* pass LINESIZE_MIN */
 #define REPLACE_QUEST	"replace: Yes/No/Rest/Quit ?"
 #define PROJECT_HEADER	"### project settings ###"	/* project file header (line prefix, mandatory) */
-#define PROJECT_CHDIR	"### chdir "			/* project's home dir */
+#define PROJECT_CHDIR	"### chdir"			/* project's home dir */
 #define PROJECT_FILES	"### project files ###"		/* files section (line prefix, mandatory) */
 
 /* options for directory listing */
@@ -435,7 +435,7 @@ struct config_tag
 	int tutor_fail;
 	time_t tutor_start;
 
-	unsigned int cpairs[8*8];	/* this array is filled once with color pairs, later we use indexes to the items here */
+	unsigned int cpairs[8*8];	/* filled once with the color pairs of 8 base colors -- hardcoded index mask 0x3f */
 	CPAL cpal;			/* actual configuration */
 	CPAL *palette_array;		/* additional configurations loaded from rc file, can be empty */
 	int palette_count;		/* can be zero */

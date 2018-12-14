@@ -37,51 +37,6 @@
 extern CONFIG cnf;
 
 /*
- * get last word from the line
- */
-char *
-get_last_word (const char *dataline, int len)
-{
-	char *word = NULL, *s = NULL;
-	int i=0, j=0;
-	int size = len; /* allocate as much size as the input */
-	unsigned als=0;
-
-	/* init
-	*/
-	als = ALLOCSIZE(size);
-	word = (char *) MALLOC(als);
-	if (word == NULL) {
-		ERRLOG(0xE032);
-		return (NULL);
-	}
-
-	/* get last word */
-	while (j<len && dataline[j] != '\n' && dataline[j] != '\r') {
-		if (dataline[j] == ' ' || dataline[j] == '\t')
-			i = 0;
-		else
-			word[i++] = dataline[j];
-		j++;
-	}
-	word[i] = '\0';
-
-	/* realloc
-	*/
-	als = ALLOCSIZE(i);
-	if (als < ALLOCSIZE(size)) {
-		s = (char *) REALLOC((void *)word, als);
-		if (s == NULL) {
-			ERRLOG(0xE005); /* no pb */
-		} else {
-			word = s;
-		}
-	}
-
-	return word;
-}
-
-/*
  * get rest of line, optionally strip newline and symlink part
  */
 int
@@ -245,8 +200,9 @@ glob_tab_expansion (char *path, unsigned maxsize, char **choices)
 			}
 		}
 	} else {
-		if (globbuf.gl_pathc >= 1)
+		if (globbuf.gl_pathc >= 1) {
 			PD_LOG(LOG_ERR, "glob failed (ret %d, count %lu)", ret, globbuf.gl_pathc);
+		}
 		ret=2;
 	}
 	globfree(&globbuf);

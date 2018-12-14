@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2018-12-08" "0.9.97" ""
+.TH "EDAMACRO" "5" "2018-12-14" "0.9.97" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -44,7 +44,7 @@ current list of functions.
 
 .SH "Functions for macros grouped by feature"
 
-.SS base editor functions: switch between command line and text area (ESC or F12)
+.SS base editor functions: switch between command line and text area (ESC)
 switch_text_cmd
 .br
 .TP 17
@@ -53,7 +53,7 @@ switch between text area and command line
 .br
 
 .SS base editor functions: moving around in text area and command line
-go_up go_down go_smarthome go_home go_end go_left go_right scroll_1line_down scroll_1line_up scroll_screen_down scroll_screen_up
+go_up go_down go_smarthome go_home go_end go_left go_right
 .br
 .TP 7
 .B go_up
@@ -76,6 +76,38 @@ move cursor to left by 1 character in the text area
 .TP 10
 .B go_right
 move cursor to right by 1 character in the text area
+.br
+
+.SS base editor functions: moving around in text area
+go_page_up go_page_down prev_nonblank next_nonblank go_top go_bottom goto_line goto_pos center_focusline scroll_1line_down scroll_1line_up scroll_screen_down scroll_screen_up
+.br
+.TP 12
+.B go_page_up
+move focus one screen upwards, or jump to screen's first line first
+.TP 14
+.B go_page_down
+move focus one screen downwards, or jump to screen's last line first
+.TP 15
+.B prev_nonblank
+move cursor to the previous word's begin character on the left
+.TP 15
+.B next_nonblank
+move cursor to the next word's begin character on the right
+.TP 8
+.B go_top
+move focus to the files first visible text line, or th etop marker
+.TP 11
+.B go_bottom
+move focus to the files last visible text line, or the bottom marker
+.TP 11
+.B goto_line
+move focus to the line with given number, like ":1"
+.TP 10
+.B goto_pos
+move cursor to the given screen position in the line
+.TP 18
+.B center_focusline
+scroll the screen that focus line will be vertically centered
 .TP 19
 .B scroll_1line_down
 scroll the text area down with one line, keep focus
@@ -109,7 +141,21 @@ keypress_enter
 handle the Enter keypress in text area, regular file buffers, special window, interactive shells
 .br
 
-.SS using command line history (previous in history)
+.SS special text area functions:
+type_text split_line join_line
+.br
+.TP 11
+.B type_text
+insert stream data (multiline) into text buffer from cursor position, smartindent is off while this action;
+.TP 12
+.B split_line
+split current line in two parts at current position
+.TP 11
+.B join_line
+join current line with next visible text line
+.br
+
+.SS using command line history (previous and next in history)
 clhistory_prev
 .br
 .TP 16
@@ -125,54 +171,8 @@ clhistory_next
 copy the next item (towards present) from history to command line, with prefix filtering, prefix of the original line
 .br
 
-.SS special text area functions:
-type_text split_line join_line
-.br
-.TP 11
-.B type_text
-insert stream data (multiline) into text buffer from cursor position, smartindent is off while this action;
-.TP 12
-.B split_line
-split current line in two parts at current position
-.TP 11
-.B join_line
-join current line with next visible text line
-.br
-
-.SS base editor functions: moving around in text area
-go_page_up go_page_down prev_nonblank next_nonblank go_top go_bottom goto_line goto_pos center_focusline
-.br
-.TP 12
-.B go_page_up
-move focus one screen upwards, or jump to screen's first line first
-.TP 14
-.B go_page_down
-move focus one screen downwards, or jump to screen's last line first
-.TP 15
-.B prev_nonblank
-move cursor to the previous word's begin character on the left
-.TP 15
-.B next_nonblank
-move cursor to the next word's begin character on the right
-.TP 8
-.B go_top
-move focus to the files first visible text line, or th etop marker
-.TP 11
-.B go_bottom
-move focus to the files last visible text line, or the bottom marker
-.TP 11
-.B goto_line
-move focus to the line with given number, like ":1"
-.TP 10
-.B goto_pos
-move cursor to the given screen position in the line
-.TP 18
-.B center_focusline
-scroll the screen that focus line will be vertically centered
-.br
-
 .SS file I/O and switching buffers
-add_file reload_file reload_bydiff show_diff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all save_all hide_file parse_open
+add_file reload_file show_diff reload_bydiff prev_file next_file save_file file_file quit_file drop_file quit_others quit_all file_all save_all hide_file
 .br
 .TP 10
 .B add_file
@@ -180,12 +180,12 @@ add file to new editor buffer or switch to the already opened file
 .TP 13
 .B reload_file
 read file from disk and replace lines in regular buffer
-.TP 15
-.B reload_bydiff
-reload regular file from disk smoothly based on content differences, keep line attributes, bookmarks, tagging where possible
 .TP 11
 .B show_diff
 diff file on disk with buffer; parameters like '-w -b' maybe added on command line
+.TP 15
+.B reload_bydiff
+reload regular file from disk smoothly based on content differences, keep line attributes, bookmarks, tagging where possible
 .TP 11
 .B prev_file
 switch to previous buffer in the ring, skip hidden unless others closed
@@ -219,12 +219,9 @@ save all files where necessary
 .TP 11
 .B hide_file
 hide regular file buffer, unhide any
-.TP 12
-.B parse_open
-get nonspace characters around cursor, assuming that is a filename try to open file
 .br
 
-.SS editing lines: split line (Enter), join lines (Delete, Backspace, deleol)
+.SS editing text lines: split line (Enter), join lines (Delete, Backspace, deleol)
 deleol del2bol delline duplicate delete_lines strip_lines
 .br
 .TP 8
@@ -247,7 +244,7 @@ delete all or selected lines, parameter must be "all" or "selection"
 strip trailing whitechars (space, tab, CR) from the lines, according to the parameter, either "all" or "selection"
 .br
 
-.SS line based selection functions
+.SS line based selection functions, see also clipboard macros
 line_select reset_select cp_select mv_select rm_select go_select_first go_select_last select_all over_select unindent_left indent_right shift_left shift_right
 .br
 .TP 13
@@ -355,35 +352,6 @@ increment filter level in cycle
 make 1 line more visible around sequences of visible lines (expand unhidden ranges)
 .br
 
-.SS search, change, highlight, regexp tools
-search repeat_search change color_tag tag_focusline highlight_word search_word tag_line_byword
-.br
-.TP 8
-.B search
-start forward search with given regular expression (like "/reset" or "/\<ret\>/"); reset search immediately if match not found; submatch referencies '\\1'...'\\9' can be used
-.TP 15
-.B repeat_search
-search next occurence; reset search if not found
-.TP 8
-.B change
-start search and replace with given regular expressions (like "ch /from/to/"), possible delimiters are slash, single quote, double quote, exclamation mark; submatch referencies '\\1'...'\\9' and '&' can be used
-.TP 11
-.B color_tag
-mark lines with color in different ways, if argument is missing the focus word is used; with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged, while with regexp argument only the matchhing lines will have color mark; with empty pattern all marks are removed (like "tag")
-.TP 15
-.B tag_focusline
-toggle the color mark of the focus line
-.TP 16
-.B highlight_word
-highlight matching bytes in the line according to regexp or the focus word; reset highlighting if cursor is not in a word or pattern is empty (like "high")
-.TP 13
-.B search_word
-start immediate find search with the word under cursor
-.TP 17
-.B tag_line_byword
-mark lines with color containing the word under cursor (tagging the lines)
-.br
-
 .SS brace match and folding
 tomatch forcematch fold_block fold_thisfunc
 .br
@@ -401,57 +369,33 @@ folding block lines manually, hide/unhide block lines upto the matching block ch
 fold block content around the focus line, hide/unhide block lines; show header and footer lines first, change content visibility othervise
 .br
 
-.SS tags support
-tag_load_file tag_view_info tag_jump_to tag_jump_back
+.SS search, change, highlight, regexp tools
+search repeat_search change color_tag tag_focusline search_word highlight_word tag_line_byword
 .br
+.TP 8
+.B search
+start forward search with given regular expression (like "/reset" or "/\<ret\>/"); reset search immediately if match not found; submatch referencies '\\1'...'\\9' can be used
 .TP 15
-.B tag_load_file
-load or reload the content of "tags" file, the path configured in "tags_file" resource or given as argument
-.TP 15
-.B tag_view_info
-view symbol definition in a notification, gained from "tags" file
-.TP 13
-.B tag_jump_to
-jump to the symbol definition, based on information gained from "tags" file
-.TP 15
-.B tag_jump_back
-come back from the last tag jump
-.br
-
-.SS calling external tools
-shell_cmd ishell_cmd make_cmd vcstool
-.br
+.B repeat_search
+search next occurence; reset search if not found
+.TP 8
+.B change
+start search and replace with given regular expressions (like "ch /from/to/"), possible delimiters are slash, single quote, double quote, exclamation mark; submatch referencies '\\1'...'\\9' and '&' can be used
 .TP 11
-.B shell_cmd
-launch shell to run given command with the optional arguments and catch output to buffer
-.TP 12
-.B ishell_cmd
-launch interactive shell or given command with the optional arguments, catch output and show in buffer, read input from the last line; the Apostrophe character maybe used to enclose parameters
-.TP 10
-.B make_cmd
-start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource
-.TP 9
-.B vcstool
-start VCS command with arguments (does not fork to background), the first argument must be the name of the vcs tool itself, the rest are the optional parameters
-.br
-
-.SS Special tool to process diff outputs (patches)
-process_diff
-.br
-.TP 14
-.B process_diff
-process the unified diff output, make preparation to review additions and changes of target files
-.br
-
-.SS using external filters
-filter_cmd filter_shadow_cmd
-.br
-.TP 12
-.B filter_cmd
-start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
-.TP 19
-.B filter_shadow_cmd
-start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines or all lines if no selection here, set child process arguments on commandline, for example "|| a2ps -1 -f8"
+.B color_tag
+mark lines with color in different ways, if argument is missing the focus word is used; with arguments "alter", "selection", ":<lineno>" the mentioned lines are tagged, while with regexp argument only the matchhing lines will have color mark; with empty pattern all marks are removed (like "tag")
+.TP 15
+.B tag_focusline
+toggle the color mark of the focus line
+.TP 13
+.B search_word
+start immediate find search with the word under cursor
+.TP 16
+.B highlight_word
+highlight matching bytes in the line according to regexp or the focus word; reset highlighting if cursor is not in a word or pattern is empty (like "high")
+.TP 17
+.B tag_line_byword
+mark lines with color containing the word under cursor (tagging the lines)
 .br
 
 .SS multifile search tools
@@ -483,8 +427,40 @@ change the path elements of the find command, and show the find_opts setting
 change the name patterns of find command, like "fsea *.[ch] *.sh" or "fsea *.py" and show the find_opts setting
 .br
 
-.SS resources, keys, macros, projects
-set load_rcfile load_keyfile load_macrofile reload_macros save_project
+.SS calling external tools, external filter pipes, diff tools and VCS (Version Control System) tools
+shell_cmd ishell_cmd make_cmd filter_cmd filter_shadow_cmd vcstool process_diff internal_hgdiff internal_gitdiff
+.br
+.TP 11
+.B shell_cmd
+launch shell to run given command with the optional arguments and catch output to buffer
+.TP 12
+.B ishell_cmd
+launch interactive shell or given command with the optional arguments, catch output and show in buffer, read input from the last line; the Apostrophe character maybe used to enclose parameters
+.TP 10
+.B make_cmd
+start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource
+.TP 12
+.B filter_cmd
+start filter command in shell and feed selection lines into child process and catch output, set child process arguments on commandline, for example "|sort -k2"
+.TP 19
+.B filter_shadow_cmd
+start filter command in shell and feed lines into child process and catch output, push out shadow line markers together with selection lines or all lines if no selection here, set child process arguments on commandline, for example "|| a2ps -1 -f8"
+.TP 9
+.B vcstool
+start VCS command with arguments (does not fork to background), the first argument must be the name of the vcs tool itself, the rest are the optional parameters
+.TP 14
+.B process_diff
+process the unified diff output, make preparation to review additions and changes of target files
+.TP 17
+.B internal_hgdiff
+run hg diff on current file and process the outcome
+.TP 18
+.B internal_gitdiff
+run git diff on current file and process the outcome
+.br
+
+.SS resources, keys, macros, projects and buffer type query/change
+set load_rcfile load_keyfile load_macrofile reload_macros recording_switch save_project rotate_palette prefix_macro tabhead_macro smartind_macro shadow_macro is_special
 .br
 .TP 5
 .B set
@@ -501,22 +477,12 @@ load_macrofile - open ~/.eda/edamacro file with user defined macros, changes in 
 .TP 15
 .B reload_macros
 drop all macros and process macrofile again
+.TP 18
+.B recording_switch
+switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
 .TP 14
 .B save_project
 save project file in the ~/.eda/ directory, last used project name can be omitted
-.br
-
-.SS changing buffer type
-is_special
-.br
-.TP 12
-.B is_special
-show buffer or set buffer ftype, for regular file types (c/cpp/c++, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools); or change fname to special buffer
-.br
-
-.SS Buffer views and UI changes, directory and buffer lists
-rotate_palette prefix_macro tabhead_macro smartind_macro shadow_macro list_buffers lsdir_cmd
-.br
 .TP 16
 .B rotate_palette
 change color palette setting in cycle, if there are more than the default
@@ -532,15 +498,29 @@ set on/off the smartindent setting
 .TP 14
 .B shadow_macro
 set on/off the shadow marker (hidden lines counter)
+.TP 12
+.B is_special
+show buffer or set buffer ftype, for regular file types (c/cpp/c++, perl, python, bash/shell, text) and special buffers (sh, ls, make, find, diff, configured VCS tools); or change fname to special buffer
+.br
+
+.SS lists and parsers (find/make/ls/ring: press Enter), see also cmds.txt
+list_buffers lsdir_cmd show_commands parse_open
+.br
 .TP 14
 .B list_buffers
 open a special buffer with a list of open files and bookmarks, switch to the open buffer or (re)generate it
 .TP 11
 .B lsdir_cmd
 create directory listing in special buffer for easy navigation and opening, the one optional argument must be a directory or a shell glob
+.TP 15
+.B show_commands
+show table of commands with keyboard shortcuts
+.TP 12
+.B parse_open
+get nonspace characters around cursor, assuming that is a filename try to open file
 .br
 
-.SS Bookmarks, set and jump (Alt-0 sets next free)
+.SS bookmarks, set and jump (Alt-0 sets next free)
 bm_set bm_clear bm_jump1 bm_jump2 bm_jump3 bm_jump4 bm_jump5 bm_jump6 bm_jump7 bm_jump8 bm_jump9 show_bookmarks
 .br
 .TP 8
@@ -581,12 +561,34 @@ jump to 9th bookmark if possible, show bookmark info in notification before jump
 show bookmark data in the messages lines
 .br
 
-.SS Export/insert, view block name,  helper functions
-view_bname ins_bname ins_varname ins_filename cp_text2cmd word_case
+.SS embedded typing tutor
+typing_tutor
 .br
-.TP 12
-.B view_bname
-view block/function name in notification, try even from make and find buffers
+.TP 14
+.B typing_tutor
+start typing tutor on current file, the file shall be prepared, no tabs except indentation, line ends without space and text reformatted between margins
+.br
+
+.SS ctags for development
+tag_load_file tag_view_info tag_jump_to tag_jump_back
+.br
+.TP 15
+.B tag_load_file
+load or reload the content of "tags" file, the path configured in "tags_file" resource or given as argument
+.TP 15
+.B tag_view_info
+view symbol definition in a notification, gained from "tags" file
+.TP 13
+.B tag_jump_to
+jump to the symbol definition, based on information gained from "tags" file
+.TP 15
+.B tag_jump_back
+come back from the last tag jump
+.br
+
+.SS export/insert/view names and other helper functions
+ins_bname ins_varname ins_filename cp_text2cmd view_bname word_case version pwd uptime xterm_title message msg_from_text
+.br
 .TP 11
 .B ins_bname
 insert block/function name into command line or focus line in text area
@@ -599,67 +601,56 @@ insert original filename of buffer into command line or text area
 .TP 13
 .B cp_text2cmd
 copy current line from text area to the command line, overwrite rest of line
+.TP 12
+.B view_bname
+view block/function name in notification, try even from make and find buffers
 .TP 11
 .B word_case
 switch the case of characters in the word under cursor
-.br
-
-.SS Only for macros and external processes
-go_text message msg_from_text recording_switch stop_bg_process
-.br
 .TP 9
-.B go_text
-move cursor to the text area, useful for for macros
+.B version
+show the version string
+.TP 5
+.B pwd
+print working directory name
+.TP 8
+.B uptime
+show the output of the uptime command
+.TP 13
+.B xterm_title
+replace xterm title with given string
 .TP 9
 .B message
 display a string as "message", mostly for macros
 .TP 15
 .B msg_from_text
 display text from the current line as message, mostly for macros
-.TP 18
-.B recording_switch
-switch macro recording on/off to the temporary logfile ~/.eda/macro.log, each recording session will overwrite
-.TP 17
-.B stop_bg_process
-stop running background process of current buffer
 .br
 
 .SS anything else
-internal_hgdiff mouse_support nop pwd show_commands typing_tutor uptime version xterm_title
+go_text mouse_support nop stop_bg_process
 .br
-.TP 17
-.B internal_hgdiff
-run hg diff on current file and process the outcome
+.TP 9
+.B go_text
+move cursor to the text area, useful for for macros
 .TP 15
 .B mouse_support
 switch on/off experimental mouse support, (cursor repositioning by mouse click, text selection by mouse requires shift key)
 .TP 5
 .B nop
-no operation, does nothing, only for testing
-.TP 5
-.B pwd
-print working directory name
-.TP 15
-.B show_commands
-show table of commands with keyboard shortcuts
-.TP 14
-.B typing_tutor
-start typing tutor on current file, the file shall be prepared, no tabs except indentation, line ends without space and text reformatted between margins
-.TP 8
-.B uptime
-show the output of the uptime command
-.TP 9
-.B version
-show the version string
-.TP 13
-.B xterm_title
-replace xterm title with given string
+no operation
+.TP 17
+.B stop_bg_process
+stop running background process of current buffer
 .br
 
 .SH "INTERACTIVE COMMANDS"
 While using \fBeda\fR enter the "cmds" command to see commands abbreviated name (dot in the name) and full name,
 the default keyboard shortcut (this can be changed except n/a),
 and the function name (the same as in the API list above).
+The resource configuration is in edarc, by default in /etc/eda/.
+The default escape sequencies are in edaseq file.
+The default key bindings are in edakeys file.
 .br
 
 .SH "COPYRIGHT"

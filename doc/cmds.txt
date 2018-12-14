@@ -166,24 +166,25 @@ make [<arg>]          make_cmd              n/a
 vcstool <arg>         vcstool               n/a
 pd.iff                process_diff          none
 hgdiff                internal_hgdiff       none
+gitdiff               internal_gitdiff      none
 
 Resources, keys, macros, projects and buffer type query/change
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-set <arg>             set                   n/a
+set [<arg>]           set                   n/a
 rc                    load_rcfile           n/a
 key.s                 load_keyfile          n/a
 macro.s               load_macrofile        n/a
 rem.ac                reload_macros         none
 record                recording_switch      none
-sp <arg>              save_project          n/a
+sp [<arg>]            save_project          n/a
 pale.tte              rotate_palette        Alt-/
 pref.ix               prefix_macro          Alt-@ 
 tabh.ead              tabhead_macro         Alt-!
 smart.ind             smartind_macro        Alt--
 shadow                shadow_macro          none
-is <arg>              is_special            n/a
+is [<arg>]            is_special            n/a
 
 Lists and parsers (find/make/ls/ring: press Enter)
 

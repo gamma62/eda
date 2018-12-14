@@ -60,7 +60,7 @@ static int unhide_udiff_range (int ri, const char *range, int *target_line, int 
 static void mark_diff_line (int ri, int lineno);
 
 /*
-** nop - no operation, does nothing, only for testing
+** nop - no operation
 */
 int
 nop (void)
@@ -1995,7 +1995,7 @@ static int
 set_diff_section (int *diff_type, int *ring_tg)
 {
 	int ri_ = cnf.ring_curr;
-	char pattern[TAGSTR_SIZE];
+	const char *pattern;
 	char xmatch[TAGSTR_SIZE];
 	int orig_lineno = -1;
 	LINE *lx = NULL;
@@ -2029,7 +2029,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 			CURR_FILE.lineno = CURR_FILE.num_lines;
 		}
 	}
-	strncpy(pattern, "'^([+]{3}|[-]{3}) '", 100);
+	pattern = "'^([+]{3}|[-]{3}) '";
 	filter_all(pattern);
 
 	if (orig_lineno == CURR_FILE.lineno) {
@@ -2057,7 +2057,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	strncpy(pattern, "^[+]{3} ([^[:blank:]]+)\t", 100);
+	pattern = "^[+]{3} ([^[:blank:]]+)(\t|$)";
 	if (regexp_match(CURR_LINE->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {
@@ -2145,7 +2145,7 @@ select_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	pattern = "^[+]{3} ([^[:blank:]]+)\t";
+	pattern = "^[+]{3} ([^[:blank:]]+)(\t|$)";
 	if (regexp_match(lx->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {
@@ -2340,6 +2340,29 @@ int internal_hgdiff (void)
 		return (ret);
 
 	snprintf(ext_cmd, sizeof(ext_cmd)-1, "hg diff -p --noprefix %s", CURR_FILE.fname);
+	if ((ret = vcstool(ext_cmd)))
+		return (ret);
+
+	if ((ret = is_special("diff")))
+		return (ret);
+
+	ret = process_diff();
+
+	return (0);
+}
+
+/*
+** internal_gitdiff - run git diff on current file and process the outcome
+*/
+int internal_gitdiff (void)
+{
+	int ret;
+	char ext_cmd[25+FNAMESIZE];
+
+	if ((ret = filter_all("function")))
+		return (ret);
+
+	snprintf(ext_cmd, sizeof(ext_cmd)-1, "git diff --no-prefix %s", CURR_FILE.fname);
 	if ((ret = vcstool(ext_cmd)))
 		return (ret);
 

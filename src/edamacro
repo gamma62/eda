@@ -69,6 +69,17 @@ KEY_NONE	hglog
 	vcstool hg log -G -l 50
 	go_top
 .
+KEY_NONE	gitinfo
+#Description: run git commands to get info: summary, diff stat, status
+	vcstool git log --oneline -1
+	vcstool git diff --stat
+	vcstool git status -b -s
+.
+KEY_NONE	gitlog
+#Description: run git log, current branch only
+	vcstool git log --pretty=tformat:'%cd%n %h %ce | %s' --abbrev-commit --date=short -50
+	go_top
+.
 #
 # Tools
 #

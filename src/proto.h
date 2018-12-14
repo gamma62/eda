@@ -136,6 +136,7 @@ extern int bm_jump8 (void);				/* public, macro */
 extern int bm_jump9 (void);				/* public, macro */
 extern int process_diff (void);				/* public */
 extern int internal_hgdiff (void);			/* public, macro */
+extern int internal_gitdiff (void);			/* public, macro */
 
 /* disp.c */
 extern void upd_statusline (void);

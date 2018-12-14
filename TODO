@@ -1,11 +1,11 @@
 NOTES about ideas, plans, bugs
 
---- RC1 for v1.2.23
+--- RC2 for v1.2.23
 
   - hash tables for command and keys (reopen branch, add dynamic config)
   - go support -- branch
   - more python support -- branch
-  - macros for git, svnlite, bzr -- simple
-  - more color palette sets -- simple
+  - macros for git, svnlite, bzr
+  - more color palette sets
   - column reorder like awk(1), and reflow -- branch
 

@@ -19,7 +19,7 @@
 #
 
 include ../conf.make
-CC = cc
+CC = gcc
 
 ARCH = $(shell uname -m)
 OS = $(shell uname -s)
@@ -28,7 +28,8 @@ REV = $(shell cat ../REV 2>/dev/null || echo 0)
 CFLAGS = -Wall -Wextra -O2 -pipe -std=c99 -fstack-protector -fno-strict-aliasing \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes \
 	-Wformat -Wformat-security -Wsign-conversion -Wcast-qual -Wcast-align \
-	-Wwrite-strings -Wmissing-variable-declarations \
+	-Wwrite-strings -Wmissing-declarations -Wmissing-prototypes \
+	-D_GNU_SOURCE \
 	-I.. -I/usr/local/include -I/usr/local/include/ncurses
 
 LDFLAGS = -lncurses
@@ -44,17 +45,17 @@ all: eda
 eda: $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
-main.o: main.c $(SRCS) curses_ext.h main.h proto.h command.h
-	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c main.c -o $@
+main.o: main.c $(SRCS) ../config.h curses_ext.h main.h proto.h command.h
+	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c $< -o $@
 
 cmd.o: cmd.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
 ed.o: ed.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
 
 keys.o: keys.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c keys.c -o $@
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c $< -o $@
 
 rc.o: rc.c ../config.h main.h proto.h command.h keys.h rkeys.h
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c rc.c -o $@
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c $< -o $@
 
 cmdlib.o: cmdlib.c ../config.h main.h proto.h
 disp.o: disp.c ../config.h main.h proto.h
@@ -76,19 +77,20 @@ install:
 	install -m 644 -p edaseq.$(OS)  $(DESTDIR)$(sysconfdir)/eda/edaseq
 	install -d -m 755  $(DESTDIR)$(datadir)/eda/
 	install -m 644 -p edarc edakeys edaseq.* edamacro  $(DESTDIR)$(datadir)/eda/
+	install -m 644 -p ../check_perl.sh ../check_python.sh ../check_xml.sh  $(DESTDIR)$(datadir)/eda/
 
 uninstall:
-	for f in eda ; do \
+	@for f in eda ; do \
 	  if test -f $(DESTDIR)$(prefix)/bin/$$f ; then rm -f $(DESTDIR)$(prefix)/bin/$$f ; fi ; \
 	done
-	for f in edarc edakeys edaseq ; do \
+	@for f in edarc edakeys edaseq ; do \
 	  if test -f $(DESTDIR)$(sysconfdir)/eda/$$f ; then rm -f $(DESTDIR)$(sysconfdir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(sysconfdir)/eda || true
-	for f in edarc edakeys edaseq.* edamacro ; do \
+	@rmdir $(DESTDIR)$(sysconfdir)/eda 2>/dev/null || true
+	@for f in edarc edakeys edaseq.* edamacro check_perl.sh check_python.sh check_xml.sh ; do \
 	  if test -f $(DESTDIR)$(datadir)/eda/$$f ; then rm -f $(DESTDIR)$(datadir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(datadir)/eda || true
+	@rmdir $(DESTDIR)$(datadir)/eda 2>/dev/null || true
 
 clean:
 	-rm -f *.o *.i *~ core* *core eda tags
@@ -98,8 +100,8 @@ clean:
 .SUFFIXES: .i .o
 
 .c.o:
-	$(CC) $(CFLAGS) -o $@ -c $^
+	$(CC) $(CFLAGS) -o $@ -c $<
 .c.i:
-	$(CC) $(CFLAGS) -E -o $@ -c $^
+	$(CC) $(CFLAGS) -E -o $@ -c $<
 
 # ------------------------------------

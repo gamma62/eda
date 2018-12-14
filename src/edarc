@@ -32,10 +32,25 @@ save_inode	yes
 indent		tab	1
 tabsize		8
 
-# additional color palette configurations (see eda -c)
+#
+# color setting (see eda -c)
+#
+# each color set has 4 bytes:
+#	fg color [0-7], bg color [0-7], bold (b), reverse (r)
+# the 5 blocks, each has 4 color sets:
+#	normal line text: normal, tagged, highlight, search
+#	focus line text: normal, tagged, highlight, search
+#	selection line text: normal, tagged, highlight, search
+#	focus+selection line text: normal, tagged, highlight, search
+#	the last block: statusline, tracemsg/tabhead, shadow line, cmdline
+#
+# the default color palette (index 0) is hardcoded,
+# any number of valid custom configurations can be added,
+# select the default by its index
+#
+# the default palette as example (the first word is its name)
 #palette xterm 20_.60_.70_.10_. 20b.60b.70b.10b. 02_.42_.07_.01_. 03_.43_.07_.01_. 74_.06_.20_.74_.
-
-# color palette number (select from defined strings by number)
+# select color palette by index
 #palette 0
 
 # ctags settings
