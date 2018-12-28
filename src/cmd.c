@@ -143,7 +143,7 @@ clhistory_push (const char *buff, int len)
 		ptr->len = 0;
 		ptr->buff[ptr->len] = '\0';
 		cnf.clhistory = ptr;
-		HIST_LOG(LOG_DEBUG, "list initiated, cnf.clhist_size %d", cnf.clhist_size);
+		// list initiated
 
 	} else {
 		/* linkage */
@@ -158,8 +158,7 @@ clhistory_push (const char *buff, int len)
 		strncpy(ptr->buff, buff, (size_t)ptr->len);
 		ptr->buff[ptr->len] = '\0';
 
-		HIST_LOG(LOG_DEBUG, "command added, cnf.clhist_size %d, prev [%s] %d",
-			cnf.clhist_size, cnf.clhistory->prev->buff, cnf.clhistory->prev->len);
+		// command added
 	}
 
 	return 0;
@@ -238,9 +237,8 @@ static void
 clhistory_rm_olddup (char *buff, int len, int depth)
 {
 	CMDLINE *runner;
-	int item=0, removed=0;
+	int item=0;
 
-	HIST_LOG(LOG_DEBUG, "start with clhist_size %d and depth %d", cnf.clhist_size, depth);
 	if (len > 0 && cnf.clhistory != NULL) {
 		runner = cnf.clhistory->prev;
 		while (runner != NULL && item < depth) {
@@ -248,17 +246,12 @@ clhistory_rm_olddup (char *buff, int len, int depth)
 				/* zero-length items should not be here */
 				if (strncmp(runner->buff, buff, (size_t)len) == 0) {
 					clhistory_unlink(runner);
-					removed++;
 					break;
 				}
 			}
 			runner = runner->prev;
 			item++;
 		}
-	}
-
-	if (removed) {
-		HIST_LOG(LOG_DEBUG, "done, removed [%s], cnf.clhist_size %d", buff, cnf.clhist_size);
 	}
 	return;
 }
@@ -284,8 +277,6 @@ clhistory_prev (void)
 		reset_clhistory();
 	}
 
-	HIST_LOG(LOG_DEBUG, "---clhistory before skip [%s] ...", cnf.clhistory->buff);
-
 	if (cnf.clhistory->next == NULL) {
 		/* something special for prefix filter? */
 		;;;
@@ -300,8 +291,6 @@ clhistory_prev (void)
 			cnf.clhistory->len = 0;
 			cnf.clhistory->buff[cnf.clhistory->len] = '\0';
 		}
-
-		HIST_LOG(LOG_DEBUG, "---copy to clhistory [%s], done", cnf.clhistory->buff);
 	}
 
 	/* skip to prev... with prefix filtering
@@ -317,7 +306,7 @@ clhistory_prev (void)
 				cnf.clhistory = try;
 				break;
 			}
-			try =  try->prev;	/* maybe NULL now */
+			try = try->prev;	/* maybe NULL now */
 		}
 	} else {
 		/* no filter */
@@ -325,7 +314,6 @@ clhistory_prev (void)
 			cnf.clhistory = cnf.clhistory->prev;
 		}
 	}
-	HIST_LOG(LOG_DEBUG, "---clhistory after skip to prev [%s]", cnf.clhistory->buff);
 
 	if (cnf.clhistory->len > 0) {
 		cnf.cmdline_len = MIN(cnf.clhistory->len, CMDLINESIZE-1);
@@ -342,7 +330,7 @@ clhistory_prev (void)
 	else if (cnf.cloff > cnf.clpos)
 		cnf.cloff = cnf.clpos + 1;
 
-	HIST_LOG(LOG_DEBUG, "---done, cmdline buffer [%s]", cnf.cmdline_buff);
+	HIST_LOG(LOG_NOTICE, "---done, cmdline buffer [%s]", cnf.cmdline_buff); /* testing */
 	return 0;
 }
 
@@ -367,8 +355,6 @@ clhistory_next (void)
 		reset_clhistory();
 	}
 
-	HIST_LOG(LOG_DEBUG, "+++clhistory before skip [%s] ...", cnf.clhistory->buff);
-
 	/* skip to next... with prefix filtering
 	*/
 	if (cnf.clhistory->len > 0 && cnf.clpos > 0 && cnf.cmdline_len > 0) {
@@ -385,7 +371,7 @@ clhistory_next (void)
 				cnf.clhistory = try;	/* leave, this is the "workbuffer" */
 				break;
 			}
-			try =  try->next;
+			try = try->next;
 		}
 	} else {
 		/* no filter -- do not segfault */
@@ -393,7 +379,6 @@ clhistory_next (void)
 			cnf.clhistory = cnf.clhistory->next;
 		}
 	}
-	HIST_LOG(LOG_DEBUG, "+++clhistory after skip to next [%s]", cnf.clhistory->buff);
 
 	if (cnf.clhistory->len > 0) {
 		cnf.cmdline_len = MIN(cnf.clhistory->len, CMDLINESIZE-1);
@@ -410,7 +395,7 @@ clhistory_next (void)
 	else if (cnf.cloff > cnf.clpos)
 		cnf.cloff = cnf.clpos + 1;
 
-	HIST_LOG(LOG_DEBUG, "+++done, cmdline buffer [%s]", cnf.cmdline_buff);
+	HIST_LOG(LOG_NOTICE, "+++done, cmdline buffer [%s]", cnf.cmdline_buff); /* testing */
 	return 0;
 }
 
@@ -634,7 +619,6 @@ cmdline_to_clhistory (char *buff, int length)
 {
 	int xlength = length;
 
-	HIST_LOG(LOG_DEBUG, "start (going to reset and strip)...");
 	reset_clhistory();
 
 	/* strip all blanks, even if this can cut ending of regexp pattern
@@ -645,7 +629,6 @@ cmdline_to_clhistory (char *buff, int length)
 		clhistory_rm_olddup (buff, xlength, 5);
 		clhistory_push (buff, xlength);
 	}
-	HIST_LOG(LOG_DEBUG, "done (after olddup and push)...");
 }
 
 /*
@@ -708,18 +691,6 @@ ed_text (int ch)
 		break;
 	case KEY_RETURN:
 		keypress_enter();
-		break;
-	case KEY_C_D:
-		if ((CURR_FILE.fflag & FSTAT_INTERACT) &&
-		    (CURR_FILE.pipe_input != 0) &&
-		    (CURR_FILE.lineno == CURR_FILE.num_lines))
-		{
-			insert[0] = KEY_C_D;
-			insert[1] = '\0';
-			write_out_chars(CURR_FILE.pipe_input, insert, 1);
-		} else {
-			ret=0;
-		}
 		break;
 
 	case KEY_TAB:
@@ -893,48 +864,14 @@ typing_tutor_handler(int ch)
 
 /*
 ** keypress_enter - handle the Enter keypress in text area,
-**	regular file buffers, special window, interactive shells
+**	regular file buffers, special window
 */
 int
 keypress_enter (void)
 {
-	char insert[CMDLINESIZE];
-	int push = sizeof(insert);
-	int offset=0, i=0;
-
-	if ((CURR_FILE.fflag & FSTAT_INTERACT) &&
-	    (CURR_FILE.pipe_input != 0) &&
-	    (CURR_FILE.lineno == CURR_FILE.num_lines))
-	{
-		/* push the bytes into child's reader pipe, but without the prompt
-		*/
-		if (CURR_FILE.last_input_length > 0)
-		{
-			i=0;
-			while (i < CURR_LINE->llen-1 && i < CURR_FILE.last_input_length) {
-				if (CURR_FILE.last_input[i] != CURR_LINE->buff[i])
-					break;
-				i++;
-			}
-			offset = i;
-		}
-		if (push > CURR_LINE->llen - offset)
-			push = CURR_LINE->llen - offset;
-		if (push > 0) {
-			strncpy(insert, CURR_LINE->buff+offset, sizeof(insert));
-			insert[sizeof(insert)-1] = '\0';
-			PIPE_LOG(LOG_DEBUG, "last_input %d llen %d offset %d -- push %d bytes [%s]",
-				CURR_FILE.last_input_length, CURR_LINE->llen, offset, push, insert);
-			CURR_FILE.lncol = offset;
-			deleol();
-			write_out_chars(CURR_FILE.pipe_input, insert, push);
-		}
-		/* cnf.gstat |= GSTAT_UPDNONE; */
-	}
-	else if ( !(CURR_FILE.fflag & FSTAT_NOEDIT) ) {
+	if ( !(CURR_FILE.fflag & FSTAT_NOEDIT) ) {
 		split_line();
-	}
-	else if (CURR_FILE.fflag & FSTAT_SPECW) {
+	} else if (CURR_FILE.fflag & FSTAT_SPECW) {
 		general_parser();
 	}
 
@@ -1644,28 +1581,62 @@ type_cmd (const char *str)
 int
 cp_text2cmd (void)
 {
-	int ret=0, i=0, j=0;
+	int space;
 
 	cnf.reset_clhistory = 1;
 
-	/* keep clpos and cloff */
-	j = cnf.clpos;
-	for (i=0; i < CURR_LINE->llen-1; i++) {
-		if (j < CMDLINESIZE-1) {
-			cnf.cmdline_buff[j] = CURR_LINE->buff[i];
-			j++;
-		} else {
-			j = CMDLINESIZE-1;
-			break;
-		}
-	}
-	cnf.cmdline_len = j;
-	cnf.cmdline_buff[j] = '\0';
+	/* keep clpos and cloff -- copy as much as target space */
+	cnf.cmdline_buff[cnf.clpos] = '\0';
+	space = MIN(CMDLINESIZE-cnf.clpos-1, CURR_LINE->llen-1); // the rest, without LF
+	if (space > 0)
+		strncat(&cnf.cmdline_buff[cnf.clpos], CURR_LINE->buff, (size_t)space);
+	cnf.cmdline_len = strlen(cnf.cmdline_buff);
 
 	CURR_FILE.fflag |= FSTAT_CMD;
 	cnf.gstat |= GSTAT_UPDNONE;
 
-	return (ret);
+	return (0);
+}
+
+/*
+** cp_name2open - copy nonspace characters around cursor to command line, assuming that is a filename
+*/
+int
+cp_name2open (void)
+{
+	int beg, end, len;
+
+#define FN(ch)	( ((ch) >= 'a' && (ch) <= 'z') || ((ch) >= 'A' && (ch) <= 'Z') || ((ch) == '_') || \
+		((ch) >= '0' && (ch) <= '9') || ((ch) == '.') || ((ch) == '+') || ((ch) == '-') || ((ch) == '/') )
+
+	if ( !TEXT_LINE(CURR_LINE) || CURR_FILE.lncol >= CURR_LINE->llen-1 || !FN(CURR_LINE->buff[CURR_FILE.lncol]) ) {
+		return (0);
+	}
+
+	for (beg = CURR_FILE.lncol; beg >= 0 && FN(CURR_LINE->buff[beg]); beg--)
+		;
+	++beg;
+	for (end = CURR_FILE.lncol; end < CURR_LINE->llen-1 && FN(CURR_LINE->buff[end]); end++)
+		;
+	--end;
+	len = end-beg+1;
+
+#undef FN
+
+	cnf.reset_clhistory = 1;
+
+	if (len > 0 && len < CMDLINESIZE-2) {
+		/* reset clpos and cloff -- copy as much as target space */
+		cnf.clpos = cnf.cloff = 0;
+		strncpy(cnf.cmdline_buff, "e ", 3);
+		strncat(cnf.cmdline_buff, &CURR_LINE->buff[beg], (size_t)len); // enough space; no '\0' in source
+		cnf.cmdline_len = strlen(cnf.cmdline_buff);
+	}
+
+	CURR_FILE.fflag |= FSTAT_CMD;
+	cnf.gstat |= GSTAT_UPDNONE;
+
+	return (0);
 }
 
 /* csere - replace region in string with replacement,
@@ -1841,10 +1812,7 @@ milbuff (LINE *lp, int from, int length, const char *replacement, int rl)
 int
 type_text (const char *str)
 {
-	int slen=0, begin=0, last=0, plen=0, i=0;
-	int ret=0;
-	char smartind;
-	const char *prompt=NULL;
+	int slen=0, begin=0, last=0, ret=0, smartind;
 
 	if (str[0] == '\0')
 		return(0);
@@ -1853,16 +1821,13 @@ type_text (const char *str)
 		return(1);
 	}
 
-	smartind = (cnf.gstat & GSTAT_SMARTIND) ? 1 : 0;
+	smartind = (cnf.gstat & GSTAT_SMARTIND);
 	if (smartind)
 		cnf.gstat &= ~GSTAT_SMARTIND;
 
 	slen = strlen(str);
 	begin = 0;
 	last = 0;
-	plen = sizeof(CURR_FILE.last_input);
-	CURR_FILE.last_input_length = 0;
-	CURR_FILE.last_input[0] = '\0';
 
 	while (begin < slen) {
 		while (last < slen && str[last] != '\n') {
@@ -1870,9 +1835,6 @@ type_text (const char *str)
 		}
 		if (begin < last) {
 			ret = insert_chars (&str[begin], last-begin);
-			/* for interactive shells */
-			CURR_FILE.last_input_length = last-begin;
-			prompt = &str[begin];
 		}
 		if (ret) {
 			break;
@@ -1882,18 +1844,6 @@ type_text (const char *str)
 			last++;
 		}
 		begin = last;
-	}
-
-	if (CURR_FILE.fflag & FSTAT_INTERACT) {
-		i=0;
-		if (prompt != NULL) {
-			while(i<plen-1 && i<CURR_FILE.last_input_length) {
-				CURR_FILE.last_input[i] = prompt[i];
-				i++;
-			}
-		}
-		CURR_FILE.last_input[i] = '\0';
-		PIPE_LOG(LOG_DEBUG, "last_input %d [%s]", CURR_FILE.last_input_length, CURR_FILE.last_input);
 	}
 
 	if (smartind)

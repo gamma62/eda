@@ -68,6 +68,7 @@ extern int goto_pos (const char *args);			/* public */
 extern int center_focusline (void);			/* public */
 extern int type_cmd (const char *str);
 extern int cp_text2cmd (void);				/* public */
+extern int cp_name2open (void);				/* public */
 extern int csere (char **, int *, int, int, const char *, int);
 extern int csere0 (char **, int, int, const char *, int);
 extern int milbuff (LINE *, int, int, const char *, int);
@@ -97,7 +98,6 @@ extern int lsdir (const char *dirpath);
 #define SIMPLE_PARSER_WINKIN 1
 extern int simple_parser (const char *dline, int jump_mode);
 extern int python_parser (const char *dline);
-extern int parse_open (void);				/* public */
 extern int diff_parser (const char *dataline);
 extern void general_parser (void);
 extern int is_special (const char *special);		/* public */
@@ -135,8 +135,9 @@ extern int bm_jump7 (void);				/* public, macro */
 extern int bm_jump8 (void);				/* public, macro */
 extern int bm_jump9 (void);				/* public, macro */
 extern int process_diff (void);				/* public */
-extern int internal_hgdiff (void);			/* public, macro */
-extern int internal_gitdiff (void);			/* public, macro */
+extern int hgdiff_eng (const char *, const char *, const char *);
+extern int internal_hgdiff (const char *);		/* public, macro */
+extern int internal_gitdiff (const char *);		/* public, macro */
 
 /* disp.c */
 extern void upd_statusline (void);
@@ -254,7 +255,6 @@ extern void put_string_to_file (const char *fn, const char *s);
 
 /* pipe.c */
 extern int shell_cmd (const char *ext_cmd);		/* public */
-extern int ishell_cmd (const char *ext_cmd);		/* public */
 extern int make_cmd (const char *opts);			/* public */
 extern int vcstool (const char *ext_cmd);		/* public */
 extern int find_cmd (const char *ext_cmd);		/* public */

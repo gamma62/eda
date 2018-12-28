@@ -117,6 +117,7 @@ KEY_C_B              ins_bname
 KEY_C_V              ins_varname
 KEY_C_G              ins_filename
 KEY_C_X              cp_text2cmd
+KEY_M_X              cp_name2open
 KEY_S_F2             view_bname
 KEY_C_W              word_case
 KEY_M_LEFT           prev_file

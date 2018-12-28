@@ -65,8 +65,7 @@ filter_regex (int action, int fmask, const char *expr)
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", expr_new, errbuff);
 	} else {
 		lx = CURR_FILE.top->next;
 		while (TEXT_LINE(lx)) {
@@ -162,8 +161,7 @@ internal_search (const char *pattern)
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", pattern, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", pattern, errbuff);
 		return (1);
 	}
 
@@ -257,7 +255,7 @@ search_goto_pattern (int ri, const char *pattern, int *new_lineno)
 	ret = regcomp (&reg, expr_new, REG_NOSUB | REG_NEWLINE);
 	if (ret) {
 		/* external - search regexp by ctags */
-		REPL_LOG(LOG_ERR, "(ctags) regcomp failed [%s]: %d", expr_new, ret);
+		tracemsg("(ctags) pattern [%s]: failed", expr_new);
 		lx = NULL;
 	} else {
 		lx = cnf.fdata[ri].top->next;
@@ -378,8 +376,7 @@ color_tag (const char *expr)
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", expr_new, errbuff);
 	} else {
 		/* tag coloring
 		 * only for in-view lines
@@ -447,8 +444,7 @@ highlight_word (const char *expr)
 	if (ret) {
 		regerror(ret, &(CURR_FILE.highlight_reg), errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", expr_new, errbuff);
 		/* FSTAT_TAG5 not set */
 		regfree(&(CURR_FILE.highlight_reg));
 	} else {
@@ -656,8 +652,7 @@ search (const char *expr)
 	if (ret) {
 		regerror(ret, &(CURR_FILE.search_reg), errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", expr_new, errbuff);
 		/* FSTAT_TAG2 not set, do not regfree(&(CURR_FILE.search_reg)); */
 
 	} else {
@@ -887,8 +882,7 @@ change (const char *argz)
 	if (ret) {
 		regerror(ret, &(CURR_FILE.search_reg), errbuff, ERRBUFF_SIZE);
 		/* external */
-		REPL_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		tracemsg("pattern [%s]: failed: %s", expr_new, errbuff);
 		/* FSTAT_TAG{2|3} not set, do not regfree(&(CURR_FILE.search_reg)); */
 
 	} else {
@@ -920,7 +914,7 @@ change (const char *argz)
 			CURR_FILE.fflag &= ~FSTAT_CMD;
 			/**/
 			if (global_opt) {
-				REPL_LOG(LOG_DEBUG, "(global) quiet search & replace, no question");
+				// (global) quiet search & replace, no question
 				cnf.trace = 0;	/* drop previous msgs */
 				ret = repeat_change('r');
 				/* and to restore */
@@ -1042,7 +1036,7 @@ repeat_change (int ch)
 				tracemsg ("change count %d", chp->change_count);
 				ret = 0; // finished, no problem
 			}
-			REPL_LOG(LOG_DEBUG, "(end) ch 0x%x: line %d change_count %d", ch, chp->lineno, chp->change_count);
+			// "(end) ch 0x%x: line %d change_count %d", ch, chp->lineno, chp->change_count
 		}
 		if (chp != NULL) {
 			FREE(chp->rep_buff);
@@ -1058,10 +1052,10 @@ repeat_change (int ch)
 		CURR_FILE.lncol = chp->lncol + chp->pmatch[0].rm_eo;
 		update_curpos(cnf.ring_curr);
 		/* chp->lncol must be saved as is! */
-		REPL_LOG(LOG_DEBUG, "(found) ch 0x%x: line %d lncol %d -> %d", ch, chp->lineno, chp->lncol, CURR_FILE.lncol);
+		// "(found) ch 0x%x: line %d lncol %d -> %d", ch, chp->lineno, chp->lncol, CURR_FILE.lncol
 		tracemsg (REPLACE_QUEST);
 	} else {
-		REPL_LOG(LOG_DEBUG, "(exception) ch 0x%x: line %d", ch, chp->lineno);
+		// "(exception) ch 0x%x: line %d", ch, chp->lineno
 		tracemsg (REPLACE_QUEST);
 	}
 
@@ -1216,8 +1210,8 @@ accum_replacement (CHDATA *chp)
 	chp->rep_length = idx;
 	/* allocated space: REP_ASIZE(idx) */
 
-	REPL_LOG(LOG_DEBUG, "line %d --- rep_length %d rep_buff [%s] rflag 0x%x",
-		chp->lineno, chp->rep_length, chp->rep_buff, chp->rflag);
+	// "line %d --- rep_length %d rep_buff [%s] rflag 0x%x",
+	// chp->lineno, chp->rep_length, chp->rep_buff, chp->rflag
 
 	return (0);
 } /* accum_replacement */
@@ -1233,11 +1227,11 @@ do_replacement (CHDATA *chp)
 {
 	int ret = 0;
 
-	REPL_LOG(LOG_DEBUG, "line %d --- from %ld length %ld -- replace length %d",
-		chp->lineno,
-		(long)chp->lncol + chp->pmatch[0].rm_so,
-		(long)(chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so),
-		chp->rep_length);
+	// "line %d --- from %ld length %ld -- replace length %d",
+	// chp->lineno,
+	// (long)chp->lncol + chp->pmatch[0].rm_so,
+	// (long)(chp->pmatch[0].rm_eo - chp->pmatch[0].rm_so),
+	// chp->rep_length
 
 	ret = milbuff (chp->lx,
 		chp->lncol + chp->pmatch[0].rm_so,

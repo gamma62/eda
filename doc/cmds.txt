@@ -159,7 +159,6 @@ External tools, filter pipes, VCS tool calls and unified diffs
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
 sh <arg>              shell_cmd             n/a
-ish [<arg>]           ishell_cmd            n/a
 make [<arg>]          make_cmd              n/a
 | <arg>               filter_cmd            n/a
 || <arg>              filter_shadow_cmd     n/a
@@ -193,7 +192,6 @@ command name          function name         keyboard shortcut
 ri.ng                 list_buffers          Alt-r
 ls.dir [<arg>]        lsdir_cmd             Alt-y
 cmd.s                 show_commands         none
-pop.en                parse_open            none
 
 Bookmarks, set and jump (Alt-0 sets next free)
 
@@ -229,6 +227,7 @@ n/a                   ins_bname             Ctrl-b
 n/a                   ins_varname           Ctrl-v
 n/a                   ins_filename          Ctrl-g
 n/a                   cp_text2cmd           Ctrl-x
+n/a                   cp_name2open          Alt-x
 vbn                   view_bname            Shift-F2
 wc.ase                word_case             Ctrl-w
 version               version               none

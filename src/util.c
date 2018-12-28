@@ -94,13 +94,11 @@ glob_tilde_expansion (char *path, unsigned maxsize)
 	mybasename(fname, path, FNAMESIZE);
 	flen = strlen(fname);
 	mydirname(dirname, path, FNAMESIZE);
-	PD_LOG(LOG_DEBUG, "path [%s] -> [%s] [%s]", path, dirname, fname);
 
 	ret = glob(dirname, GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
 	if (ret == 0 && globbuf.gl_pathc == 1) {
 		len = strlen(globbuf.gl_pathv[0]);
 		if (maxsize > len + flen) {
-			PD_LOG(LOG_DEBUG, "glob [%s]", globbuf.gl_pathv[0]);
 			//
 			// remove boring "./" prefix from relative path, except empty fname
 			//
@@ -111,14 +109,13 @@ glob_tilde_expansion (char *path, unsigned maxsize)
 				strncpy(path, globbuf.gl_pathv[0], len);
 			}
 			strncat(path, fname, flen);
-			PD_LOG(LOG_DEBUG, "success [%s]", path);
 			ret=0;
 		} else {
-			PD_LOG(LOG_ERR, "glob path is too long (%u)", len + flen);
+			/* too long */
 			ret=3;
 		}
 	} else {
-		PD_LOG(LOG_ERR, "glob failed [%s] (%s)", path, strerror(errno));
+		/* glob failed */
 		ret=2;
 	}
 	globfree(&globbuf);
@@ -158,7 +155,7 @@ glob_tab_expansion (char *path, unsigned maxsize, char **choices)
 				strncpy(path, globbuf.gl_pathv[0], maxsize-1);
 				path[len] = '\0';
 			} else {
-				PD_LOG(LOG_ERR, "resulted exact match path is too long (%u)", len);
+				/* too long */
 				ret=3;
 			}
 		} else {
@@ -186,7 +183,6 @@ glob_tab_expansion (char *path, unsigned maxsize, char **choices)
 			qq = (char *) MALLOC(als);
 			if (qq == NULL) {
 				ERRLOG(0xE031);
-				PD_LOG(LOG_ERR, "malloc error");
 				ret = 4;
 			} else {
 				*choices = qq;	/* save for return, to be freed by caller */
@@ -200,9 +196,7 @@ glob_tab_expansion (char *path, unsigned maxsize, char **choices)
 			}
 		}
 	} else {
-		if (globbuf.gl_pathc >= 1) {
-			PD_LOG(LOG_ERR, "glob failed (ret %d, count %lu)", ret, globbuf.gl_pathc);
-		}
+		// if (globbuf.gl_pathc >= 1) /* glob failed */
 		ret=2;
 	}
 	globfree(&globbuf);

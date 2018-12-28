@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2018-12-14" "0.9.97" ""
+.TH "EDAMACRO" "5" "2018-12-28" "0.9.97" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -138,7 +138,7 @@ keypress_enter
 .br
 .TP 16
 .B keypress_enter
-handle the Enter keypress in text area, regular file buffers, special window, interactive shells
+handle the Enter keypress in text area, regular file buffers, special window
 .br
 
 .SS special text area functions:
@@ -428,14 +428,11 @@ change the name patterns of find command, like "fsea *.[ch] *.sh" or "fsea *.py"
 .br
 
 .SS calling external tools, external filter pipes, diff tools and VCS (Version Control System) tools
-shell_cmd ishell_cmd make_cmd filter_cmd filter_shadow_cmd vcstool process_diff internal_hgdiff internal_gitdiff
+shell_cmd make_cmd filter_cmd filter_shadow_cmd vcstool process_diff internal_hgdiff internal_gitdiff
 .br
 .TP 11
 .B shell_cmd
 launch shell to run given command with the optional arguments and catch output to buffer
-.TP 12
-.B ishell_cmd
-launch interactive shell or given command with the optional arguments, catch output and show in buffer, read input from the last line; the Apostrophe character maybe used to enclose parameters
 .TP 10
 .B make_cmd
 start make with optional arguments and catch output, set arguments on commandline and options in make_opts resource
@@ -453,10 +450,10 @@ start VCS command with arguments (does not fork to background), the first argume
 process the unified diff output, make preparation to review additions and changes of target files
 .TP 17
 .B internal_hgdiff
-run hg diff on current file and process the outcome
+run hg diff on current file, or another given filename, and process the outcome
 .TP 18
 .B internal_gitdiff
-run git diff on current file and process the outcome
+run git diff on current file, or another given filename, and process the outcome
 .br
 
 .SS resources, keys, macros, projects and buffer type query/change
@@ -504,7 +501,7 @@ show buffer or set buffer ftype, for regular file types (c/cpp/c++, perl, python
 .br
 
 .SS lists and parsers (find/make/ls/ring: press Enter), see also cmds.txt
-list_buffers lsdir_cmd show_commands parse_open
+list_buffers lsdir_cmd show_commands
 .br
 .TP 14
 .B list_buffers
@@ -515,9 +512,6 @@ create directory listing in special buffer for easy navigation and opening, the 
 .TP 15
 .B show_commands
 show table of commands with keyboard shortcuts
-.TP 12
-.B parse_open
-get nonspace characters around cursor, assuming that is a filename try to open file
 .br
 
 .SS bookmarks, set and jump (Alt-0 sets next free)
@@ -587,7 +581,7 @@ come back from the last tag jump
 .br
 
 .SS export/insert/view names and other helper functions
-ins_bname ins_varname ins_filename cp_text2cmd view_bname word_case version pwd uptime xterm_title message msg_from_text
+ins_bname ins_varname ins_filename cp_text2cmd cp_name2open view_bname word_case version pwd uptime xterm_title message msg_from_text
 .br
 .TP 11
 .B ins_bname
@@ -601,6 +595,9 @@ insert original filename of buffer into command line or text area
 .TP 13
 .B cp_text2cmd
 copy current line from text area to the command line, overwrite rest of line
+.TP 14
+.B cp_name2open
+copy nonspace characters around cursor to command line, assuming that is a filename
 .TP 12
 .B view_bname
 view block/function name in notification, try even from make and find buffers
@@ -644,7 +641,7 @@ no operation
 stop running background process of current buffer
 .br
 
-.SH "INTERACTIVE COMMANDS"
+.SH "RESOURCES"
 While using \fBeda\fR enter the "cmds" command to see commands abbreviated name (dot in the name) and full name,
 the default keyboard shortcut (this can be changed except n/a),
 and the function name (the same as in the API list above).

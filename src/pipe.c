@@ -46,9 +46,7 @@ extern CONFIG cnf;
 static int filter_cmd_eng (const char *ext_cmd, int opts);
 static int fork_exec (const char *ext_cmd, const char *ext_argstr, int *in_pipe, int *out_pipe, int opts);
 static int finish_in_fg (void);
-static int check_zombie (int ri);
 static int getxline (char *buff, int *count, int max, int fd);
-static void filter_esc_seq (char *buff, int *count);
 
 /*
 ** shell_cmd - launch shell to run given command with the optional arguments and catch output to buffer
@@ -60,7 +58,7 @@ shell_cmd (const char *ext_cmd)
 	char ext_argstr[CMDLINESIZE];
 	memset(ext_argstr, 0, sizeof(ext_argstr));
 
-	/* command is mandatory because this is not interactive */
+	/* command is mandatory */
 	if (ext_cmd[0] == '\0') {
 		return (0);
 	}
@@ -71,52 +69,6 @@ shell_cmd (const char *ext_cmd)
 		snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
 	}
 	ret = read_pipe ("*sh*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_TTY);
-
-	return (ret);
-}
-
-/*
-** ishell_cmd - launch interactive shell or given command with the optional arguments,
-**	catch output and show in buffer, read input from the last line;
-**	the Apostrophe character maybe used to enclose parameters
-*/
-int
-ishell_cmd (const char *ext_cmd)
-{
-	int ret=0;
-	char ext_argstr[CMDLINESIZE];
-	char head[30];
-	unsigned i=0, j=0, se=0, sh=0;
-
-	se = sizeof(ext_argstr);
-	sh = sizeof(head);
-	if (se < 1 || sh < 2) {
-		return (-1);
-	}
-	memset(ext_argstr, 0, se);
-	memset(head, 0, sh);
-
-	/* command is optional */
-	if (ext_cmd[0] == '\0') {
-		snprintf(ext_argstr, se-1, "sh -c %s", cnf.sh_path);
-		strncpy(head, "*ish*", 5);
-	} else {
-		head[i++] = '*';
-		if (ext_cmd[0] == 0x27) {
-			snprintf(ext_argstr, se-1, "sh -c %s", ext_cmd);
-			j=1;
-		} else {
-			snprintf(ext_argstr, se-1, "sh -c '%s'", ext_cmd);
-			j=0;
-		}
-		while (i < sh-2 && ext_cmd[j] != '\0' && ext_cmd[j] != ' ' && ext_cmd[j] != 0x27)
-			head[i++] = ext_cmd[j++];
-		head[i++] = '*';
-		head[i++] = '\0';
-
-	}
-
-	ret = read_pipe (head, cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT | OPT_TTY);
 
 	return (ret);
 }
@@ -555,60 +507,29 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	char *args[MAXARGS], cmd[FNAMESIZE];
 	int xx=0;
 	int chrw=-1;
-	int ptm, pts;
-	char *slave;
 
 	/* copy and parse args[] */
 	strncpy(token_str, ext_argstr, sizeof(token_str));
 	token_str[sizeof(token_str)-1] = '\0';
 	if ((xx = parse_args (token_str, args)) < 1) {
-		PIPE_LOG(LOG_ERR, "parse_args() failed");
+		// failed
 		return (-1);
 	}
 
 	/* check command */
 	if (ext_cmd[0] == '\0') {
-		PIPE_LOG(LOG_ERR, "no command to launch");
+		// no command to launch
 		return (-1);
 	}
 	strncpy(cmd, ext_cmd, sizeof(cmd));
 	cmd[sizeof(cmd)-1] = '\0';
 
-	if (opts & OPT_INTERACT) {
-		ptm = open("/dev/ptmx", O_RDWR);
-		if (ptm == -1)
-			ptm = posix_openpt(O_RDWR);
-
-		if (ptm == -1
-			|| grantpt(ptm) == -1
-			|| unlockpt(ptm) == -1
-			|| (slave = ptsname(ptm)) == NULL)
-		{
-			PIPE_LOG(LOG_ERR, "ptm open failed (%s)", strerror(errno));
-			return (-1);
-		}
-
-		pts = open(slave, O_RDWR);
-		if (pts < 0) {
-			PIPE_LOG(LOG_ERR, "pts open failed (%s)", strerror(errno));
-			return (-1);
-		}
-
-		PIPE_LOG(LOG_NOTICE, "interactive: slave [%s] ptm %d pts %d", slave, ptm, pts);
-		/* parent */
-		out_pipe[XREAD] = ptm;
-		in_pipe[XWRITE] = ptm;
-		/* child */
-		out_pipe[XWRITE] = pts;
-		in_pipe[XREAD] = pts;
-	} else {
-		if (pipe(out_pipe) || pipe(in_pipe)) {
-			PIPE_LOG(LOG_ERR, "pipe() call failed (%s)", strerror(errno));
-			return (-1);
-		}
+	if (pipe(out_pipe) || pipe(in_pipe)) {
+		PIPE_LOG(LOG_ERR, "pipe() call failed (%s)", strerror(errno));
+		return (-1);
 	}
-	PIPE_LOG(LOG_DEBUG, "in pipe W %d R %d  out pipe W %d R %d",
-		in_pipe[XWRITE], in_pipe[XREAD], out_pipe[XWRITE], out_pipe[XREAD]);
+	// in pipe -- in_pipe[XWRITE], in_pipe[XREAD]
+	// out pipe -- out_pipe[XWRITE], out_pipe[XREAD]
 
 	if ((chrw = fork()) == -1) {
 		PIPE_LOG(LOG_ERR, "fork() [r/w] failed (%s)", strerror(errno));
@@ -638,7 +559,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		} else {
 			close(2);			/* drop stderr */
 		}
-		if (opts & (OPT_IN_OUT | OPT_INTERACT | OPT_TTY)) {
+		if (opts & (OPT_IN_OUT | OPT_TTY)) {
 			dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
 		} else {
 			close(0);			/* no stdin */
@@ -654,12 +575,6 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 
 		/* set big terminal size for the child process */
 		setenv("COLUMNS", "512", 1);
-
-		if (opts & OPT_INTERACT) {
-			/* greetings */
-			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
-				getpid(), getppid(), getsid(0), getpgid(0));
-		}
 
 		/* reset signal handler for child
 		*/
@@ -696,7 +611,6 @@ finish_in_fg (void)
 	int ret = 0;
 
 	CURR_FILE.pipe_opts |= OPT_NOBG;
-	PIPE_LOG(LOG_DEBUG, "ri=%d, start, calling readout_pipe ...", cnf.ring_curr);
 
 	/* loop stops if pipe_output closed
 	*/
@@ -705,7 +619,6 @@ finish_in_fg (void)
 		if (ret==1)
 			ret=0; /* that was an empty read */
 	}
-	PIPE_LOG(LOG_DEBUG, "ri=%d, return %d", cnf.ring_curr, ret);
 
 	return ret;
 }
@@ -753,7 +666,6 @@ read_stdin (void)
 	}
 
 	/* the rest is standard input processing */
-	PIPE_LOG(LOG_NOTICE, "stdin-pipe dup to pipe=%d, re-opened /dev/tty", pipeFD);
 
 	if ((ret = scratch_buffer("*sh*")) != 0) {
 		return (ret);
@@ -780,7 +692,7 @@ read_stdin (void)
 	if (CURR_FILE.pipe_opts & OPT_NOBG) {
 		/* finish in foreground -- loop stops if pipe_output closed
 		*/
-		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- finish in foreground", cnf.ring_curr);
+		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in FOREground", cnf.ring_curr);
 		ret = finish_in_fg();
 		/* finished */
 	} else {
@@ -791,7 +703,7 @@ read_stdin (void)
 			PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
 				CURR_FILE.pipe_output, strerror(errno));
 		}
-		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in background", cnf.ring_curr);
+		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in BACKground", cnf.ring_curr);
 	}
 
 	return (ret);
@@ -813,7 +725,6 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	ring_i = cnf.ring_curr;
 
 	/* sanity check */
-	// bad opts: OPT_NOBG | OPT_INTERACT together
 	// bad opts: no-scratch only with OPT_BASE_MASK | OPT_COMMON_MASK bits
 
 	if ((opts & OPT_BASE_MASK) == OPT_STANDARD) {
@@ -824,9 +735,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	}
 	/* cnf.ring_curr is set now */
 	if (CURR_FILE.pipe_output != 0) {
-		tracemsg("background process is already running in this buffer!");
-		PIPE_LOG(LOG_ERR, "cannot start, background process (%s) running! ri:%d pipe:%d",
-			sbufname, cnf.ring_curr, CURR_FILE.pipe_output);
+		tracemsg("cannot start, background process is running here!");
 		cnf.ring_curr = ring_i;
 		return (0);
 	}
@@ -842,17 +751,15 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	/* common */
 	chrw = fork_exec (ext_cmd, ext_argstr, in_pipe, out_pipe, opts);
 	if (chrw == -1) {
-		tracemsg("failed to start external tool"); /* remain in this buffer */
+		tracemsg("failed to start external command"); /* remain in this buffer */
 		return (2);
 	}
 	CURR_FILE.chrw = chrw;
 
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- ri:%d, new ri:%d -- pid:%d pipes: in=%d out=%d",
-		ring_i, cnf.ring_curr, chrw, in_pipe[XWRITE], out_pipe[XREAD]);
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- *process* pid:%d (ppid:%d) sid:%d pgid:%d",
-		cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- *user* uid:%d gid:%d euid:%d egid:%d",
-		cnf.uid, cnf.gid, cnf.euid, cnf.egid);
+	PIPE_LOG(LOG_NOTICE, "fork/parent -- ri:%d, new ri:%d -- child:%d",
+		ring_i, cnf.ring_curr, chrw); // in_pipe[XWRITE], out_pipe[XREAD]
+	// "pid:%d (ppid:%d) sid:%d pgid:%d", cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
+	// "uid:%d gid:%d euid:%d egid:%d", cnf.uid, cnf.gid, cnf.euid, cnf.egid);
 
 	/* common */
 	if (opts & OPT_IN_OUT) {
@@ -879,12 +786,12 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		}
 		if (lno_write < 1)
 			ret = 100;
-		PIPE_LOG(LOG_NOTICE, "feed child process (ri:%d, opts:0x%x): pipe=%d -- wrote %d line(s)",
-			ring_i, (opts & OPT_IN_OUT_MASK), in_pipe[XWRITE], lno_write);
+		PIPE_LOG(LOG_NOTICE, "fed child:%d (opts:0x%x) with %d line(s)",
+			chrw, (opts & OPT_IN_OUT_MASK), lno_write); // in_pipe[XWRITE]
 	}
 
 	/* common */
-	if ((opts & (OPT_INTERACT | OPT_TTY)) == 0) {
+	if ((opts & OPT_TTY) == 0) {
 		close(in_pipe[XWRITE]);
 		in_pipe[XWRITE] = 0;
 	}
@@ -892,15 +799,8 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	if ((opts & OPT_BASE_MASK) == OPT_STANDARD) {
 		/* additional flags */
 		CURR_FILE.fflag |= FSTAT_SPECW;
-		if (opts & OPT_INTERACT) {
-			CURR_FILE.fflag |= FSTAT_INTERACT;
-			/* for prompt recognition */
-			CURR_FILE.last_input_length = 0;
-			CURR_FILE.last_input[0] = '\0';
-		} else {
-			/* disable inline editing, adding lines */
-			CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
-		}
+		/* disable inline editing, adding lines */
+		CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
 
 		if ((opts & OPT_SILENT) == 0) {
 			/* first line: header
@@ -914,11 +814,6 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			} else {
 				ret = 200;
 			}
-		}
-		if (opts & OPT_INTERACT) {
-			split_line();
-			/* switch to text area */
-			CURR_FILE.fflag &= ~FSTAT_CMD;
 		}
 	}
 
@@ -946,7 +841,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		if (opts & OPT_NOBG) {
 			/* finish in foreground -- loop stops if pipe_output closed
 			*/
-			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- finish in foreground", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in FOREground", cnf.ring_curr, sbufname);
 			ret = finish_in_fg();
 			/* finished */
 		} else {
@@ -957,7 +852,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
 					CURR_FILE.pipe_output, strerror(errno));
 			}
-			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in background", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in BACKground", cnf.ring_curr, sbufname);
 		}
 	} else {
 		PIPE_LOG(LOG_NOTICE, "ri=%d -- external processing", cnf.ring_curr);
@@ -980,7 +875,6 @@ readout_pipe (int ring_i)
 	int ret=0;
 	int ni, total=0, finish=0, pull, got, count;
 	int ring_orig = cnf.ring_curr;
-	static int zombie = 0;
 
 	/* init */
 	if (cnf.fdata[ring_i].readbuff == NULL) {
@@ -1012,31 +906,6 @@ readout_pipe (int ring_i)
 		}
 		cnf.fdata[ring_i].rb_nexti = ni;
 		ret = (finish) ? 1 : 0;
-		PIPE_LOG(LOG_DEBUG, "-- ri=%d count=%d finish=%d (ni=%d ret=%d)", ring_i, count, finish, ni, ret);
-
-	} else if (cnf.fdata[ring_i].fflag & FSTAT_INTERACT) {
-		/* interactive bg process */
-
-		cnf.ring_curr = ring_i;
-		got = read (cnf.fdata[ring_i].pipe_output, rb, LINESIZE_INIT);
-		if (got == -1 || got == 0) { //0, FreeBSD defunct process
-			ret = 1; /* nothing read */
-			/* not a problem, check if alive */
-			if (++zombie >= ZOMBIE_DELAY) {
-				if (check_zombie(ring_i) == -1) {
-					stop_bg_process();	/* defunct */
-					ret = 0; /* finish */
-				}
-				zombie = 0;
-			}
-		} else if (got > 0) {
-			rb[got] = '\0';
-			/* no real terminal handling here, just filter out ESC sequencies */
-			filter_esc_seq(rb, &got);
-			ret = type_text(rb);	/* add/append to text buffer */
-			zombie = 0;
-		}
-		cnf.ring_curr = ring_orig;
 
 	} else {
 		/* standard processing */
@@ -1071,8 +940,6 @@ readout_pipe (int ring_i)
 		if (finish) {
 			/* pipe_output must be closed -- that is the flag
 			*/
-			PIPE_LOG(LOG_DEBUG, "-- ri=%d, pipe=%d finished --- wait4",
-				ring_i, cnf.fdata[ring_i].pipe_output);
 			got = wait4_bg(ring_i);	/* finished */
 
 			if ((cnf.fdata[ring_i].pipe_opts & OPT_SILENT) == 0) {
@@ -1086,10 +953,10 @@ readout_pipe (int ring_i)
 			}
 
 			if (cnf.fdata[ring_i].pipe_opts & OPT_NOBG) {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] FOREground task finished (wait %d, ret %d)",
+				PIPE_LOG(LOG_NOTICE, "-- ri=%d [%s] FOREground task finished (wait %d, ret %d)",
 					ring_i, cnf.fdata[ring_i].fname, got, ret);
 			} else {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] BACKground task finished (wait %d, ret %d)",
+				PIPE_LOG(LOG_NOTICE, "-- ri=%d [%s] BACKground task finished (wait %d, ret %d)",
 					ring_i, cnf.fdata[ring_i].fname, got, ret);
 			}
 		}
@@ -1123,7 +990,7 @@ background_pipes (void)
 		if (((cnf.fdata[ri].fflag & bits) == bits) && (cnf.fdata[ri].pipe_output != 0)) {
 			err = readout_pipe (ri);
 			if (err < 0) {
-				PIPE_LOG(LOG_ERR, "pipe read failure, ri=%d -- error %d", ri, err);
+				// pipe read failure
 				ret = -1;	/* error */
 			} else if (err == 0) {
 				/* change happened */
@@ -1162,47 +1029,18 @@ wait4_bg (int ri)
 		}
 		if (cnf.fdata[ri].chrw > 0) {
 			if (waitpid(cnf.fdata[ri].chrw, &status, 0) == -1) {
-				PIPE_LOG(LOG_ERR, "waitpid() pid=%d failed: (%s) ... kill", cnf.fdata[ri].chrw, strerror(errno));
+				// failed
 				kill(cnf.fdata[ri].chrw, SIGHUP);
 				status = -1;
 			} else {
 				if (WIFEXITED(status)) {
 					status = WEXITSTATUS(status);
-					PIPE_LOG(LOG_DEBUG, "--- ri=%d pid=%d status=%d (exited)", ri, cnf.fdata[ri].chrw, status);
 				} else {
-					PIPE_LOG(LOG_DEBUG, "--- ri=%d pid=%d unknown status 0x%X ... kill", ri, cnf.fdata[ri].chrw, status);
 					kill(cnf.fdata[ri].chrw, SIGKILL);
 					status = -1;
 				}
 			}
 			cnf.fdata[ri].chrw = -1;
-		}
-	}
-
-	return status;
-}
-
-/*
-* check bg process if alive or defunct
-*/
-static int
-check_zombie (int ri)
-{
-	int status=0;
-
-	if (0 <= ri && ri < RINGSIZE) {
-		if (cnf.fdata[ri].chrw > 0) {
-			if (waitpid(cnf.fdata[ri].chrw, &status, WNOHANG) == -1) {
-				/* defunct -> gone */
-				PIPE_LOG(LOG_DEBUG, "defunct... pid=%d (%s)", cnf.fdata[ri].chrw, strerror(errno));
-				cnf.fdata[ri].chrw = -1;
-				status = -1;
-			} else {
-				/* Resource temporarily unavailable, or something similar */
-				status = 0;
-			}
-		} else {
-			status = -1;
 		}
 	}
 
@@ -1232,13 +1070,8 @@ stop_bg_process (void)
 		}
 		if (CURR_FILE.chrw > 0) {
 			status = kill(CURR_FILE.chrw, SIGKILL);
-			PIPE_LOG(LOG_DEBUG, "kill pid=%d -> status=%d", CURR_FILE.chrw, status);
 			waitpid(CURR_FILE.chrw, &status, WNOHANG);
-			PIPE_LOG(LOG_DEBUG, "waitpid pid=%d -> status=0x%X", CURR_FILE.chrw, status);
 			CURR_FILE.chrw = -1;
-		}
-		if (CURR_FILE.fflag & FSTAT_INTERACT) {
-			CURR_FILE.fflag &= ~FSTAT_INTERACT;
 		}
 	}
 
@@ -1266,7 +1099,7 @@ getxline (char *buff, int *count, int max, int fd)
 			if (errno == EAGAIN) {
 				ret = 2;
 			} else {
-				PIPE_LOG(LOG_ERR, "read (from pipe %d) failed (%s)", fd, strerror(errno));
+				// read from pipe failed
 				ret = -1;
 			}
 			break;
@@ -1296,62 +1129,4 @@ getxline (char *buff, int *count, int max, int fd)
 	*count = cnt;
 
 	return ret;
-}
-
-/*
-* filter the input buffer to remove control characters, ESC sequencies, etc
-*/
-static void
-filter_esc_seq (char *buff, int *count)
-{
-	int i=0, j=0;
-	int seq = 0;
-
-	while (j < *count) {
-		if (j+1 < *count && buff[j] == '\r' && buff[j+1] == '\n') {
-			buff[i++] = '\n';
-			j += 2;
-		} else if (buff[j] == '\n' || buff[j] == '\r') {
-			buff[i++] = '\n';
-			j++;
-		} else if ((buff[j] == 0x09) || (buff[j] >= 0x20 && buff[j] != 0x7f)) {
-			buff[i++] = buff[j];
-			j++;
-		} else if (buff[j] == 0x08) {
-			/* backspace */
-			if (i > 0)
-				--i;
-			j++;
-		} else if (buff[j] == 0x1B) {
-			/* filter out terminal ESC sequencies (like 1B 5D 30 3B .... 07),
-			* interactive sessions, can push into the pipe
-			* ---- real terminal handling is not possible here
-			*/
-			seq = 0;
-			if (j+3 < *count && buff[j+1] == 0x5D && buff[j+2] == 0x30 && buff[j+3] == 0x3B) {
-				while (j+seq < *count && seq < 100) {
-					if (buff[j+seq] == 0x07) {
-						seq++;
-						break;
-					} else {
-						seq++;
-					}
-				}
-				if (j+seq < *count && seq < 100) {
-					j += seq;
-				} else {
-					j += 4;
-				}
-			} else {
-				j++;
-			}
-		} else {
-			j++;
-		}
-	}
-
-	buff[i] = '\0';
-	*count = i;
-
-	return;
 }

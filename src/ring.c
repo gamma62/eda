@@ -78,12 +78,11 @@ list_buffers (void)
 		/* base data
 		*/
 		if (cnf.fdata[ri].fflag & (FSTAT_SPECW | FSTAT_SCRATCH)) {
-			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s%s\n",
+			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s\n",
 				ri, cnf.fdata[ri].fname, cnf.fdata[ri].num_lines,
 				(cnf.fdata[ri].fflag & FSTAT_SPECW) ? "special " : "",
 				(cnf.fdata[ri].fflag & FSTAT_SCRATCH) ? "scratch " : "",
 				(cnf.fdata[ri].fflag & FSTAT_CHMASK) ? "r/o " : "",
-				(cnf.fdata[ri].fflag & FSTAT_INTERACT) ? "int " : "",
 				(cnf.fdata[ri].pipe_output != 0) ? "pipe " : "");
 		} else {
 			snprintf(one_line, sizeof(one_line)-1, "%d \"%s\"   lines: %d   flags: %s%s%s%s\n",
@@ -160,9 +159,8 @@ set_bookmark (int bm_i)
 		clr_bookmark (bm_i);
 
 		cnf.bookmark[bm_i].ring = cnf.ring_curr;
+		cnf.bookmark[bm_i].sample[0] = '\0';
 		CURR_LINE->lflag |= (bm_i << BM_BIT_SHIFT) & LSTAT_BM_BITS;
-		HIST_LOG(LOG_NOTICE, "bookmark %d, bit set, ring %d (original lineno %d))",
-			bm_i, cnf.bookmark[bm_i].ring, CURR_FILE.lineno);
 
 		/* prepare sample of [block-name: ]sample-string-from-the-line
 		*/
@@ -215,12 +213,12 @@ clr_bookmark (int bm_i)
 			while (TEXT_LINE(lx)) {
 				if ((lx->lflag & LSTAT_BM_BITS) == bm_bits) {
 					lx->lflag &= ~LSTAT_BM_BITS;
-					HIST_LOG(LOG_NOTICE, "bookmark %d, bit found in ring %d, cleared", bm_i, ri);
+					// bit found, bit cleared
 				}
 				lx = lx->next;
 			}
 		}
-		HIST_LOG(LOG_NOTICE, "bookmark %d, cleared (was in ring %d)", bm_i, cnf.bookmark[bm_i].ring);
+		// cleared
 		cnf.bookmark[bm_i].ring = -1;
 		cnf.bookmark[bm_i].sample[0] = '\0';
 	}
@@ -265,7 +263,7 @@ jump2_bookmark (int bm_i)
 	}
 
 	if (!(cnf.fdata[ri].fflag & FSTAT_OPEN)) {
-		HIST_LOG(LOG_NOTICE, "bookmark %d, buffer already closed -- clearing", bm_i);
+		// buffer already closed -- clear
 		cnf.bookmark[bm_i].ring = -1;
 		cnf.bookmark[bm_i].sample[0] = '\0';
 		return (ret);
@@ -287,11 +285,11 @@ jump2_bookmark (int bm_i)
 			lineno++;
 		}
 		if (TEXT_LINE(lx)) {
-			HIST_LOG(LOG_NOTICE, "bookmark %d, reached, ring %d lineno %d", bm_i, ri, lineno);
+			// reached
 			set_position (ri, lineno, lx);
 			ret = 0;
 		} else {
-			HIST_LOG(LOG_NOTICE, "bookmark %d, not found -- clearing", bm_i);
+			// not found -- clear
 			cnf.bookmark[bm_i].ring = -1;
 			cnf.bookmark[bm_i].sample[0] = '\0';
 			ret = 1;
@@ -390,8 +388,7 @@ mhist_push (int ring_i, int lineno)
 	mhp->ring = ring_i;
 	mhp->lineno = lineno;
 
-	HIST_LOG(LOG_NOTICE, "success, ri %d lineno %d (new top %p pushdown %p)",
-		mhp->ring, mhp->lineno, mhp, cnf.mhistory);
+	// success, pushdown mhp
 
 	/* current is the last node, the first to go back */
 	cnf.mhistory = mhp;
@@ -417,8 +414,7 @@ mhist_pop (void)
 		{
 			lp = lll_goto_lineno (mhp->ring, mhp->lineno);
 			if (lp != NULL) {
-				HIST_LOG(LOG_NOTICE, "success, ri:%d lineno:%d (unlink %p popup %p)",
-					mhp->ring, mhp->lineno, mhp, mhp->prev);
+				// success, popup mhp
 				set_position (mhp->ring, mhp->lineno, lp);
 				ready = 1;
 			}
@@ -448,12 +444,12 @@ mhist_clear (int ring_i)
 	while (cnf.mhistory != NULL) {
 		mhx = cnf.mhistory;
 		if (ring_i == -1 || mhx->ring == ring_i) {
-			HIST_LOG(LOG_NOTICE, "top %p is not ok, unlink -- new top %p", mhx, mhx->prev);
+			// top is not ok, unlink
 			cnf.mhistory = mhx->prev;
 			FREE(mhx);
 			mhx = NULL;
 		} else {
-			HIST_LOG(LOG_NOTICE, "top %p is ok, break", mhx);
+			// top is ok
 			break;
 		}
 	}
@@ -467,12 +463,12 @@ mhist_clear (int ring_i)
 	while (mhp->prev != NULL) {
 		mhx = mhp->prev;
 		if (mhx->ring == ring_i) {
-			HIST_LOG(LOG_NOTICE, "%p -- prev %p is not ok, unlink", mhp, mhx);
+			// prev is not ok, unlink
 			mhp->prev = mhx->prev;
 			FREE(mhx);
 			mhx = NULL;
 		} else {
-			HIST_LOG(LOG_NOTICE, "%p -- prev %p is ok, skip", mhp, mhx);
+			// prev is ok
 			mhp = mhx;
 		}
 	}

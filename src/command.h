@@ -149,14 +149,13 @@ TABLE table[] = {
 
 	/* external tools, filter pipes, VCS calls and unified diffs */
 	{ "sh",		-1, 2,			PN(shell_cmd),		0x01},
-	{ "ish",	-1, 3,			PN(ishell_cmd),		0x11},
 	{ "make",	-1, 4,			PN(make_cmd),		0x11},
 	{ "|",		-1, 1,			PN(filter_cmd),		0x01},
 	{ "||",		-1, 2,			PN(filter_shadow_cmd),	0x01},
 	{ "vcstool",	-1, 7,			PN(vcstool),		0x01},
 	{ "pdiff",	KEY_NONE, 2,		PN(process_diff),	0x00},
-	{ "hgdiff",	KEY_NONE, 6,		PN(internal_hgdiff),	0x00},
-	{ "gitdiff",	KEY_NONE, 7,		PN(internal_gitdiff),	0x00},
+	{ "hgdiff",	KEY_NONE, 6,		PN(internal_hgdiff),	0x11},
+	{ "gitdiff",	KEY_NONE, 7,		PN(internal_gitdiff),	0x11},
 
 	/* resources, keys, macros, projects, buffer type */
 	{ "set",	-1, 3,			PN(set),		0x11},
@@ -177,7 +176,6 @@ TABLE table[] = {
 	{ "ring",	KEY_M_R, 2,		PN(list_buffers),	0x00},
 	{ "lsdir",	KEY_M_Y, 2,		PN(lsdir_cmd),		0x11},
 	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
-	{ "popen",	KEY_NONE, 3,		PN(parse_open),		0x00},
 
 	/* bookmarks */
 	{ "bms",	KEY_M_ZERO, 3,		PN(bm_set),		0x11},
@@ -204,6 +202,7 @@ TABLE table[] = {
 	{ "",		KEY_C_V, -1,		PN(ins_varname),	0x00},
 	{ "",		KEY_C_G, -1,		PN(ins_filename),	0x00},
 	{ "",		KEY_C_X, -1,		PN(cp_text2cmd),	0x00},
+	{ "",		KEY_M_X, -1,		PN(cp_name2open),	0x00},
 	{ "vbn",	KEY_S_F2, 3,		PN(view_bname),		0x00},
 	{ "wcase",	KEY_C_W, 2,		PN(word_case),		0x02},
 	{ "version",	KEY_NONE, 7,		PN(version),		0x00},

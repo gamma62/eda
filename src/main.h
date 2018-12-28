@@ -112,7 +112,7 @@
 #define GSTAT_FIXCR	0x00008000	/* fix CR and CR/LF in input stream */
 // internal flags
 #define GSTAT_SILENCE	0x00010000	/* macro run flag -- silent mode, disable tracemsg */
-#define GSTAT_MACRO_FG	0x00020000	/* macro run flag -- in non-interactive mode force finish_in_fg */
+#define GSTAT_MACRO_FG	0x00020000	/* macro run flag -- to force finish_in_fg */
 #define GSTAT_UPDNONE	0x00040000	/* no screen update required */
 #define GSTAT_UPDFOCUS	0x00080000	/* only focus line update required */
 #define GSTAT_REDRAW	0x00100000	/* force redraw flag */
@@ -148,8 +148,7 @@
 #define FSTAT_TAG6	0x00100000	/* flag for anchored highlight regexp */
 #define FSTAT_EXTCH	0x00200000	/* external change (file newer on disk) */
 #define FSTAT_HIDDEN	0x00400000	/* partially hide regular file in the ring */
-#define FSTAT_INTERACT	0x00800000	/* interactive buffer (needs FSTAT_SPECW also) */
-/*			0x01000000 */
+/*			0x00800000 */
 
 /* bit masks for line flags */
 #define LSTAT_TRUNC	0x00000001	/* line truncated (on read) */
@@ -232,7 +231,6 @@
 #define OPT_TTY			0x1000	/* setsid -- session leader -- closing stdin */
 #define OPT_SILENT		0x2000	/* no header/footer lines */
 #define OPT_NOAPP		0x4000	/* do not append to buffer, wipe out */
-#define OPT_INTERACT		0x8000	/* interactive bg process */
 
 typedef int (*FUNCPTR) (const char *);
 typedef int (*FUNCP0) (void);
@@ -317,8 +315,7 @@ struct fdata_tag
 	int	pipe_input;	/* child input, optional -- fd for pipe write (0 if closed) */
 	char	*readbuff;	/* for reads from pipe, (NULL if free'd)  */
 	int	rb_nexti;	/* next index in readbuff */
-	int 	last_input_length;		/* prompt length, interactive shells */
-	char 	last_input[CMDLINESIZE];	/* prompt, interactive shells */
+	char 	last[CMDLINESIZE];
 };
 
 struct bookmark_tag

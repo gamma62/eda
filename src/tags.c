@@ -148,13 +148,12 @@ tag_load_file (const char *tags_file)
 		cnf.tag_j2path[0] = '\0';
 		cnf.tag_j2len = 0;
 	}
-	TAGS_LOG(LOG_DEBUG, "tags file [%s] -> path to tags [%s] %d",
-		cnf.tags_file, cnf.tag_j2path, cnf.tag_j2len);
+	// "tags file [%s] -> path to tags [%s] %d",
+	// cnf.tags_file, cnf.tag_j2path, cnf.tag_j2len
 
 	buff = MALLOC(TAGLINE_SIZE);
 	if (buff == NULL) {
-		ERRLOG(0xE027);
-		TAGS_LOG(LOG_ERR, "cannot allocate memory for reading tags file");
+		ERRLOG(0xE027); // cannot allocate memory for reading tags file
 		err2 = 1;
 		ret = 1;
 	}
@@ -179,7 +178,7 @@ tag_load_file (const char *tags_file)
 		/* get new pointer next after tp, or NULL */
 		tp = tag_add(tp);
 		if (tp == NULL) {
-			TAGS_LOG(LOG_ERR, "failed (malloc)");
+			ERRLOG(0xE027); // tag_add failed (malloc)
 			ret=3;
 			err2++;
 			break;
@@ -309,11 +308,8 @@ tag_load_file (const char *tags_file)
 	cnf.trace=0;	/* drop previous msgs */
 	if (ret || err2) {
 		tracemsg ("tags load failed at %d", comments+chunk);
-		TAGS_LOG(LOG_ERR, "chunks=%d ret=%d, (errors: format=%d malloc=%d tagtype=%d)",
-			chunk+comments, ret, err1, err2, err3);
 	} else {
 		tracemsg ("%d symbols loaded: OK", chunk);
-		TAGS_LOG(LOG_NOTICE, "chunks=%d comments=%d", chunk, comments);
 	}
 
 	FREE(buff);
@@ -396,7 +392,6 @@ tag_do (const char *arg_symbol, int flag)
 
 	if (cnf.taglist == NULL) {
 		tracemsg ("tags file [%s] not loaded", cnf.tags_file);
-		TAGS_LOG(LOG_ERR, "tags file [%s] not loaded", cnf.tags_file);
 	} else {
 		if (arg_symbol[0] == '\0') {
 			get_symbol = select_word(CURR_LINE, CURR_FILE.lncol);
@@ -474,15 +469,16 @@ tag_items (const char *symbol, TAGTYPE type, int flag)
 		}
 	}
 
-	TAGS_LOG(LOG_DEBUG, "query symbol [%s] type %c flag 0x%X", symbol, (type==TAG_UNDEF ? '?' : type), flag);
+	// "query symbol [%s] type %c flag 0x%X",
+	// symbol, (type==TAG_UNDEF ? '?' : type), flag);
 
 	while (tp != NULL)
 	{
 		if ((strncmp (tp->symbol, symbol, TAGSTR_SIZE) == 0) &&
 			((type == TAG_UNDEF) || (type == tp->type)))
 		{
-			TAGS_LOG(LOG_DEBUG, "match symbol [%s] fname [%s] type %c lineno %d pattern [%s]",
-				tp->symbol, tp->fname, tp->type, tp->lineno, tp->pattern);
+			// "match symbol [%s] fname [%s] type %c lineno %d pattern [%s]",
+			// tp->symbol, tp->fname, tp->type, tp->lineno, tp->pattern
 
 			if (flag & JUMP_TO) {
 				if (tp->type == TAG_DEFINE) {
@@ -506,7 +502,7 @@ tag_items (const char *symbol, TAGTYPE type, int flag)
 				if (tp->type == TAG_DEFINE) {
 					if (show_define(tp->fname, tp->lineno)) {
 						/* failed */
-						tracemsg ("?not found: [%s] %s :%d", tp->symbol, tp->fname, tp->lineno);
+						tracemsg ("not found: [%s] %s :%d", tp->symbol, tp->fname, tp->lineno);
 					}
 					count++;
 				} else {
@@ -577,18 +573,16 @@ tag_jump2_pattern (const char *fname, const char *pattern, int lineno)
 		/* cnf.ring_curr already set by add_file() */
 
 		if (CURR_FILE.fflag & FSTAT_SCRATCH) {
-			TAGS_LOG(LOG_ERR, "file %s seems to be scratch", fnp);
+			// does not exist?
 			ret=2;
 
 		} else if (lineno >= 1 && lineno <= CURR_FILE.num_lines) {
-			TAGS_LOG(LOG_DEBUG, "ri=%d lineno %d", cnf.ring_curr, lineno);
 			lx = lll_goto_lineno (cnf.ring_curr, lineno);
 			if (TEXT_LINE(lx))
 				ret = 0;
 
 		} else if (pattern != NULL) {
 			expr = tag_pattern_safe (pattern);
-			TAGS_LOG(LOG_DEBUG, "ri=%d pattern-expr [%s]", cnf.ring_curr, expr);
 			lx = search_goto_pattern (cnf.ring_curr, expr, &lineno2);
 			lineno = lineno2;
 			if (TEXT_LINE(lx))

@@ -379,7 +379,7 @@ purify_for_matching_clang (char *outb, const char *inbuff, int len)
 				offset += 3;
 			} else {
 				missed++;
-				FILT_LOG(LOG_NOTICE, "failed literal match offset=%d [%s]", offset, inbuff);
+				// "failed literal match offset=%d [%s]", offset, inbuff);
 			}
 		} else if (inbuff[offset] == '"') {
 			/* one-line C string with double quotes 0x22 */
@@ -396,7 +396,7 @@ purify_for_matching_clang (char *outb, const char *inbuff, int len)
 			}
 			if (i > offset) {
 				missed++;
-				FILT_LOG(LOG_NOTICE, "failed string match offset=%d [%s]", offset, inbuff);
+				FILT_LOG(LOG_NOTICE, "failed string match offset=%d [%s]", offset, inbuff); /* testing */
 			}
 		} else if (offset+1 < len && inbuff[offset] == '/' && inbuff[offset+1] == '/') {
 			/* C++ comment found, clear to EoL */
@@ -420,7 +420,7 @@ purify_for_matching_clang (char *outb, const char *inbuff, int len)
 			}
 			if (i > offset) {
 				missed++;
-				FILT_LOG(LOG_NOTICE, "failed /**/ offset=%d", offset);
+				// "failed /**/ offset=%d", offset);
 			}
 		} else {
 			offset++; /* skip and keep other chars */
@@ -462,7 +462,7 @@ purify_for_matching_other (char *outb, const char *inbuff, int len)
 			}
 			if (i > offset) {
 				missed++;
-				FILT_LOG(LOG_NOTICE, "failed string match offset=%d [%s]", offset, inbuff);
+				// "failed string match offset=%d [%s]", offset, inbuff);
 			}
 		} else if ((offset==0 || inbuff[offset-1]==' ') && inbuff[offset] == '#') {
 			/* comment found, clear to EoL --- think $#+ $#- $ARGV and ${#array} ${#@} $# etc */
@@ -712,8 +712,8 @@ filter_func_eng_other (int action, int fmask, char *symbol)
 				for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
 					symbol[iy++] = lx->buff[ix];
 				symbol[iy] = '\0';
-				FILT_LOG(LOG_NOTICE, "reg1 nsub %d -- %ld %ld symbol [%s]",
-					nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+				// "reg1 nsub %d -- %ld %ld symbol [%s]",
+				// nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
 				break;
 			}
 
@@ -804,8 +804,8 @@ filter_func_eng_easy (int action, int fmask, char *symbol)
 				for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
 					symbol[iy++] = lx->buff[ix];
 				symbol[iy] = '\0';
-				FILT_LOG(LOG_NOTICE, "reg1 nsub %d -- %ld %ld symbol [%s]",
-					nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+				// "reg1 nsub %d -- %ld %ld symbol [%s]",
+				// nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
 				break;
 			}
 			lx = lx->prev;

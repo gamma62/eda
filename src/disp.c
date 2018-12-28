@@ -49,7 +49,7 @@ set_color_attribute (WINDOW *win, int idx)
 		wattron (win, A_REVERSE);
 }
 
-#define WATCH_FLAGS	(FSTAT_SPECW | FSTAT_CHMASK | FSTAT_INTERACT | FSTAT_SCRATCH | FSTAT_RO | FSTAT_CHANGE | FSTAT_EXTCH | FSTAT_HIDDEN)
+#define WATCH_FLAGS	(FSTAT_SPECW | FSTAT_CHMASK | FSTAT_SCRATCH | FSTAT_RO | FSTAT_CHANGE | FSTAT_EXTCH | FSTAT_HIDDEN)
 
 /* update status line
 */
@@ -97,12 +97,6 @@ upd_statusline (void)
 				obuff_attr[lenattr++] = 'r';
 				obuff_attr[lenattr++] = '/';
 				obuff_attr[lenattr++] = 'o';
-			}
-			if (CURR_FILE.fflag & FSTAT_INTERACT) {
-				obuff_attr[lenattr++] = ' ';
-				obuff_attr[lenattr++] = 'i';
-				obuff_attr[lenattr++] = 'n';
-				obuff_attr[lenattr++] = 't';
 			}
 			if (CURR_FILE.pipe_output != 0) {
 				obuff_attr[lenattr++] = ' ';

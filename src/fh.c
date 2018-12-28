@@ -181,46 +181,61 @@ query_inode (ino_t inode)
 }
 
 /*
-* try_add_file - try to open file by removing path components step by step,
-* call stat on splitted testfname and call add_file() if there is a file
+* try_add_file - try to open file by going back one directory level from given path,
+* if a regular file found then call add_file();
+* simple relative path assumed, like src/main.c or Makefile or test/Makefile
 */
 int
-try_add_file (const char *testfname)
+try_add_file (const char *path)
 {
-	int len=0, split=0;
+	int len, i, slashes=0, size=0, split, ri, ret=0;
 	struct stat test;
+	char *testfname = NULL;
 
-	len = strlen(testfname);
-	if (len < 2)
+	len = strlen(path);
+	if (len < 2 || path[0] == '/' || path[0] == '~')
 		return (1);
 
-	if (len>2 && testfname[0] == '.' && testfname[1] == '/') {
-		split += 2;	/* cut useless prefix */
+	for (i=0; i < len; i++) {
+		if (path[i] == '/')
+			slashes++;
 	}
 
-	while (split>=0 && split<len) {
-		FH_LOG(LOG_DEBUG, "try [%s] from %d -- [%s]", testfname, split, &testfname[split]);
+	/* duplicate input with prefix pieces ("../") for backstep */
+	if (csere (&testfname, &size, 0, 0, &path[0], 3*slashes + len+1)) {
+		FREE(testfname); testfname = NULL;
+		return (1);
+	}
+	testfname[0] = '\0';
+	for (i=0; i < slashes; i++) {
+		strncat(testfname, "../", 3);
+	}
+	strncat(testfname, &path[0], (unsigned)len);
+
+	split = 3*slashes;
+	while (split >= 0) {
 		if (stat(&testfname[split], &test) == 0) {
 			if (S_ISREG(test.st_mode)) {
 				break;
 			}
 		}
-
-		/* skip next subdir and slash(es) */
-		split = slash_index (testfname, len, split+1, SLASH_INDEX_FWD, SLASH_INDEX_GET_FIRST);
-		if (split == -1)
-			break;
-		while (split<len && testfname[split] == '/') {
-			split++;
-		}
+		split -= 3;
 	}
-
-	if (split == len || split == -1) {
+	if (split < 0)
 		return (1);
-	}
-	FH_LOG(LOG_DEBUG, "file [%s] len=%d --> split=%d success [%s]", testfname, len, split, &testfname[split]);
 
-	return (add_file( &testfname[split]));
+	ri = query_inode (test.st_ino);
+	if (ri != -1) {
+		/* inode found in the ring, switch to buffer -- do not change fname */
+		cnf.ring_curr = ri;
+		CURR_FILE.fflag &= ~FSTAT_SCRATCH;
+		ret = 0;
+	} else {
+		ret = add_file( &testfname[split] );
+	}
+
+	FREE(testfname); testfname = NULL;
+	return (ret);
 }
 
 /*
@@ -252,10 +267,9 @@ add_file (const char *fname)
 			if (ri != -1) {
 				/* inode found in the ring, switch to buffer */
 				if (strncmp(gname, cnf.fdata[ri].fname, sizeof(gname))) {
-					// not the same name, notification
-					FH_LOG(LOG_NOTICE, "inode=%ld ri=%d [%s] opened here as [%s]",
-						(long)test.st_ino, ri, cnf.fdata[ri].fname, gname); /* testing */
-					tracemsg ("[%s] opened here as [%s]", cnf.fdata[ri].fname, gname);
+					// same inode, but not the same name
+					if (cnf.fdata[ri].fname[0] != '~')
+						tracemsg ("[%s] opened here as [%s]", cnf.fdata[ri].fname, gname);
 					/**/
 					strncpy (cnf.fdata[ri].fpath, gname, FNAMESIZE);
 					cnf.fdata[ri].fpath[FNAMESIZE-1] = '\0';
@@ -504,14 +518,14 @@ abbrev_filename (char *gname)
 			gname[i++] = gname[j];
 		}
 		gname[i] = '\0';
-		FH_LOG(LOG_NOTICE, "with PWD [%s] abbrev. to [%s]", cnf._pwd, gname); /* testing */
+		// with PWD
 
 	} else if (cnf.l2_altpwd > 0 && glen > cnf.l2_altpwd && strncmp(gname, cnf._altpwd, cnf.l2_altpwd) == 0) {
 		for (i=0, j=cnf.l2_altpwd+1; gname[j] != '\0'; j++) {
 			gname[i++] = gname[j];
 		}
 		gname[i] = '\0';
-		FH_LOG(LOG_NOTICE, "with alt.PWD [%s] abbrev. to [%s]", cnf._altpwd, gname); /* testing */
+		// with alt.PWD
 
 	} else if (cnf.l2_althome > 0 && glen > cnf.l2_althome && strncmp(gname, cnf._althome, cnf.l2_althome) == 0) {
 		gname[0] = '~';
@@ -519,7 +533,7 @@ abbrev_filename (char *gname)
 			gname[i++] = gname[j];
 		}
 		gname[i] = '\0';
-		FH_LOG(LOG_NOTICE, "with alt.HOME [%s] abbrev. to [%s]", cnf._althome, gname); /* testing */
+		// with alt.HOME
 
 	} else if (glen > cnf.l1_home && strncmp(gname, cnf._home, cnf.l1_home) == 0) {
 		gname[0] = '~';
@@ -527,7 +541,7 @@ abbrev_filename (char *gname)
 			gname[i++] = gname[j];
 		}
 		gname[i] = '\0';
-		FH_LOG(LOG_NOTICE, "with HOME [%s] abbrev. to [%s]", cnf._home, gname); /* testing */
+		// with HOME
 
 	}
 
@@ -562,7 +576,6 @@ check_dirname (const char *gname)
 			}
 		}
 	}
-	FH_LOG(LOG_DEBUG, "file [%s] -> parsed [%s]/[%s] ret=%d", gname, dn, fn, ret);
 
 	return (ret);
 }
@@ -778,7 +791,6 @@ read_lines (FILE *fp, LINE **linep, int *lineno, int *fflag)
 		if (s == NULL) {
 			if (ferror(fp)) {
 				ERRLOG(0xE099);
-				FH_LOG(LOG_ERR, "line=%d fgets error (%s)", lno, strerror(errno));
 				ret=1;
 			}
 			if (lp->lflag & LSTAT_BOTTOM) {
@@ -813,16 +825,6 @@ read_lines (FILE *fp, LINE **linep, int *lineno, int *fflag)
 	/* propagate line-end fix */
 	if (fixcount)
 		*fflag |= FSTAT_CHANGE;
-
-	if (ret == 0) {
-		if (fixcount) {
-			FH_LOG(LOG_NOTICE, "done, success, lines=%d, line fixes %d", lno, fixcount);
-		} else {
-			FH_LOG(LOG_DEBUG, "done, success, lines=%d, no line fixes", lno);
-		}
-	} else {
-		FH_LOG(LOG_ERR, "done, failure (%d), lines=%d, line fixes %d", ret, lno, fixcount);
-	}
 
 	return (ret);
 }
@@ -885,9 +887,6 @@ read_file (const char *fname, const struct stat *test)
 		/* if line-end truncated then this must be visible */
 		if (fflag & FSTAT_CHANGE) {
 			CURR_FILE.fflag |= FSTAT_CHANGE;
-			FH_LOG(LOG_NOTICE, "done, ri=%d [%s] -- some line-ends fixed", cnf.ring_curr, CURR_FILE.fpath);
-		} else {
-			FH_LOG(LOG_NOTICE, "done, ri=%d [%s]", cnf.ring_curr, CURR_FILE.fpath);
 		}
 	}
 
@@ -937,7 +936,7 @@ scratch_buffer (const char *fname)
 
 	ring_i = next_ri();
 	if (ring_i == -1) {
-		FH_LOG(LOG_NOTICE, "cannot add new buffer: no free ring index");
+		tracemsg("cannot add new buffer: no free ring index");
 		return 1;
 	}
 
@@ -1001,7 +1000,6 @@ scratch_buffer (const char *fname)
 		CURR_FILE.fflag |= FSTAT_CMD | FSTAT_OPEN | FSTAT_FMASK;
 	}
 
-	FH_LOG(LOG_NOTICE, "ret=%d, ri=%d (origin=%d) [%s]", ret, ring_i, origin, fname);
 	return ret;
 }
 
@@ -1125,8 +1123,8 @@ show_diff (const char *diff_opts)
 	/* added -s option, diff says "identical" */
 	snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff -s -u %s %s -", diff_opts, CURR_FILE.fpath);
 
-	/* OPT_SILENT | OPT_NOBG maybe */
-	ret = read_pipe ("*diff*", cnf.diff_path, ext_argstr, (OPT_NOAPP | OPT_IN_OUT_REAL_ALL));
+	/* OPT_REDIR_ERR for BSD diff */
+	ret = read_pipe ("*diff*", cnf.diff_path, ext_argstr, (OPT_NOAPP | OPT_REDIR_ERR | OPT_IN_OUT_REAL_ALL));
 
 	return (ret);
 }
@@ -1186,11 +1184,10 @@ reload_bydiff (void)
 	memset(ext_argstr, 0, sizeof(ext_argstr));
 	snprintf(ext_argstr, sizeof(ext_argstr)-1, "diff - %s", CURR_FILE.fpath);
 
-	ret = read_pipe ("*notused*", cnf.diff_path, ext_argstr, (OPT_NOSCRATCH | OPT_IN_OUT_REAL_ALL));
+	/* OPT_REDIR_ERR for BSD diff */
+	ret = read_pipe ("*notused*", cnf.diff_path, ext_argstr, (OPT_NOSCRATCH | OPT_REDIR_ERR | OPT_IN_OUT_REAL_ALL));
 	if (ret) {
-		tracemsg("reload failed (%d)", ret);
-		PIPE_LOG(LOG_ERR, "cannot reload file (reading diff pipe fail)");
-		tracemsg ("reload failed");
+		tracemsg("cannot reload file (reading diff pipe fail)");
 		return (ret);
 	}
 
@@ -1218,7 +1215,7 @@ reload_bydiff (void)
 			continue;
 		rb[ni] = '\0';
 
-		PD_LOG(LOG_DEBUG, ">>> rb [%s] ni %d", rb, ni);
+		PD_LOG(LOG_NOTICE, ">>> rb [%s] ni %d", rb, ni);
 		if (action == '.') {
 			actions_counter++;
 			if (ni >= 3 && !parse_diff_header (rb, range)) {
@@ -1367,8 +1364,6 @@ reload_bydiff (void)
 	wait4_bg(cnf.ring_curr);
 
 	if (!ret) {
-		FH_LOG(LOG_NOTICE, "done, ri=%d, line=%d (actions=%d, line fixes %d)",
-			cnf.ring_curr, CURR_FILE.lineno, actions_counter, changed_crlf);
 		if (actions_counter) {
 			/* if line-end truncated then this must be visible */
 			if (changed_crlf) {
@@ -1381,8 +1376,6 @@ reload_bydiff (void)
 			tracemsg ("identical");
 		}
 	} else {
-		FH_LOG(LOG_ERR, "failed, (ret=%d, actions=%d, line fixes %d)",
-			ret, actions_counter, changed_crlf);
 		tracemsg ("reload failed");
 	}
 
@@ -1430,8 +1423,6 @@ clean_buffer (void)
 	/* remove bookmarks, etc */
 	clear_bookmarks(cnf.ring_curr);
 	mhist_clear(cnf.ring_curr);
-
-	FH_LOG(LOG_DEBUG, "ri=%d [%s] ret=%d", cnf.ring_curr, CURR_FILE.fname, ret);
 
 	return (ret);
 }
@@ -1505,7 +1496,6 @@ drop_file (void)
 		next_file ();
 	}
 
-	FH_LOG(LOG_NOTICE, "done, ri=%d (origin=%d) new_ri=%d new_size=%d", ring_i, origin, cnf.ring_curr, cnf.ring_size);
 	return (ret);
 }
 
@@ -1591,12 +1581,7 @@ save_file (const char *newfname)
 			if (CURR_FILE.stat.st_ino != test.st_ino) {
 				tracemsg ("file [%s] exist. choose another.", fname_p);
 				return (0);
-			} else {
-				FH_LOG(LOG_NOTICE, "save as [%s] -> [%s] with same inode=%lu",
-					CURR_FILE.fpath, fname_p, (unsigned long)test.st_ino); /* testing */
 			}
-		} else {
-			FH_LOG(LOG_NOTICE, "save as [%s] -> [%s] ", CURR_FILE.fname, fname_p); /* testing */
 		}
 
 		/* if there is bg proc running... */
@@ -1606,7 +1591,7 @@ save_file (const char *newfname)
 	/* backup */
 	ret = backup_file(fname_p, backup_name);
 	if (ret != 0 && ret != 1) {
-		tracemsg("backup failed. save aborted.");
+		tracemsg("Error: backup failed. save aborted.");
 		return (4);
 	}
 	ret = 0;
@@ -1614,14 +1599,13 @@ save_file (const char *newfname)
 	if ((cnf.gstat & GSTAT_SAV_INODE)==0) {
 		/* unlink file before save to get an independent inode */
 		if (unlink(fname_p)) {
-			FH_LOG(LOG_ERR, "unlink [%s] before save failed (%s)", fname_p, strerror(errno));
+			tracemsg("unlink [%s] failed before save (%s)", fname_p, strerror(errno));
 		}
 	}
 
 	/* save */
 	if ((fp = fopen(fname_p, "w")) == NULL) {
-		tracemsg ("cannot open [%s] for write.", fname_p);
-		FH_LOG(LOG_ERR, "fopen/w [%s] failed (%s)", fname_p, strerror(errno));
+		tracemsg ("cannot open [%s] for write (%s).", fname_p, strerror(errno));
 		CURR_FILE.fflag |= FSTAT_RO;
 		if ((fp = fopen(CURR_FILE.fpath,"r")) == NULL) {
 			CURR_FILE.fflag |= FSTAT_SCRATCH;
@@ -1676,8 +1660,6 @@ save_file (const char *newfname)
 		tracemsg("Warning: save [%s] failed!", fname_p);
 	}
 
-	FH_LOG(LOG_NOTICE, "done, ri=%d ret=%d", cnf.ring_curr, ret);
-
 	return (ret);
 }
 
@@ -1708,7 +1690,7 @@ backup_file (const char *fname, char *backup_name)
 		mybasename(&backup_name[5], fname, FNAMESIZE);
 		strncat(backup_name, "~", 2);
 		if ((bkp = open(backup_name, O_CREAT | O_WRONLY | O_TRUNC | O_NONBLOCK, 0600)) == -1) {
-			FH_LOG(LOG_ERR, "open/w [%s] failed (%s)", backup_name, strerror(errno));
+			ERRLOG(0xE0AA); // open/w
 			close(fd);
 			return (2);
 		}
@@ -1718,7 +1700,6 @@ backup_file (const char *fname, char *backup_name)
 		ERRLOG(0xE03A);
 		close(fd);
 		close(bkp);
-		FH_LOG(LOG_ERR, "malloc error");
 		return (3);
 	}
 
@@ -1729,13 +1710,13 @@ backup_file (const char *fname, char *backup_name)
 		if (in > 0) {
 			out = write(bkp, data, (size_t)in);
 			if (out != in) {
-				ERRLOG(0xE0AA);
+				ERRLOG(0xE0AA); // write
 				break;
 			}
 		} else if (in == 0) {
 			break;	/* normal eof */
 		} else { // (in == -1)
-			FH_LOG(LOG_ERR, "read [%s] failed while backup (%s)", fname, strerror(errno));
+			ERRLOG(0xE0AA); // read
 			break;	/* error */
 		}
 	}
@@ -1744,10 +1725,8 @@ backup_file (const char *fname, char *backup_name)
 	close(bkp);
 
 	if (in == out) {
-		FH_LOG(LOG_DEBUG, "done, %s, ret=%d", backup_name, 0);
 		return (0);
 	} else {
-		FH_LOG(LOG_ERR, "failed, %s, ret=%d", backup_name, -1);
 		return (-1);
 	}
 }

@@ -626,9 +626,11 @@ key_test (void)
 	wprintw (stdscr, "eda: key_test -- escape sequences ((ESCDELAY=%d WTIMEOUT=%d))\n", ESCDELAY, CUST_WTIMEOUT);
 	wprintw (stdscr, "        (on key press) detected escape key sequence => key name ... [function name]\n");
 	wprintw (stdscr, "quit with q\n");
+#ifdef DEVELOPMENT_VERSION
 	wprintw (stdscr, "# //////// 8x'/' (REP ECMA-048)\n");
 	wprintw (stdscr, "# 00000000 8x'0'\n");
-	wsetscrreg(stdscr, 5, LINES-1);
+#endif
+	wsetscrreg(stdscr, 3, LINES-1);
 
 	while (ch != 'q') {
 		ch = key_handler (cnf.seq_tree, 2);

@@ -207,12 +207,10 @@ run_macro_command (int mi, char *args_inbuff)
 				}
 				args_ready[kk] = '\0';
 				/*--- ready */
-				REC_LOG(LOG_DEBUG, "trace macro %d [%s] [%s]", ix, table[ix].fullname, args_ready);
 				if (cnf.gstat & GSTAT_RECORD)
 					record(table[ix].fullname, args_ready);
 				exec = (table[ix].funcptr)(args_ready);
 			} else {
-				REC_LOG(LOG_DEBUG, "trace macro %d [%s]", ix, table[ix].fullname);
 				if (cnf.gstat & GSTAT_RECORD)
 					record(table[ix].fullname, "");
 				exec = ((FUNCP0) table[ix].funcptr)();
@@ -241,25 +239,20 @@ run_command (int ti, const char *args_inbuff, int fkey)
 		if (UPD_LOG_AVAIL(LOG_NOTICE)) {
 			strncpy(upd_funcname, table[ti].fullname, sizeof(upd_funcname)-1);
 			upd_funcname[sizeof(upd_funcname)-1] = '\0';
-		}
-
-		if (fkey != KEY_NONE) {
-			; /* for development only */
-			CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
-				ti, table[ti].name, fkey, args_inbuff);
-		} else {
-			; /* for development only */
-			CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] args=[%s]",
-				ti, table[ti].name, args_inbuff);
+			if (fkey != KEY_NONE) {
+				CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] key=0x%02x args=[%s]",
+					ti, table[ti].name, fkey, args_inbuff);
+			} else {
+				CMD_LOG(LOG_NOTICE, "command: run ti=%d name=[%s] args=[%s]",
+					ti, table[ti].name, args_inbuff);
+			}
 		}
 
 		if (table[ti].tflag & TSTAT_ARGS) {
-			REC_LOG(LOG_DEBUG, "command %d [%s] [%s]", ti, table[ti].fullname, args_inbuff);
 			if (cnf.gstat & GSTAT_RECORD)
 				record(table[ti].fullname, args_inbuff);
 			exec = (table[ti].funcptr)(args_inbuff);
 		} else {
-			REC_LOG(LOG_DEBUG, "command %d [%s]", ti, table[ti].fullname);
 			if (cnf.gstat & GSTAT_RECORD)
 				record(table[ti].fullname, "");
 			exec = ((FUNCP0) table[ti].funcptr)();
@@ -284,7 +277,7 @@ event_handler (void)
 	unsigned delay_cnt_4stat = 0;
 	int clear_trace_next_time = 0;
 	char args_buff[CMDLINESIZE];
-	int last_ri = -1;
+	int last_ri = -1, ring_siz = 0;
 
 	wclear (stdscr);
 
@@ -304,7 +297,7 @@ event_handler (void)
 			mi = ti - TLEN;
 			run_macro_command (mi, args_buff);
 		} else {
-			CMD_LOG(LOG_ERR, "macro [%s] does not exist", cnf.automacro);
+			// macro, stored in cnf.automacro, does not exist
 			drop_all();
 		}
 		if (cnf.ring_size > 0) {
@@ -329,7 +322,7 @@ event_handler (void)
 				upd_statusline (); //force update with GSTAT_REDRAW flag
 			}
 			/* update terminal title and/or tab header only if necessary */
-			if (last_ri != cnf.ring_curr || ch == REFRESH_EVENT || (cnf.gstat & GSTAT_REDRAW)) {
+			if (last_ri != cnf.ring_curr || ring_siz != cnf.ring_size || ch == REFRESH_EVENT || (cnf.gstat & GSTAT_REDRAW)) {
 				last_ri = cnf.ring_curr;
 				if (cnf.gstat & GSTAT_AUTOTITLE) {
 					upd_termtitle();
@@ -337,6 +330,7 @@ event_handler (void)
 				if (cnf.gstat & GSTAT_TABHEAD) {
 					show_tabheader();
 				}
+				ring_siz = cnf.ring_size;
 			}
 			if (cnf.trace > 0) {
 				UPD_LOG(LOG_INFO, "page with trace [%d %s]", upd_event, upd_funcname);
@@ -351,12 +345,14 @@ event_handler (void)
 				clear_trace_next_time = 0;
 			} else {
 				if (!(cnf.gstat & GSTAT_UPDNONE)) {
-					if (cnf.gstat & GSTAT_UPDFOCUS) {
-						UPD_LOG(LOG_DEBUG, "focus [%d %s]", upd_event, upd_funcname);
-					} else if (upd_event < 16) {
-						UPD_LOG(LOG_NOTICE, "page [%d %s]", upd_event, upd_funcname);
-					} else {
-						UPD_LOG(LOG_NOTICE, "page [%d]", upd_event);
+					if (UPD_LOG_AVAIL(LOG_NOTICE)) {
+						if (cnf.gstat & GSTAT_UPDFOCUS) {
+							UPD_LOG(LOG_DEBUG, "focus [%d %s]", upd_event, upd_funcname);
+						} else if (upd_event < 16) {
+							UPD_LOG(LOG_NOTICE, "page [%d %s]", upd_event, upd_funcname);
+						} else {
+							UPD_LOG(LOG_NOTICE, "page [%d]", upd_event);
+						}
 					}
 					upd_text_area (cnf.gstat & GSTAT_UPDFOCUS);
 				}
@@ -569,14 +565,12 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		}
 		abeg = i;
 	}
-	CMD_LOG(LOG_DEBUG, "clen %d abeg %d", clen, abeg);
 
 	/* search down command name in macros[].name and table[].name
 	*/
 	for (xi=0; xi < MLEN; xi++)
 	{
 		if (macros[xi].name[0] != '\0') {
-			CMD_LOG(LOG_DEBUG, "check macro name [%s]", macros[xi].name);
 			for (i=0; i < clen; i++) {
 				if (macros[xi].name[i] != ibuff[i])
 					break;
@@ -615,7 +609,6 @@ parse_cmdline (char *ibuff, int ilen, char *args)
 		}
 		args[i-abeg] = '\0';
 		ibuff[clen] = '\0';
-		CMD_LOG(LOG_DEBUG, "parsed -> [%s] [%s]", ibuff, args);
 	}
 
 	return (xi);
