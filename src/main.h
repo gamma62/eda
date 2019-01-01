@@ -315,7 +315,7 @@ struct fdata_tag
 	int	pipe_input;	/* child input, optional -- fd for pipe write (0 if closed) */
 	char	*readbuff;	/* for reads from pipe, (NULL if free'd)  */
 	int	rb_nexti;	/* next index in readbuff */
-	char 	last[CMDLINESIZE];
+	//last
 };
 
 struct bookmark_tag

@@ -1,11 +1,8 @@
-NOTES about ideas, plans, bugs
+NOTES about ideas, plans
 
---- RC2 for v1.2.23
+--- rc4 for v1.2.23
 
-  - hash tables for command and keys (reopen branch, add dynamic config)
-  - go support -- branch
-  - more python support -- branch
-  - macros for git, svnlite, bzr
-  - more color palette sets
-  - column reorder like awk(1), and reflow -- branch
+  - hash tables for keys (loaded from edakeys) and maybe commands
+  - add go language support and more python
+  - column reorder like awk(1)
 

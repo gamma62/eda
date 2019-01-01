@@ -895,6 +895,18 @@ process_project (int noconfig)
 					cnf._pwd[sizeof(cnf._pwd)-1] = '\0';
 				}
 				cnf.l1_pwd = strlen(cnf._pwd);
+				/**/
+				if (read_extcmd_line ("pwd", 1, cnf._altpwd, sizeof(cnf._altpwd))) {
+					/* fallback */
+					cnf._altpwd[0] = '\0';
+					cnf.l2_altpwd = 0;
+				} else {
+					cnf.l2_altpwd = strlen(cnf._altpwd);
+					if (cnf.l1_pwd == cnf.l2_altpwd && strncmp(cnf._pwd, cnf._altpwd, cnf.l1_pwd) == 0) {
+						cnf._altpwd[0] = '\0';
+						cnf.l2_altpwd = 0;
+					}
+				}
 				/* do not call set() */
 				continue;
 			}

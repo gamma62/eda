@@ -43,14 +43,23 @@ tabsize		8
 #	selection line text: normal, tagged, highlight, search
 #	focus+selection line text: normal, tagged, highlight, search
 #	the last block: statusline, tracemsg/tabhead, shadow line, cmdline
+# separate blocks with only one space
 #
-# the default color palette (index 0) is hardcoded,
 # any number of valid custom configurations can be added,
-# select the default by its index
+# select the active color setting by its index, after the definitions
 #
-# the default palette as example (the first word is its name)
-#palette xterm 20_.60_.70_.10_. 20b.60b.70b.10b. 02_.42_.07_.01_. 03_.43_.07_.01_. 74_.06_.20_.74_.
-# select color palette by index
+# examples (the first word is the name)
+# green/black
+#palette default 20_.60_.70_.10_. 20b.60b.70b.10b. 02_.42_.07_.01_. 03_.43_.70br10br 74_.06_.20_.74_.
+# cold grey/cyan on black
+palette cold_grey_on_black 00b.40_.70_.10_. 60b.40b.70b.10b. 00br04br07_.01_. 60br64br70br10br 74_.06_.00b.74_.
+# solid white on black
+#palette solid_white_on_black 70_.40_.20_.10_. 70b.40b.20b.10b. 00br04br02_.01_. 70_r74_r20br10br 74_.06_.70_.74_.
+#palette solid_white_on_black2 70_.40_.20_.10_. 70b.40b.20b.10b. 70_r74_r02_.01_. 70br74br20br10br 74_.06_.70_.74_.
+# other white on black
+#palette alt_white_on_black 70_.60_.40_.10_. 70b.60b.40b.10b. 00br06br04_.01_. 70_r76_r40br10br 74_.06_.70_.74_.
+#palette alt_white_on_black2 70_.60_.40_.10_. 70b.60b.40b.10b. 70_r76_r04_.01_. 70br76br40br10br 74_.06_.70_.74_.
+#
 #palette 0
 
 # ctags settings

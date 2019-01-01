@@ -587,10 +587,9 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		sigaction(SIGUSR1, &sigAct, NULL);
 		sigaction(SIGUSR2, &sigAct, NULL);
 
-		if (execvp (cmd, args) == -1) {
-			PIPE_LOG(LOG_ERR, "child log: pid=%d: execvp() [%s] failed (%s)", getpid(), cmd, strerror(errno));
-		}
-		exit(EXIT_SUCCESS);
+		(void)execvp (cmd, args);
+		PIPE_LOG(LOG_ERR, "child: execvp() [%s] failed (%s)", cmd, strerror(errno));
+		exit(EXIT_FAILURE);
 	}
 
 	/* parent process

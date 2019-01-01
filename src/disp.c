@@ -1101,15 +1101,14 @@ color_palette_parser(const char *input)
 	}
 	if (i == CPAL_BITS) {
 		if (cnf.palette_array == NULL) {
-			ptr = (CPAL *)MALLOC(sizeof(CPAL) * 2);
+			ptr = (CPAL *)MALLOC(sizeof(CPAL) * 1);
 			if (ptr == NULL) {
 				ERRLOG(0xE034);
 				ret = 1;
 			} else {
 				cnf.palette_array = ptr;
-				cnf.palette_array[ 0 ] = cnf.cpal;
-				cnf.palette_array[ 1 ] = cpal;
-				cnf.palette_count = 2;
+				cnf.palette_array[ 0 ] = cpal;
+				cnf.palette_count = 1;
 				ret = 0;
 			}
 		} else {

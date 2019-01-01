@@ -1754,13 +1754,14 @@ xterm_title (const char *xtitle)
 int
 rotate_palette (void)
 {
-	if (cnf.palette >= 0 && cnf.palette < cnf.palette_count) {
+	if (cnf.palette_count > 1) {
 		if (cnf.palette < cnf.palette_count-1)
 			cnf.palette++;
 		else
 			cnf.palette = 0;
 
 		init_colors_and_cpal();
+		cnf.gstat |= GSTAT_REDRAW; // force update
 		tracemsg("palette -> %d [%s]", cnf.palette, cnf.cpal.name);
 	}
 
