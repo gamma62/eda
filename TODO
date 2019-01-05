@@ -1,6 +1,6 @@
 NOTES about ideas, plans
 
---- rc4 for v1.2.23
+--- rc5 for v1.2.23
 
   - hash tables for keys (loaded from edakeys) and maybe commands
   - add go language support and more python

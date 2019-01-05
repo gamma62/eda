@@ -463,11 +463,12 @@ read_extcmd_line (const char *ext_cmd, int lineno, char *buff, int siz)
 	int lno=0, slen=0;
 	char *p, cache[1024];
 
-	pipe_fp = popen(ext_cmd, "r");
-	if (pipe_fp == NULL) {
+	if (buff == NULL || siz < 1) {
 		return (1);
 	}
-	if (buff == NULL || siz < 1) {
+
+	pipe_fp = popen(ext_cmd, "r");
+	if (pipe_fp == NULL) {
 		return (1);
 	}
 

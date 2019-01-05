@@ -1024,9 +1024,10 @@ save_project (const char *projectname)
 	} else {
 		fprintf(fp, "%s\n%s %s\n", PROJECT_HEADER, PROJECT_CHDIR, cnf._pwd);
 		if (dlen > 0) {
-			if (fwrite (data, sizeof(char), dlen, fp) != dlen)
+			if (fwrite (data, sizeof(char), dlen, fp) != dlen) {
 				ERRLOG(0xE0A5);
 				ret = 2;
+			}
 		}
 		if (!ret) {
 			fprintf(fp, "\n%s\n", PROJECT_FILES);

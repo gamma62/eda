@@ -180,21 +180,21 @@ clhistory_unlink (CMDLINE *runner)
 		if (xbase->prev != NULL)
 			(xbase->prev)->next = xbase;
 
-		FREE(runner);
-		runner = NULL;
-		cnf.clhist_size--;
-
-	} else {
+	} else if (runner->prev != NULL) {
 		/* up, since cannot go down */
 		xbase = runner->prev;
 		if (xbase != NULL) {
 			xbase->next = NULL;
 		}
 
-		FREE(runner);
-		runner = NULL;
-		cnf.clhist_size--;
+	} else {
+		/* nothing to unlink */
+		xbase = NULL;
 	}
+
+	FREE(runner);
+	runner = NULL;
+	if (cnf.clhist_size > 0) cnf.clhist_size--;
 
 	return (xbase);
 }
@@ -205,7 +205,7 @@ clhistory_unlink (CMDLINE *runner)
 int
 clhistory_cleanup (int keep)
 {
-	CMDLINE *runner;
+	CMDLINE *runner, *prev;
 	int item=0;
 
 	reset_clhistory();
@@ -220,7 +220,8 @@ clhistory_cleanup (int keep)
 			break;
 		} else {
 			/* unlink nodes from linked list, but only prev */
-			clhistory_unlink(runner->prev);
+			prev = runner->prev;
+			clhistory_unlink(prev);
 		}
 	}
 

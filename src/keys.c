@@ -394,7 +394,7 @@ process_seqfile (int noconfig)
 	if (ret) {
 		fprintf(stderr, "eda: processing [%s] failed (%d) line=%d\n", fname, ret, lno);
 		free_seq_tree (cnf.seq_tree);
-		seq = NULL;
+		free_seq_tree (seq);
 	} else {
 		cnf.seq_tree = seq;
 	}
