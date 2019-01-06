@@ -93,7 +93,7 @@ uninstall:
 	@rmdir $(DESTDIR)$(datadir)/eda 2>/dev/null || true
 
 clean:
-	-rm -f *.o *.i *~ core* *core eda tags
+	-rm -f *.o *~ eda
 
 # ------------------------------------
 

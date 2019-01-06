@@ -19,7 +19,7 @@
 #
 
 include ../conf.make
-CC = cc
+CC = clang
 
 ARCH != uname -m
 OS != uname -s
@@ -28,7 +28,7 @@ REV != cat ../REV 2>/dev/null || echo 0
 CFLAGS = -Wall -Wextra -O2 -pipe -std=c99 -fstack-protector -fno-strict-aliasing \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes \
 	-Wformat -Wformat-security -Wsign-conversion -Wcast-qual -Wcast-align \
-	-Wwrite-strings -Wmissing-variable-declarations \
+	-Wwrite-strings -Wmissing-declarations -Wmissing-prototypes \
 	-I.. -I/usr/local/include -I/usr/local/include/ncurses
 
 LDFLAGS = -lncurses

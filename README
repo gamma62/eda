@@ -31,7 +31,7 @@ add your custom macros based on samples, see eda(1) and edamacro(5)
 
 optionally, copy edaseq and edakeys from /usr/local/share/eda/ to ~/.eda/
 edaseq contains the escape sequencies for function and control keys
-edakeys contaisn the key -> function binding (default values)
+edakeys contains the key -> function binding (default values)
 update key bindings and check it with 'eda -k'
 
 eda works well with xterm but needs meta keys must send escape
@@ -71,4 +71,11 @@ sed, awk, make and compile tools, checkers, formatters -- see edamacro
 something for clipboard i/o (for example xsel) -- see edamacro
 
 ctags is supported for development
+
+Coverity Scan
+---------------------
+<a href="https://scan.coverity.com/projects/gamma62-eda">
+  <img alt="Coverity Scan Build Status"
+       src="https://scan.coverity.com/projects/3772/badge.svg"/>
+</a>
 

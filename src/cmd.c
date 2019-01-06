@@ -513,9 +513,12 @@ ed_cmdline (int ch)
 				cnf.cloff = (cnf.clpos >= 4) ? (cnf.clpos - 4) : 0;
 			break;
 		case KEY_RIGHT:
-			cnf.clpos = (cnf.clpos < CMDLINESIZE-1) ? cnf.clpos+1 : CMDLINESIZE-1;
-			if (cnf.clpos - cnf.cloff > cnf.maxx-1)
-				cnf.cloff = cnf.clpos - cnf.maxx + 1;
+			/* do not move over the end */
+			if (cnf.clpos < cnf.cmdline_len) {
+				cnf.clpos = (cnf.clpos < CMDLINESIZE-1) ? cnf.clpos+1 : CMDLINESIZE-1;
+				if (cnf.clpos - cnf.cloff > cnf.maxx-1)
+					cnf.cloff = cnf.clpos - cnf.maxx + 1;
+			}
 			break;
 
 		/* filename globbing */

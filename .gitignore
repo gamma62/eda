@@ -1,3 +1,5 @@
 *.o
 *~
 src/eda
+coverity_
+eda.*.tgz
