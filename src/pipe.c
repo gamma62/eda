@@ -700,8 +700,6 @@ read_stdin (void)
 		*/
 		if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
 			ERRLOG(0xE0B2);
-			PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
-				CURR_FILE.pipe_output, strerror(errno));
 		}
 		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in BACKground", cnf.ring_curr);
 	}
@@ -849,8 +847,6 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 			*/
 			if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
 				ERRLOG(0xE0B1);
-				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
-					CURR_FILE.pipe_output, strerror(errno));
 			}
 			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in BACKground", cnf.ring_curr, sbufname);
 		}
@@ -873,7 +869,7 @@ readout_pipe (int ring_i)
 {
 	char *rb=NULL;
 	int ret=0;
-	int ni, total=0, finish=0, pull, got, count;
+	int ni, total=0, finish=0, pull, got, count, childpid=0, exitstatus=0;
 	int ring_orig = cnf.ring_curr;
 
 	/* init */
@@ -940,7 +936,8 @@ readout_pipe (int ring_i)
 		if (finish) {
 			/* pipe_output must be closed -- that is the flag
 			*/
-			got = wait4_bg(ring_i);	/* finished */
+			childpid = cnf.fdata[ring_i].chrw;
+			exitstatus = wait4_bg(ring_i);	/* finished */
 
 			if ((cnf.fdata[ring_i].pipe_opts & OPT_SILENT) == 0) {
 				/* last line: footer
@@ -953,11 +950,11 @@ readout_pipe (int ring_i)
 			}
 
 			if (cnf.fdata[ring_i].pipe_opts & OPT_NOBG) {
-				PIPE_LOG(LOG_NOTICE, "-- ri=%d [%s] FOREground task finished (wait %d, ret %d)",
-					ring_i, cnf.fdata[ring_i].fname, got, ret);
+				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d FOREground task finished (pid %d, exit %d)",
+					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			} else {
-				PIPE_LOG(LOG_NOTICE, "-- ri=%d [%s] BACKground task finished (wait %d, ret %d)",
-					ring_i, cnf.fdata[ring_i].fname, got, ret);
+				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d BACKground task finished (pid %d, exit %d)",
+					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			}
 		}
 
@@ -1028,16 +1025,16 @@ wait4_bg (int ri)
 			cnf.fdata[ri].readbuff = NULL;
 		}
 		if (cnf.fdata[ri].chrw > 0) {
-			if (waitpid(cnf.fdata[ri].chrw, &status, 0) == -1) {
+			if (waitpid(cnf.fdata[ri].chrw, &status, WNOHANG) == -1) {
 				// failed
 				kill(cnf.fdata[ri].chrw, SIGHUP);
-				status = -1;
+				status = -SIGHUP;
 			} else {
 				if (WIFEXITED(status)) {
 					status = WEXITSTATUS(status);
 				} else {
 					kill(cnf.fdata[ri].chrw, SIGKILL);
-					status = -1;
+					status = -SIGKILL;
 				}
 			}
 			cnf.fdata[ri].chrw = -1;

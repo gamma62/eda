@@ -83,7 +83,7 @@ make_path	/usr/bin/make
 make_opts	-w
 
 # mandatory tools
-sh_path		/usr/local/bin/bash
+sh_path		/bin/sh
 diff_path	/usr/bin/diff
 
 # some filter examples

@@ -514,7 +514,7 @@ set_defaults(void)
 	strncpy(cnf.find_opts,	". -type f -name '*.[ch]' -exec egrep -nH -w", sizeof(cnf.find_opts));
 	strncpy(cnf.tags_file,	"./tags",		sizeof(cnf.tags_file));
 	strncpy(cnf.make_path,	"/usr/bin/make",	sizeof(cnf.make_path));
-	strncpy(cnf.make_opts,	"-f Makefile",		sizeof(cnf.make_opts));
+	strncpy(cnf.make_opts,	"",			sizeof(cnf.make_opts));
 	strncpy(cnf.sh_path,	"/bin/sh",		sizeof(cnf.sh_path));
 	strncpy(cnf.diff_path,	"/usr/bin/diff",	sizeof(cnf.diff_path));
 	for(i=0; i < 10; i++) {
@@ -525,16 +525,15 @@ set_defaults(void)
 	/* PWD and HOME alternatives; PWD is not set with sudo
 	*/
 	if (getcwd(cnf._pwd, sizeof(cnf._pwd)-1) == NULL) {
-		fprintf(stderr, "getcwd failed (%s)\n", strerror(errno));
+		// no symlink
 		leave("failed set defaults");
 	}
 	if (read_extcmd_line ("pwd", 1, cnf._altpwd, sizeof(cnf._altpwd))) {
-		fprintf(stderr, "`pwd` failed\n");
+		// may have symlink
 		leave("failed set defaults");
 	}
 	ptr = getenv("HOME");
 	if (ptr == NULL) {
-		fprintf(stderr, "getenv HOME failed (%s)\n", strerror(errno));
 		leave("failed set defaults");
 	}
 	strncpy(cnf._home, ptr, sizeof(cnf._home));
@@ -543,7 +542,6 @@ set_defaults(void)
 	|| (getcwd(cnf._althome, sizeof(cnf._althome)-1) == NULL)
 	|| (chdir(cnf._altpwd) == -1))
 	{
-		fprintf(stderr, "chdir() or getcwd() failed\n");
 		leave("failed set defaults");
 	}
 

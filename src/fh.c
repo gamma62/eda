@@ -1041,7 +1041,7 @@ reload_file (void)
 	}
 
 	if (ret) {
-		tracemsg ("Cannot reload file [%s]: %s.", CURR_FILE.fpath, strerror(errno));
+		tracemsg ("Cannot reload file [%s]", CURR_FILE.fpath);
 		CURR_FILE.fflag |= FSTAT_SCRATCH;
 		return (ret);
 	}
@@ -1176,7 +1176,7 @@ reload_bydiff (void)
 		}
 		fclose(fp);
 	} else {
-		tracemsg ("Cannot reload file [%s]: %s.", CURR_FILE.fpath, strerror(errno));
+		tracemsg ("Cannot reload file [%s]", CURR_FILE.fpath);
 		CURR_FILE.fflag |= FSTAT_SCRATCH;
 		return(1);
 	}
@@ -1605,7 +1605,7 @@ save_file (const char *newfname)
 
 	/* save */
 	if ((fp = fopen(fname_p, "w")) == NULL) {
-		tracemsg ("cannot open [%s] for write (%s).", fname_p, strerror(errno));
+		tracemsg ("[%s]: %s.", fname_p, strerror(errno));
 		CURR_FILE.fflag |= FSTAT_RO;
 		if ((fp = fopen(CURR_FILE.fpath,"r")) == NULL) {
 			CURR_FILE.fflag |= FSTAT_SCRATCH;

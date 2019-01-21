@@ -19,7 +19,7 @@
 #
 
 include ../conf.make
-CC = gcc
+CC = cc
 
 ARCH = $(shell uname -m)
 OS = $(shell uname -s)

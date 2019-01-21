@@ -19,7 +19,7 @@
 #
 
 include ../conf.make
-CC = clang
+CC = cc
 
 ARCH != uname -m
 OS != uname -s
