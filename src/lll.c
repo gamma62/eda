@@ -39,6 +39,7 @@ lll_add (LINE *line_p)
 	LINE *line_next;
 
 	if ((line_next = (LINE *) MALLOC(sizeof(LINE))) == NULL) {
+		ERRLOG(0xE02C);
 		return NULL;
 	}
 	if (line_p == NULL) {
@@ -77,6 +78,7 @@ lll_add_before (LINE *line_p)
 		line_prev = lll_add(line_p);
 	} else {
 		if ((line_prev = (LINE *) MALLOC(sizeof(LINE))) == NULL) {
+			ERRLOG(0xE02B);
 			return NULL;
 		}
 

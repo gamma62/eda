@@ -1,41 +1,9 @@
-NOTES about ideas, plans, bugs
+NOTES about ideas, plans
 
---- v.0.9.97 rc4 ---
+--- after v1.2.23
 
-FEATURES: engine tests
-  - base editor functions (ready) and feature groups
-ongoing
+  - hash tables for keys (loaded from edakeys) and maybe commands
+  - add go language support and more python
+  - column reorder like awk(1)
+  - eda(1) is outdated
 
-FEATURE: xml/html tag support
-  - tomatch for tag tokens, block folding, etc
-important, later
-
-FEATURE: operation restricted to selection block (like indent/unindent)
-  - for replace
-  - for comment, uncomment
-maybe
-
-FEATURE: support indentation based structured languages (like python)
-  - folding of block, function or class
-  - function name
-  - view more or less depending on indentation level
-maybe
-
-FEATURE: hashtab for the commands and keyboard inputs
-  - first part ready: perfect hash (all keys found slot in first round)
-  - second step: generate this during the build
-  - or runtime with key-tester and set parameters in config
-postponed, hashtab branch
-
-FEATURE: secret store, eda extension: my secrets with gcrypt
-  - cnf.phrase[]=mysecret -- default:empty
-  - cnf.sfile[]=secret.gpg -- default:empty
-  - ##design/implementation missing
-  - read_phrase(buffer, secret=False)
-  - ##reading into special-buffer *secret*, remember filename, ask for passphrase if empty
-  - gpg -d --yes --batch --passphrase=<phrase> <gpgfile> 2>/dev/null
-  - command: gde.crypt [alt.filename]
-  - ##write back / overwrite
-  - lines of *gpg* | gpg --yes --batch --passphrase=<phrase> -o <gpgfile> -c -
-  - command: gen.crypt [alt.filename]
-postponed, entry branch

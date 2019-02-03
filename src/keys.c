@@ -35,24 +35,25 @@
 
 /* global config */
 extern CONFIG cnf;
-extern KEYS keys[];
-extern const int KLEN;
-extern const int RES_KLEN;
+
 extern TABLE table[];
-extern const int TLEN;
+extern KEYS keys[];
+extern const int TLEN, KLEN, RES_KLEN;
 extern MACROS *macros;
 extern int MLEN;
-/* extern int ESCDELAY; */
-
-MEVENT pointer;
+extern MEVENT mouse_event_pointer;
 
 /* dynamic mapping */
-int key_c_up    = 0;
-int key_c_down  = 0;
-int key_c_left  = 0;
-int key_c_right = 0;
-int key_c_ppage = 0;
-int key_c_npage = 0;
+static int key_c_up    = 0;
+static int key_c_down  = 0;
+static int key_c_left  = 0;
+static int key_c_right = 0;
+static int key_c_ppage = 0;
+static int key_c_npage = 0;
+static int key_m_up    = 0;
+static int key_m_down  = 0;
+static int key_m_left  = 0;
+static int key_m_right = 0;
 
 /* local proto */
 static int process_esc_seq (const char *str, NODE *tree);
@@ -65,38 +66,27 @@ static int process_esc_seq (const char *str, NODE *tree);
  * return:
  *	normal character,
  *	sequence tree leaf,
- *	KEY_RESIZE with some delay
+ *	KEY_RESIZE no delay
  */
 int
-key_handler (WINDOW *wind, NODE *seq_tree, int testing)
+key_handler (NODE *seq_tree, int testing)
 {
 	NODE *node = NULL;
-	int ch=0, resize=0, delay=0, ready=0, mok=0, meta_key=0, node_seq_items=0;
+	int ch=0, ready=0, mok=0, meta_key=0, node_seq_items=0;
 	unsigned i=0;
 
 	while (!ready) {
-		ch = wgetch (wind);
+		ch = wgetch (stdscr);
 
 		if (ch == KEY_RESIZE) {
-			if (testing) wprintw (stdscr, ".");
-			resize = 1;
-			delay = 0;	/* reset */
-
-		} else if (resize) {
-			if (++delay >= RESIZE_DELAY) {
-				ch = KEY_RESIZE;
-				resize = 0;
-				ready = 1;
-				if (testing) wprintw (stdscr, "* ");
-			} else {
-				if (testing) wprintw (stdscr, ",");
-			}
+			ready = 1;
+			if (testing) wprintw (stdscr, "resize ");
 
 		} else if (ch == KEY_MOUSE) {
-			mok = getmouse(&pointer);
+			mok = getmouse(&mouse_event_pointer);
 			if (testing) {
 				wprintw (stdscr, "(%d: y=%d x=%d bstate=0%o) ",
-					mok, pointer.y, pointer.x, pointer.bstate);
+					mok, mouse_event_pointer.y, mouse_event_pointer.x, mouse_event_pointer.bstate);
 			}
 			if (mok == OK) {
 				ready = 1;
@@ -126,6 +116,22 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 		} else if (ch == key_c_npage) {
 			if (testing) wprintw (stdscr, "%02X ", ch);
 			ch = KEY_C_NPAGE;
+			ready = 2;
+		} else if (ch == key_m_up) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_UP;
+			ready = 2;
+		} else if (ch == key_m_down) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_DOWN;
+			ready = 2;
+		} else if (ch == key_m_left) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_LEFT;
+			ready = 2;
+		} else if (ch == key_m_right) {
+			if (testing) wprintw (stdscr, "%02X ", ch);
+			ch = KEY_M_RIGHT;
 			ready = 2;
 
 		} else if (ch != ERR) {
@@ -191,7 +197,7 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 					case 'L': meta_key=KEY_S_M_L; break;
 					case 'M': meta_key=KEY_S_M_M; break;
 					case 'N': meta_key=KEY_S_M_N; break;
-					case 'O': meta_key=KEY_S_M_O; break;
+					case 'O': meta_key=KEY_S_M_O; break; /* 0x1b 0x4f is special */
 					case 'P': meta_key=KEY_S_M_P; break;
 					case 'Q': meta_key=KEY_S_M_Q; break;
 					case 'R': meta_key=KEY_S_M_R; break;
@@ -203,7 +209,7 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 					case 'X': meta_key=KEY_S_M_X; break;
 					case 'Y': meta_key=KEY_S_M_Y; break;
 					case 'Z': meta_key=KEY_S_M_Z; break;
-					case '[': meta_key=KEY_M_LSQBRAC; break; /* 0x5b is special */
+					case '[': meta_key=KEY_M_LSQBRAC; break; /* 0x1b 0x5b is special */
 					case '\\': meta_key=KEY_M_BACKSLASH; break;
 					case ']': meta_key=KEY_M_RSQBRAC; break;
 					case '^': meta_key=KEY_M_CARET; break;
@@ -244,7 +250,7 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 						meta_key=0;
 						break;
 					}
-					if (meta_key != 0 && ch != 0x5b) {
+					if (meta_key != 0 && ch != 0x5b && ch != 0x4f) {
 						/* early break, quick response to repeated Alt-keys */
 						ch = meta_key;
 						ready = 1;
@@ -304,7 +310,7 @@ key_handler (WINDOW *wind, NODE *seq_tree, int testing)
 	case KEY_BACKSPACE:
 		break;
 	case KEY_C_H:
-		if (testing) wprintw (stdscr, "((map KEY_C_H 0x02X to KEY_BACKSPACE))\n", ch);
+		if (testing) wprintw (stdscr, "((map KEY_C_H 0x%02X to KEY_BACKSPACE))\n", ch);
 		ch = KEY_BACKSPACE;
 		break;
 	case KEY_ASCII_DEL:
@@ -337,6 +343,7 @@ process_seqfile (int noconfig)
 
 	seq = (NODE *) MALLOC(sizeof(NODE));
 	if (seq == NULL) {
+		ERRLOG(0xE038);
 		return (1);
 	}
 
@@ -371,6 +378,7 @@ process_seqfile (int noconfig)
 	while (ret==0) {
 		if (fgets (buff, CMDLINESIZE, fp) == NULL) {
 			if (ferror(fp)) {
+				ERRLOG(0xE097);
 				ret = 2;
 			}
 			break;
@@ -386,7 +394,7 @@ process_seqfile (int noconfig)
 	if (ret) {
 		fprintf(stderr, "eda: processing [%s] failed (%d) line=%d\n", fname, ret, lno);
 		free_seq_tree (cnf.seq_tree);
-		seq = NULL;
+		free_seq_tree (seq);
 	} else {
 		cnf.seq_tree = seq;
 	}
@@ -476,6 +484,18 @@ process_esc_seq (const char *str, NODE *tree)
 		} else if (strncmp(key_name, "KEY_C_NPAGE", 11) == 0) {
 			key_c_npage = leaves[0];
 			return (0);
+		} else if (strncmp(key_name, "KEY_M_UP", 8) == 0) {
+			key_m_up = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_DOWN", 10) == 0) {
+			key_m_down = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_LEFT", 10) == 0) {
+			key_m_left = leaves[0];
+			return (0);
+		} else if (strncmp(key_name, "KEY_M_RIGHT", 11) == 0) {
+			key_m_right = leaves[0];
+			return (0);
 		}
 	}
 	if (leaves[0] != KEY_ESC) {
@@ -513,6 +533,7 @@ process_esc_seq (const char *str, NODE *tree)
 			/* allocate space for bigger pointer array -- sizeof(NODE *) should be portable */
 			ptr2 = (NODE **) REALLOC(node->branch, sizeof(NODE *) * (node->bcount+1));
 			if (ptr2 == NULL) {
+				ERRLOG(0xE00C);
 				return (-7);
 			}
 			node->branch = (NODE **)ptr2;
@@ -521,6 +542,7 @@ process_esc_seq (const char *str, NODE *tree)
 			/* allocate space for the new pointer */
 			ptr = (NODE *) MALLOC(sizeof(NODE));
 			if (ptr == NULL) {
+				ERRLOG(0xE037);
 				return (-8);
 			}
 
@@ -588,7 +610,7 @@ key_test (void)
 		BUTTON1_CLICKED | BUTTON1_DOUBLE_CLICKED |
 		BUTTON1_TRIPLE_CLICKED |
 		BUTTON2_CLICKED | BUTTON3_CLICKED);
-	int ch=0, ki=0, maxx=0, maxy=0, ti=0;
+	int ch=0, ki=0, ti=0;
 
 	initscr ();	/* Begin */
 	cbreak ();
@@ -596,19 +618,22 @@ key_test (void)
 	nonl ();
 	clear ();
 	scrollok(stdscr, TRUE);
-	getmaxyx(stdscr, maxy, maxx);
 
 	keypad (stdscr, TRUE);
 	ESCDELAY = CUST_ESCDELAY;
 	wtimeout (stdscr, CUST_WTIMEOUT);
 
-	wprintw (stdscr, "eda: key_test -- escape sequences ((ESCDELAY=%d WTIMEOUT=%d x=%d x=%d))\n", CUST_ESCDELAY, CUST_WTIMEOUT, maxy, maxx);
-	wprintw (stdscr, "     format: escape key sequence => key code ... [function name]\n");
-	wprintw (stdscr, "     quit with Q or q\n");
-	wsetscrreg(stdscr, 3, maxy-1);
+	wprintw (stdscr, "eda: key_test -- escape sequences ((ESCDELAY=%d WTIMEOUT=%d))\n", ESCDELAY, CUST_WTIMEOUT);
+	wprintw (stdscr, "        (on key press) detected escape key sequence => key name ... [function name]\n");
+	wprintw (stdscr, "quit with q\n");
+#ifdef DEVELOPMENT_VERSION
+	wprintw (stdscr, "# //////// 8x'/' (REP ECMA-048)\n");
+	wprintw (stdscr, "# 00000000 8x'0'\n");
+#endif
+	wsetscrreg(stdscr, 3, LINES-1);
 
 	while (ch != 'q') {
-		ch = key_handler (stdscr, cnf.seq_tree, 2);
+		ch = key_handler (cnf.seq_tree, 2);
 
 		if (ch != ERR) {
 			if (ch == KEY_RESIZE) {
@@ -620,7 +645,9 @@ key_test (void)
 				wprintw (stdscr, "\n");
 			} else if (ch == KEY_MOUSE) {
 				wprintw (stdscr, "=> KEY_MOUSE row=%d col=%d\n",
-					pointer.y, pointer.x);
+					mouse_event_pointer.y, mouse_event_pointer.x);
+			} else if (ch == KEY_NONE) {
+				wprintw (stdscr, "%02X => ignored\n", ch);
 			} else {
 				ki = index_key_value(ch);
 				if (ki >= 0 && ki < KLEN) {
@@ -635,16 +662,11 @@ key_test (void)
 						}
 					}
 				} else {
-					wprintw (stdscr, "%02X => unbound key");
+					wprintw (stdscr, "%02X => unbound key", ch);
 				}
 				wprintw (stdscr, "\n");
 			}
-			/* put to screen */
-			wnoutrefresh (stdscr);
 		}
-
-		/* the regular update */
-		doupdate ();
 
 		if (ch == 'm') {
 			if (mouse_on) {

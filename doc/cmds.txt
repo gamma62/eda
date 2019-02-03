@@ -1,52 +1,28 @@
 +-----------------------------------------------------------------------------+
 | Function keys                                                               |
-| F1   F2    F3    F4    F5     F6      F7        F8   F9     F10    F11      |
+| F1   F2    F3    F4    F5     F6      F7        F8   F9     F10    F11  F12 |
 | cmds save  file  quit  center deleol  duplicate next match  symbol jump     |
-| man  bname                    del2bol bookmarks prev fmatch fblock thisf    |
+| man  vbn                      del2bol           prev fmatch fblock thisf    |
 |                                                                             |
 | Control keys                      Alt/Meta keys                             |
-| filter: ^U, ^N and ^E             line selection: L, U, C, M, G, (A-E)      |
-| insert: ^V, ^B, ^X and ^G         delete line: D                            |
-| search: ^F and ^L                 (multi) find/locate: Q                    |
-| highlight/tag: ^J, ^K             find window switch: W                     |
-| select all: ^A                    [ ] unindent/indent for selection         |
-| redraw: ^R                        { } unshift/shift for selection           |
-| jump back: ^T (after F11)         < > cmdline history                       |
-| wordcase: ^W                      (incr) filter cycle: Alt-backslash        |
-|                                   function name, vbn: Shift-F2              |
-|                                   color palette change: Alt-?               |
-| Bookmarks: Alt-1 ... Alt-9, easy set: Alt-0                                 |
-| Toggles: prefix Alt-@, shadow Alt-#                                         |
-|          smartind Alt-minus, ftmp Alt-equal                                 |
-| Use F12 or ESC to switch to/from commandline.                               |
+| filter: ^u, ^n and ^e             line selection: l, u, c, m, g, (a-e)      |
+| insert: ^v, ^b, ^x and ^g         delete line: d                            |
+| search: ^f and ^l                 (multi) find/locate: q                    |
+| highlight/tag: ^j, ^k             find window switch: w                     |
+| select all: ^a                    [ ] unindent/indent for selection         |
+| wordcase: ^w                      { } unshift/shift for selection           |
+| jump back: ^t                     < > cmdline history                       |
+|                                   filter levels cycle: Alt-\                |
+|                                   color palette (cycle): Alt-/              |
+| List switch: Alt-y  Alt-r                                                   |
+| Bookmarks: Alt-1 ... Alt-9 (set: Alt-0)                                     |
+| Toggles: tabhead Alt-!  prefix Alt-@  smartind Alt--  ftmp Alt-=            |
+| Resources: rc macros remac set keys sp                                      |
+| Ctrl-c twice to leave immediately                       ESC: cmdline / text |
 +-----------------------------------------------------------------------------+
+           The dot in command name shows the shortest abbreviation.
 
-Read file into buffer and release the file on disk.
-Switch between buffers with F8, save file with F2, save&quit F3, quit F4.
-Leave the program if all the buffers are closed.
-Press Ctrl-C twice to leave immediately.
-
-command name          function name         keyboard shortcut
---------------------  --------------------  -------------------------
-e.d [<arg>]           add_file              n/a
-re!                   reload_file           none
-diff [<arg>]          show_diff             none
-re.load               reload_bydiff         none
-prev                  prev_file             Shift-F8
-next                  next_file             F8
-save [<arg>]          save_file             F2
-file                  file_file             F3
-q.uit                 quit_file             F4
-qq.uit                drop_file             none
-qo.th                 quit_others           none
-qa.ll                 quit_all              none
-fa.ll                 file_all              none
-sa.ll                 save_all              none
-hide                  hide_file             none
-popen                 parse_open            Ctrl-]
-
-Moving around with cursor keys. Ctrl-Up/Down is hardcoded for command history.
-Use ESC or F12 to switch between text area and command line.
+Moving around, scroll, focus line, cursor position
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
@@ -61,51 +37,71 @@ pos <arg>             goto_pos              n/a
 ce.nter               center_focusline      F5
 n/a                   clhistory_prev        Alt-<
 n/a                   clhistory_next        Alt->
-n/a                   scroll_1line_up       Alt-J
-n/a                   scroll_1line_down     Alt-K
-n/a                   scroll_screen_up      Alt-B
-n/a                   scroll_screen_down    Alt-Space
+n/a                   scroll_1line_up       Alt-j
+n/a                   scroll_1line_down     Alt-k
+n/a                   scroll_screen_up      Alt-b
+n/a                   scroll_screen_down    Alt-n
 
-In-line editing, split line (by Enter), join lines (by Delete, Backspace, deleol).
+File operations (F2 save, F4 quit, F8 next)
+
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+e.d [<arg>]           add_file              n/a
+re!                   reload_file           none
+diff [<arg>]          show_diff             none
+re.load               reload_bydiff         none
+prev                  prev_file             Shift-F8 Alt-LEFT
+next                  next_file             F8 Alt-RIGHT
+save [<arg>]          save_file             F2
+file                  file_file             F3
+q.uit                 quit_file             F4
+qq.uit                drop_file             none
+qo.th                 quit_others           none
+qa.ll                 quit_all              none
+fa.ll                 file_all              none
+sa.ll                 save_all              none
+hide                  hide_file             none
+
+In-line edit, split line (Enter), join lines (Del, Backspace, F6)
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
 deleol                deleol                F6
 del2bol               del2bol               Shift-F6
-dell.ine              delline               Alt-D
+dell.ine              delline               Alt-d
 dup                   duplicate             F7
 dele.te <arg>         delete_lines          n/a
 strip <arg>           strip_lines           n/a
 
-Line based selection functions. See also clipboard macros.
+Line based selection functions (see also clipboard macros)
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-lisel                 line_select           Alt-L
-resel                 reset_select          Alt-U
-cpsel                 cp_select             Alt-C
-mvsel                 mv_select             Alt-M
-rmsel                 rm_select             Alt-G
-selfi.rst             go_select_first       Alt-A
-sella.st              go_select_last        Alt-E
-sea.ll                select_all            Ctrl-A
+lisel                 line_select           Alt-l
+resel                 reset_select          Alt-u
+cpsel                 cp_select             Alt-c
+mvsel                 mv_select             Alt-m
+rmsel                 rm_select             Alt-g
+selfi.rst             go_select_first       Alt-a
+sella.st              go_select_last        Alt-e
+sea.ll                select_all            Ctrl-a
 over                  over_select           none
 unind.ent             unindent_left         Alt-[
 ind.ent               indent_right          Alt-]
 shl.eft               shift_left            Alt-{
 shr.ight              shift_right           Alt-}
 
-Something like block based selection handling.
+Text operations with line blocks
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-pad.b <arg>           pad_block             none
-cut.b <arg>           cut_block             none
-lcut.b <arg>          left_cut_block        none
-split.b <arg>         split_block           none
-join.b <arg>          join_block            none
+pad.b [<arg>]         pad_block             n/a
+cut.b [<arg>]         cut_block             n/a
+lcut.b [<arg>]        left_cut_block        n/a
+split.b [<arg>]       split_block           n/a
+join.b [<arg>]        join_block            n/a
 
-The filter engine based on regexp.
+The filter engine, regexp based, 7 levels
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
@@ -113,9 +109,9 @@ all [<arg>]           filter_all            n/a
 less [<arg>]          filter_less           n/a
 more <arg>            filter_more           n/a
 ftmp                  filter_tmp_all        Alt-=
-fxup                  filter_expand_up      Ctrl-U
-fxdn                  filter_expand_down    Ctrl-N
-fres                  filter_restrict       Ctrl-E
+fxup                  filter_expand_up      Ctrl-u
+fxdn                  filter_expand_down    Ctrl-n
+fres                  filter_restrict       Ctrl-e
 il.evel               incr_filter_level     none
 dl.evel               decr_filter_level     none
 il2                   incr2_filter_level    none
@@ -123,33 +119,7 @@ dl2                   decr2_filter_level    none
 n/a                   incr_filter_cycle     Alt-\
 m1                    filter_m1             n/a
 
-Search and replace, line tagging with color, alternate highlight.
-
-command name          function name         keyboard shortcut
---------------------  --------------------  -------------------------
-/ <arg>               search                n/a
-n/a                   repeat_search         Ctrl-L
-ch.ange <arg>         change                n/a
-tag [<arg>]           color_tag             n/a
-tf                    tag_focusline         Alt-T
-n/a                   search_word           Ctrl-F
-hi.gh [<arg>]         highlight_word        Ctrl-J
-n/a                   tag_line_byword       Ctrl-K
-
-Multifile search and locate (internal search).
-
-command name          function name         keyboard shortcut
---------------------  --------------------  -------------------------
-find [<arg>]          find_cmd              none
-loc.ate [<arg>]       locate_cmd            none
-locsw.itch            locate_find_switch    none
-n/a                   multisearch_cmd       Alt-Q
-n/a                   find_window_switch    Alt-W
-fw.ord                fw_option_switch      none
-fsp.ath <arg>         fsearch_path_macro    n/a
-fsea.rgs <arg>        fsearch_args_macro    n/a
-
-Brace matching, block folding.
+Match, forcematch, folding blocks
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
@@ -158,52 +128,72 @@ fm.atch               forcematch            Shift-F9
 fb.lock               fold_block            Shift-F10
 this.f                fold_thisfunc         Shift-F11
 
-Using ctags.
+Search and replace, line tagging with color, alt. highlight
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-lt                    tag_load_file         n/a
-sym.bol [<arg>]       tag_view_info         F10
-j.ump [<arg>]         tag_jump_to           F11
-jb.ack                tag_jump_back         Ctrl-T
+/ <arg>               search                n/a
+n/a                   repeat_search         Ctrl-l
+ch.ange <arg>         change                n/a
+tag [<arg>]           color_tag             n/a
+tf                    tag_focusline         Alt-t
+n/a                   search_word           Ctrl-f
+hi.gh [<arg>]         highlight_word        Ctrl-j
+n/a                   tag_line_byword       Ctrl-k
 
-External tools, filter pipes, VCS calls and unified diffs.
+Multifile search (find/egrep) and locate (internal search)
+
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+find [<arg>]          find_cmd              none
+loc.ate [<arg>]       locate_cmd            none
+lf.switch             locate_find_switch    none
+n/a                   multisearch_cmd       Alt-q
+n/a                   find_window_switch    Alt-w
+fw.ord                fw_option_switch      none
+fsp.ath <arg>         fsearch_path_macro    n/a
+fsea.rgs <arg>        fsearch_args_macro    n/a
+
+External tools, filter pipes, VCS tool calls and unified diffs
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
 sh <arg>              shell_cmd             n/a
-ish [<arg>]           ishell_cmd            n/a
 make [<arg>]          make_cmd              n/a
 | <arg>               filter_cmd            n/a
 || <arg>              filter_shadow_cmd     n/a
 vcstool <arg>         vcstool               n/a
 pd.iff                process_diff          none
+hgdiff                internal_hgdiff       none
+gitdiff               internal_gitdiff      none
 
-Resources, keys, macros, projects and buffer type query/change.
+Resources, keys, macros, projects and buffer type query/change
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-set <arg>             set                   n/a
+set [<arg>]           set                   n/a
 rc                    load_rcfile           n/a
 key.s                 load_keyfile          n/a
 macro.s               load_macrofile        n/a
 rem.ac                reload_macros         none
-sp <arg>              save_project          n/a
-is <arg>              is_special            n/a
+record                recording_switch      none
+sp [<arg>]            save_project          n/a
+pale.tte              rotate_palette        Alt-/
+pref.ix               prefix_macro          Alt-@ 
+tabh.ead              tabhead_macro         Alt-!
+smart.ind             smartind_macro        Alt--
+shadow                shadow_macro          none
+is [<arg>]            is_special            n/a
 
-Buffer views and UI changes, directory and buffer lists.
+Lists and parsers (find/make/ls/ring: press Enter)
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-pal.ette              rotate_palette        Alt-?
-pref                  prefix_macro          Alt-@
-sma.rt                smartind_macro        Alt-Minus
-sha.dow               shadow_macro          Alt-#
-ri.ng                 list_buffers          Alt-R
-ls.dir [<arg>]        lsdir_cmd             n/a
-redraw                force_redraw          Ctrl-R
+ri.ng                 list_buffers          Alt-r
+ls.dir [<arg>]        lsdir_cmd             Alt-y
+cmd.s                 show_commands         none
 
-Bookmarks, set and jump (Alt-0 sets next free, jump shows preview).
+Bookmarks, set and jump (Alt-0 sets next free)
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
@@ -218,24 +208,35 @@ b6                    bm_jump6              Alt-6
 b7                    bm_jump7              Alt-7
 b8                    bm_jump8              Alt-8
 b9                    bm_jump9              Alt-9
-shb.ms                show_bookmarks        Shift-F7
+shb.ms                show_bookmarks        none
 
-Export/insert, view block/function name, and anything else.
+Using ctags for development
 
 command name          function name         keyboard shortcut
 --------------------  --------------------  -------------------------
-n/a                   ins_bname             Ctrl-B
-n/a                   ins_varname           Ctrl-V
-n/a                   ins_filename          Ctrl-G
-n/a                   cp_text2cmd           Ctrl-X
-vbn                   view_bname            Shift-F2
-wc.ase                word_case             Ctrl-W
-cmd.s                 show_commands         none
-version               version               none
-mouse                 mouse_support         none
-record                recording_switch      none
-xtit.le <arg>         xterm_title           n/a
-stop                  stop_bg_process       none
+lt [<arg>]            tag_load_file         n/a
+sym.bol [<arg>]       tag_view_info         F10
+j.ump [<arg>]         tag_jump_to           F11
+jb.ack                tag_jump_back         Ctrl-t
 
-The rest of functions is useful for macros only, see edamacro(5).
+Anything else
+
+command name          function name         keyboard shortcut
+--------------------  --------------------  -------------------------
+n/a                   ins_bname             Ctrl-b
+n/a                   ins_varname           Ctrl-v
+n/a                   ins_filename          Ctrl-g
+n/a                   cp_text2cmd           Ctrl-x
+n/a                   cp_name2open          Alt-x
+vbn                   view_bname            Shift-F2
+wc.ase                word_case             Ctrl-w
+version               version               none
+pwd                   pwd                   none
+uptime                uptime                none
+xt.itle <arg>         xterm_title           n/a
+msg <arg>             message               n/a
+xmsg                  msg_from_text         n/a
+tutor                 typing_tutor          none
+stop                  stop_bg_process       none
+mouse                 mouse_support         none
 

@@ -21,6 +21,7 @@
 */
 
 #include <config.h>
+#include <stdlib.h>
 #include <string.h>
 #include "main.h"
 #include "proto.h"
@@ -28,41 +29,27 @@
 /* global config */
 extern CONFIG cnf;
 
-typedef enum color_attribute_type_tag
-{
-	COLOR_INIT = 0,
-
-	COLOR_NORMAL_TEXT     = 1,
-	COLOR_TAGGED_TEXT     = 2,
-	COLOR_HIGH_TEXT       = 3,
-	COLOR_SEARCH_TEXT     = 4,
-
-	COLOR_FOCUS_FLAG      = 4,
-	/* FOCUS with NORMAL...SEARCH -> 5 6 7 8 */
-
-	COLOR_SELECT_FLAG     = 8,
-	/* SELECT with NORMAL...SEARCH -> 9 10 11 12 */
-
-	/* SELECT+FOCUS with NORMAL...SEARCH -> 13 14 15 16 */
-
-	COLOR_TRACEMSG_TEXT   = 17,
-	COLOR_STATUSLINE_TEXT = 18,
-	COLOR_CMDLINE_TEXT    = 19,
-	COLOR_SHADOW_TEXT     = 20,
-
-	COLOR_COUNT
-} color_attribute_type;
-
 /* local proto */
-static attr_t set_attr (color_attribute_type base, int lflag, int focus_flag);
+static void set_color_attribute (WINDOW *win, int idx);
 static void map_match_to_out (const char *ibuff, int imatch_so, int imatch_eo, int *pos, int padsize, int focus, const char *obuff);
 static void text_line (LINE *lp, int lineno, int focus, int focus_flag);
-static const char *center_fname (const char *ibuff, const char *catbuff, int padsize);
-static void shadow_line (int count, int focus);
-static void empty_line (int focus);
+static const char *center_fname (const char *ibuff, const char *catbuff, int catlen, int padsize);
+static void shadow_empty_line (int focus, int count);
+#define empty_line(focus)	shadow_empty_line((focus), -1)
 
-/* local variables */
-static attr_t at[COLOR_COUNT];
+static void
+set_color_attribute (WINDOW *win, int idx)
+{
+	int bits;
+	bits = cnf.cpal.bits[ idx ];
+	wattron (win, cnf.cpairs[bits & 0x3f]);
+	if (bits & 0x40)
+		wattron (win, A_BOLD);
+	if (bits & 0x80)
+		wattron (win, A_REVERSE);
+}
+
+#define WATCH_FLAGS	(FSTAT_SPECW | FSTAT_CHMASK | FSTAT_SCRATCH | FSTAT_RO | FSTAT_CHANGE | FSTAT_EXTCH | FSTAT_HIDDEN)
 
 /* update status line
 */
@@ -71,16 +58,19 @@ upd_statusline (void)
 {
 	char obuff_left[CMDLINESIZE+1];
 	char obuff_right[CMDLINESIZE+1];
-	char obuff_rest[20];
+	char obuff_attr[20];
 	unsigned hexa=0;
-	int lenleft=0, lenright=0, lenrest=0;
+	int lenleft=0, lenright=0, lenattr=0, length_avail=0;
+	static int orig_ri = -1;
+	static int orig_flags = 0;
+	static int orig_pipout = 0;
 
 	obuff_left[0] = '\0';
 	obuff_right[0] = '\0';
-	obuff_rest[0] = '\0';
+	obuff_attr[0] = '\0';
 
 	/* left wing */
-	snprintf(obuff_left, sizeof(obuff_left)-1, " eda (%d,%d) F:%c%c L:%-5d ",
+	snprintf(obuff_left, sizeof(obuff_left)-1, " eda (%2d,%-2d) F:%c%c L:%-5d ",
 		cnf.ring_curr+1, cnf.ring_size,
 		(CURR_FILE.flevel+'0'), (LMASK(cnf.ring_curr) ? '=' : '*'),
 		CURR_FILE.num_lines);
@@ -88,78 +78,128 @@ upd_statusline (void)
 
 	/* right wing */
 	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? (unsigned)CURR_LINE->buff[CURR_FILE.lncol] : 0;
-	snprintf(obuff_right, sizeof(obuff_right)-1, "%5d,%-3d (0x%02X) ",
-		CURR_FILE.lineno, CURR_FILE.curpos, hexa);
+	if (cnf.ie > 0) {
+		snprintf(obuff_right, sizeof(obuff_right)-1, " Err:%u %5d,%-3d (0x%02X) ",
+			cnf.ie, CURR_FILE.lineno, CURR_FILE.curpos, hexa);
+	} else {
+		snprintf(obuff_right, sizeof(obuff_right)-1, " %5d,%-3d (0x%02X) ",
+			CURR_FILE.lineno, CURR_FILE.curpos, hexa);
+	}
 	lenright = strlen(obuff_right);
 
-	/* middle, attributes after filename */
-	if (CURR_FILE.fflag & FSTAT_SPECW) {
-		if (CURR_FILE.fflag & FSTAT_CHMASK) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'r';
-			obuff_rest[lenrest++] = '/';
-			obuff_rest[lenrest++] = 'o';
-			obuff_rest[lenrest] = '\0';
+	if ((cnf.gstat & GSTAT_REDRAW) || orig_ri != cnf.ring_curr
+	|| orig_flags != (CURR_FILE.fflag & WATCH_FLAGS) || orig_pipout != CURR_FILE.pipe_output)
+	{
+		/* middle, attributes after filename */
+		if (CURR_FILE.fflag & FSTAT_SPECW) {
+			if (CURR_FILE.fflag & FSTAT_CHMASK) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = 'r';
+				obuff_attr[lenattr++] = '/';
+				obuff_attr[lenattr++] = 'o';
+			}
+			if (CURR_FILE.pipe_output != 0) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = 'r';
+				obuff_attr[lenattr++] = 'u';
+				obuff_attr[lenattr++] = 'n';
+			}
+		} else {
+			if (CURR_FILE.fflag & FSTAT_SCRATCH) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = 'S';
+			}
+			if (CURR_FILE.fflag & FSTAT_RO) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = 'R';
+				obuff_attr[lenattr++] = '/';
+				obuff_attr[lenattr++] = 'O';
+			}
+			if (CURR_FILE.fflag & FSTAT_CHANGE) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = '*';
+			}
+			if (CURR_FILE.fflag & FSTAT_EXTCH) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = '!';
+				obuff_attr[lenattr++] = '!';
+			}
+			if (CURR_FILE.fflag & FSTAT_HIDDEN) {
+				obuff_attr[lenattr++] = ' ';
+				obuff_attr[lenattr++] = 'H';
+			}
 		}
-		if (CURR_FILE.fflag & FSTAT_INTERACT) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'i';
-			obuff_rest[lenrest++] = 'n';
-			obuff_rest[lenrest++] = 't';
-			obuff_rest[lenrest] = '\0';
-		}
-		if (CURR_FILE.pipe_output != 0) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'r';
-			obuff_rest[lenrest++] = 'u';
-			obuff_rest[lenrest++] = 'n';
-			obuff_rest[lenrest] = '\0';
-		}
-	} else {
-		if (CURR_FILE.fflag & FSTAT_SCRATCH) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'S';
-			obuff_rest[lenrest] = '\0';
-		}
-		if (CURR_FILE.fflag & FSTAT_RO) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'R';
-			obuff_rest[lenrest++] = '/';
-			obuff_rest[lenrest++] = 'O';
-			obuff_rest[lenrest] = '\0';
-		}
-		if (CURR_FILE.fflag & FSTAT_CHANGE) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = '*';
-			obuff_rest[lenrest] = '\0';
-		}
-		if (CURR_FILE.fflag & FSTAT_EXTCH) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = '!';
-			obuff_rest[lenrest++] = '!';
-			obuff_rest[lenrest] = '\0';
-		}
-		if (CURR_FILE.fflag & FSTAT_HIDDEN) {
-			obuff_rest[lenrest++] = ' ';
-			obuff_rest[lenrest++] = 'H';
-			obuff_rest[lenrest] = '\0';
-		}
+		obuff_attr[lenattr] = '\0';
+		length_avail = cnf.maxx-lenleft-lenright;
 	}
 
-	mvwprintw (cnf.wstatus, 0, 0, "%s ", obuff_left);
-	lenright++;
-	mvwprintw (cnf.wstatus, 0, cnf.maxx-lenright, " %s", obuff_right);
+	set_color_attribute (stdscr, COLOR_STATUSLINE_TEXT);
+
+	mvwaddnstr (stdscr, 0, 0, obuff_left, lenleft);
+	mvwaddnstr (stdscr, 0, cnf.maxx-lenright, obuff_right, lenright);
 
 	/* middle, filename before attributes, 10 bytes minimum */
-	if (lenrest+10 < cnf.maxx-lenleft-lenright) {
-		lenrest = cnf.maxx-lenleft-lenright;
-		mvwprintw (cnf.wstatus, 0, lenleft, "%s",
-			center_fname ((CURR_FILE.fname), obuff_rest, lenrest));
+	if (length_avail-lenattr > 10) {
+		mvwaddnstr (stdscr, 0, lenleft,
+			center_fname ((CURR_FILE.fname), obuff_attr, lenattr, length_avail),
+			length_avail);
 	}
 
-	/* refresh */
-	wnoutrefresh (cnf.wstatus);
+	wattrset (stdscr, A_NORMAL);
+	wnoutrefresh (stdscr);
 
+	orig_ri = cnf.ring_curr;
+	orig_flags = CURR_FILE.fflag & WATCH_FLAGS;
+	orig_pipout = CURR_FILE.pipe_output;
+	return;
+}
+
+/* update status line -- for the typing tutor
+*/
+void
+upd_status_typing_tutor (void)
+{
+	char obuff_left[CMDLINESIZE+1];
+	char obuff_right[CMDLINESIZE+1];
+	unsigned hexa=0;
+	int lenleft=0, lenright=0, length_avail=0;
+	static int orig_ri = -1;
+	static int orig_flags = 0;
+
+	obuff_left[0] = '\0';
+	obuff_right[0] = '\0';
+
+	set_color_attribute (stdscr, COLOR_STATUSLINE_TEXT);
+
+	/* left wing */
+	if ((cnf.gstat & GSTAT_REDRAW) || orig_ri != cnf.ring_curr || orig_flags != (CURR_FILE.fflag & WATCH_FLAGS)) {
+		snprintf(obuff_left, sizeof(obuff_left)-1, " eda (typing tutor) ");
+		lenleft = strlen(obuff_left);
+		mvwaddnstr (stdscr, 0, 0, obuff_left, lenleft);
+	}
+
+	/* right wing */
+	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? (unsigned)CURR_LINE->buff[CURR_FILE.lncol] : 0;
+	snprintf(obuff_right, sizeof(obuff_right)-1, " pass %d, fail %d (0x%02X) ",
+		cnf.tutor_pass, cnf.tutor_fail, hexa);
+	lenright = strlen(obuff_right);
+	mvwaddnstr (stdscr, 0, cnf.maxx-lenright, obuff_right, lenright);
+
+	/* middle, filename before attributes, 10 bytes minimum */
+	if ((cnf.gstat & GSTAT_REDRAW) || orig_ri != cnf.ring_curr || orig_flags != (CURR_FILE.fflag & WATCH_FLAGS)) {
+		length_avail = cnf.maxx-lenleft-lenright;
+		if (length_avail > 10) {
+			mvwaddnstr (stdscr, 0, lenleft,
+				center_fname ((CURR_FILE.fname), "", 0, length_avail),
+				length_avail);
+		}
+	}
+
+	wattrset (stdscr, A_NORMAL);
+	wnoutrefresh (stdscr);
+
+	orig_ri = cnf.ring_curr;
+	orig_flags = CURR_FILE.fflag & WATCH_FLAGS;
 	return;
 }
 
@@ -169,20 +209,114 @@ void
 upd_termtitle (void)
 {
 	char xtbuff[FNAMESIZE+10];
+	char *fullpath=NULL;
+	char dirname[FNAMESIZE];
+	char basename[FNAMESIZE];
 
 	if (CURR_FILE.fflag & FSTAT_SPECW) {
-		xterm_title("eda");
+		if (xterm_title("eda"))
+			cnf.gstat &= ~GSTAT_AUTOTITLE;
 	} else {
-		if (strncmp(CURR_FILE.dirname, cnf._home, cnf.l1_home) == 0) {
-			snprintf(xtbuff, sizeof(xtbuff), "%s (~%s) - eda",
-				CURR_FILE.basename, &CURR_FILE.dirname[cnf.l1_home]);
-		} else {
-			snprintf(xtbuff, sizeof(xtbuff), "%s (%s) - eda",
-				CURR_FILE.basename, &CURR_FILE.dirname[0]);
-		}
+		mybasename(basename, CURR_FILE.fpath, FNAMESIZE);
+		fullpath = canonicalpath(CURR_FILE.fpath);
+		mydirname(dirname, fullpath, FNAMESIZE);
+		FREE(fullpath); fullpath = NULL;
+		snprintf(xtbuff, sizeof(xtbuff), "%s (%s) - eda",
+			basename, dirname);
 		xtbuff[sizeof(xtbuff)-1] = '\0';
-		xterm_title(xtbuff);
+		if (xterm_title("xtbuff"))
+			cnf.gstat &= ~GSTAT_AUTOTITLE;
 	}
+
+	return;
+}
+
+/* show buffer names in a sub-header line
+*/
+void
+show_tabheader (void)
+{
+	int ri, len=0, plen=0, fnl, off;
+	char tabheader[RINGSIZE*20];
+	int space, after, before=0, ri0=0;
+
+	/* fill tabheader[] */
+	memset(tabheader, '\0', sizeof(tabheader));
+	ri0 = RINGSIZE;
+	ri = cnf.ring_curr;
+	do {
+		if (cnf.fdata[ri].fflag & FSTAT_OPEN) {
+			if (ri < ri0) {
+				before = len;
+				ri0 = ri;
+			}
+			fnl = strlen(cnf.fdata[ri].fname);
+			off = (fnl > 16) ? fnl-16 : 0;
+			if (ri == cnf.ring_curr)
+				plen = strlen(&cnf.fdata[ri].fname[off]) + 3;
+			if (fnl > 16)
+				sprintf(&tabheader[len], "<%s | ", &cnf.fdata[ri].fname[off+1]);
+			else
+				sprintf(&tabheader[len], "%s | ", &cnf.fdata[ri].fname[off]);
+			len += (int)strlen(&tabheader[len]);
+		}
+
+		ri = (ri<RINGSIZE-1) ?  ri+1 : 0;
+	} while (ri != cnf.ring_curr);
+
+	/* output cannot be more than cnf.maxx, 4 bytes reserved */
+	space = MIN(cnf.maxx-4, len);
+
+	if (len-3 > space) {
+		/* second part to show, starting with current buffer, 'after' is the length following current buffer name */
+		after = (space - plen)/2;
+		while (plen+after < space) {
+			if (tabheader[plen+after] == '|')
+				break;
+			after++;
+		}
+		if (plen+after < space)
+			after--; /* skip back from '|' */
+		else
+			after = -3; /* no match, for example only one buffer */
+
+		/* first part to show, the rest of tabheader[], show before the current buffer, length is 'before' */
+		before = space - (plen+after) +2;
+		while (before > 0) {
+			if (tabheader[len-before] == '|')
+				break;
+			--before;
+		}
+		if (before > 2 && tabheader[len-before] == '|')
+			before -= 2; /* found, get back the 2 bytes */
+		else
+			before = 0; /* just a fallback */
+	}
+
+	/* colorize */
+	set_color_attribute (stdscr, COLOR_TRACEMSG_TEXT);
+	wmove (stdscr, 1, 0);
+	wclrtoeol(stdscr);
+	if (len-3 > space) {
+		tabheader[plen+after] = '\0';
+		mvwprintw (stdscr, 1, 0, "< %s%s >", &tabheader[len-before], &tabheader[0]);
+		set_color_attribute (stdscr, COLOR_SELECT_FLAG+COLOR_HIGH_TEXT);
+		mvwaddnstr (stdscr, 1, before+2, &tabheader[0], plen-3);
+	} else {
+		if (before >  3) {
+			tabheader[before-3] = '\0';
+			mvwprintw (stdscr, 1, 0, "[ %s%s ]", &tabheader[before], &tabheader[0]);
+			set_color_attribute (stdscr, COLOR_SELECT_FLAG+COLOR_HIGH_TEXT);
+			mvwaddnstr (stdscr, 1, len-before+2, &tabheader[0], plen-3);
+		} else {
+			tabheader[len-3] = '\0';
+			mvwprintw (stdscr, 1, 0, "[ %s ]", &tabheader[0]);
+			set_color_attribute (stdscr, COLOR_SELECT_FLAG+COLOR_HIGH_TEXT);
+			mvwaddnstr (stdscr, 1, 2, &tabheader[0], plen-3);
+		}
+	}
+	wattrset (stdscr, A_NORMAL);
+	wnoutrefresh (stdscr);
 
 	return;
 }
@@ -208,41 +342,12 @@ upd_cmdline (void)
 		obuff[j++] = 0x20;
 	obuff[j] = '\0';
 
-	/* let's see */
-	mvwaddnstr (cnf.wbase, 0, 0, obuff, cnf.maxx);
-
-	/* refresh */
-	wnoutrefresh (cnf.wbase);
+	set_color_attribute (stdscr, COLOR_CMDLINE_TEXT);
+	mvwaddnstr (stdscr, cnf.maxy-1, 0, obuff, cnf.maxx);
+	wattrset (stdscr, A_NORMAL);
+	wnoutrefresh (stdscr);
 
 	return;
-}
-
-static attr_t
-set_attr (color_attribute_type base, int lflag, int focus_flag)
-{
-	color_attribute_type idx = COLOR_NORMAL_TEXT;
-
-	if (base == COLOR_INIT) {
-		if (lflag & LSTAT_TAG1) {
-			idx = COLOR_TAGGED_TEXT;
-		} else {
-			idx = COLOR_NORMAL_TEXT;
-		}
-	} else {
-		/* search and highlight has difficult conditions, must be set directly
-		*/
-		idx = base;
-	}
-
-	if (focus_flag) {
-		idx += COLOR_FOCUS_FLAG;
-	}
-
-	if (lflag & LSTAT_SELECT) {
-		idx += COLOR_SELECT_FLAG;
-	}
-
-	return (at[idx]);
 }
 
 /* update text area, around the focus line
@@ -328,7 +433,7 @@ upd_text_area (int focus_line_only)
 			lineno -= cnt;
 			if ((cnf.gstat & GSTAT_SHADOW) && (cnt > 1)) {
 				focus--;
-				shadow_line (cnt-1, focus);
+				shadow_empty_line (focus, cnt-1);
 				if (focus==0)
 					break;
 			}
@@ -356,7 +461,7 @@ upd_text_area (int focus_line_only)
 			lineno += cnt;
 			if ((cnf.gstat & GSTAT_SHADOW) && (cnt > 1)) {
 				focus++;
-				shadow_line (cnt-1, focus);
+				shadow_empty_line (focus, cnt-1);
 				if (focus==TEXTROWS-1)
 					break;
 			}
@@ -375,8 +480,7 @@ upd_text_area (int focus_line_only)
 		}
 	}
 
-	/* refresh */
-	wnoutrefresh (cnf.wtext);
+	wnoutrefresh (stdscr);
 
 	return;
 } /* upd_text_area() */
@@ -415,7 +519,7 @@ map_match_to_out (const char *ibuff, int imatch_so, int imatch_eo,
 		if (end >= padsize) {
 			length -= end-padsize;
 		}
-		mvwaddnstr (cnf.wtext, focus, cnf.pref+begin, &obuff[begin], length);
+		mvwaddnstr (stdscr, cnf.head+focus, cnf.pref+begin, &obuff[begin], length);
 	}
 
 	return;
@@ -429,7 +533,7 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 	const char *ibuff = lp->buff;
 	int llen = lp->llen;
 	int lflag = lp->lflag;
-	attr_t attr;
+	int idx;
 
 	static regmatch_t pmatch;
 	static char obuff[CMDLINESIZE+1];
@@ -443,8 +547,15 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 	int alt_char = ' ';	/* alter/change indicator in prefix */
 	char disp_rflag = 0;
 
-	attr = set_attr (COLOR_INIT, lflag, focus_flag);
-	wattron (cnf.wtext, attr);
+	if (lflag & LSTAT_TAG1)
+		idx = COLOR_TAGGED_TEXT;
+	else
+		idx = COLOR_NORMAL_TEXT;
+	if (focus_flag)
+		idx += COLOR_FOCUS_FLAG;
+	if (lflag & LSTAT_SELECT)
+		idx += COLOR_SELECT_FLAG;
+	set_color_attribute (stdscr, idx);
 
 	/* prefix --> obuff[] */
 	if (cnf.gstat & GSTAT_PREFIX)
@@ -472,10 +583,10 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 			obuff[cnf.pref-1] = (lflag & LSTAT_TRUNC) ? 'x' : ' ';
 			obuff[cnf.pref] = '\0';
 		}
-		mvwaddnstr (cnf.wtext, focus, 0, obuff, cnf.pref);
+		mvwaddnstr (stdscr, cnf.head+focus, 0, obuff, cnf.pref);
 	}
 
-	/* wclrtoeol? -- does not work well, selection lines are shown upto lineend only */
+	/* selection lines must be printed after line end */
 	padsize = MIN(CMDLINESIZE-1, cnf.maxx-cnf.pref);
 	memset(obuff, ' ', (size_t)padsize);
 	obuff[padsize] = '\0';
@@ -513,16 +624,21 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 	}
 
 	/* show the line */
-	mvwaddnstr (cnf.wtext, focus, cnf.pref, obuff, padsize);
-	wattroff (cnf.wtext, attr);
+	mvwaddnstr (stdscr, cnf.head+focus, cnf.pref, obuff, padsize);
+	wattrset (stdscr, A_NORMAL);
 
 	/*
 	 * highlight
 	 */
 	if (CURR_FILE.fflag & FSTAT_TAG5)
 	{
-		attr = set_attr (COLOR_HIGH_TEXT, lflag, focus_flag);
-		wattron (cnf.wtext, attr);
+		idx = COLOR_HIGH_TEXT;
+		if (focus_flag)
+			idx += COLOR_FOCUS_FLAG;
+		if (lflag & LSTAT_SELECT)
+			idx += COLOR_SELECT_FLAG;
+		set_color_attribute (stdscr, idx);
+
 		i = pos = disp_rflag = 0;
 		while ((pos - CURR_FILE.lnoff < padsize) &&
 			!regexec(&(CURR_FILE.highlight_reg), &ibuff[i], 1, &pmatch, disp_rflag))
@@ -537,7 +653,7 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 			}
 			disp_rflag = (CURR_FILE.fflag & FSTAT_TAG6) ? REG_NOTBOL : 0;
 		}
-		wattroff (cnf.wtext, attr);
+		wattrset (stdscr, A_NORMAL);
 	}
 
 	/*
@@ -547,8 +663,13 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 	if (((CURR_FILE.fflag & (FSTAT_TAG2 | FSTAT_TAG3)) == FSTAT_TAG2) ||
 	    ((CURR_FILE.fflag & FSTAT_TAG3) && (focus >= CURR_FILE.focus)))
 	{
-		attr = set_attr (COLOR_SEARCH_TEXT, lflag, focus_flag);
-		wattron (cnf.wtext, attr);
+		idx = COLOR_SEARCH_TEXT;
+		if (focus_flag)
+			idx += COLOR_FOCUS_FLAG;
+		if (lflag & LSTAT_SELECT)
+			idx += COLOR_SELECT_FLAG;
+		set_color_attribute (stdscr, idx);
+
 		i = pos = disp_rflag = 0;
 		while ((pos - CURR_FILE.lnoff < padsize) &&
 			!regexec(&(CURR_FILE.search_reg), &ibuff[i], 1, &pmatch, disp_rflag))
@@ -563,7 +684,7 @@ text_line (LINE *lp, int lineno, int focus, int focus_flag)
 			}
 			disp_rflag = (CURR_FILE.fflag & FSTAT_TAG4) ? REG_NOTBOL : 0;
 		}
-		wattroff (cnf.wtext, attr);
+		wattrset (stdscr, A_NORMAL);
 	}
 
 	return;
@@ -731,6 +852,8 @@ set_position_by_pointer (MEVENT pointer)
 void
 update_focus (MOTION_TYPE motion_type, int ri)
 {
+	int away_top, away_bottom;
+
 	switch(motion_type)
 	{
 	case FOCUS_ON_1ST_LINE:
@@ -781,24 +904,29 @@ update_focus (MOTION_TYPE motion_type, int ri)
 		break;
 
 	case FOCUS_AWAY_TOP:
-		if (cnf.fdata[ri].focus < TEXTROWS/5)
-			cnf.fdata[ri].focus = TEXTROWS/5;
-		else if (cnf.fdata[ri].focus > TEXTROWS/5)
+		away_top = TEXTROWS/5;
+		if (cnf.fdata[ri].focus < away_top)
+			cnf.fdata[ri].focus = away_top;
+		else if (cnf.fdata[ri].focus > away_top)
 			cnf.fdata[ri].focus--;
 		break;
 
 	case FOCUS_AWAY_BOTTOM:
-		if (cnf.fdata[ri].focus > TEXTROWS*4/5)
-			cnf.fdata[ri].focus = TEXTROWS*4/5;
-		else if (cnf.fdata[ri].focus < TEXTROWS*4/5)
+		away_bottom = TEXTROWS - TEXTROWS/5;
+		if (cnf.fdata[ri].focus > away_bottom)
+			cnf.fdata[ri].focus = away_bottom;
+		else if (cnf.fdata[ri].focus < away_bottom)
 			cnf.fdata[ri].focus++;
 		break;
 
 	case FOCUS_AVOID_BORDER:
-		if (cnf.fdata[ri].focus < TEXTROWS/5)
-			cnf.fdata[ri].focus = TEXTROWS/5;
-		else if (cnf.fdata[ri].focus > TEXTROWS*4/5)
-			cnf.fdata[ri].focus = TEXTROWS*4/5;
+		away_top = TEXTROWS/9;
+		if (away_top < 3) away_top = 3;
+		away_bottom = TEXTROWS - away_top;
+		if (cnf.fdata[ri].focus < away_top)
+			cnf.fdata[ri].focus = away_top;
+		else if (cnf.fdata[ri].focus > away_bottom)
+			cnf.fdata[ri].focus = away_bottom;
 		break;
 
 	default:
@@ -812,14 +940,13 @@ void
 upd_trace (void)
 {
 	int f, i;
-	attr_t attr = at[COLOR_TRACEMSG_TEXT];
 
 	/* trace message lines (only once) */
 	if (cnf.trace > 0) {
-		wattron (cnf.wtext, attr);
+		set_color_attribute (stdscr, COLOR_TRACEMSG_TEXT);
 		for (f=0; f<cnf.trace && f<TEXTROWS-1; f++) {
-			wmove (cnf.wtext, f, 0);
-			wclrtoeol(cnf.wtext);
+			wmove (stdscr, cnf.head+f, 0);
+			wclrtoeol(stdscr);
 			/**/
 			for (i=0; i<cnf.maxx ; i++) {
 				if (cnf.tracerow[f][i] == '\0' || cnf.tracerow[f][i] == '\n')
@@ -828,12 +955,12 @@ upd_trace (void)
 			if (i < cnf.maxx)
 				cnf.tracerow[f][i++] = ' ';
 			cnf.tracerow[f][i] = '\0';
-			mvwprintw (cnf.wtext, f, 0, "%s", cnf.tracerow[f]);
+			mvwaddnstr (stdscr, cnf.head+f, 0, cnf.tracerow[f], cnf.maxx);
 			/**/
 			cnf.tracerow[f][0] = '\0';
 		}
-		wattroff (cnf.wtext, attr);
-		wnoutrefresh (cnf.wtext);
+		wattrset (stdscr, A_NORMAL);
+		wnoutrefresh (stdscr);
 	}
 	cnf.trace=0;	/* this output finished */
 
@@ -843,31 +970,15 @@ upd_trace (void)
 /* space padded or cutted line output (return static string)
 */
 static const char *
-center_fname (const char *ibuff, const char *catbuff, int padsize)
+center_fname (const char *ibuff, const char *catbuff, int catlen, int padsize)
 {
 	static char obuff[CMDLINESIZE+1];
-	int i, j, k, ilen=0, catlen=0;
+	int i, j, k, ilen=0;
 
-	for (i=0, ilen=0, j=0; ibuff[i] != '\0'; i++) {
-		if (ibuff[i] == '/')
-			j = i;
-		ilen++;
-	}
+	ilen = strlen(ibuff);
+	padsize = MIN(padsize, CMDLINESIZE);	/* save obuff[] */
 
-	catlen = strlen(catbuff);
 	k = ilen+catlen;
-	padsize = MIN(padsize, CMDLINESIZE);	/* obuff[] */
-	if (k > padsize) {
-		/* try to get more space */
-		if (j > 0 && j+1 < ilen) {
-			/* truncate ibuff */
-			ibuff += j+1;
-			ilen -= j+1;
-		}
-		k = ilen+catlen;
-		padsize = MIN(padsize, CMDLINESIZE);	/* obuff[] */
-	}
-
 	if (k <= padsize) {
 		/* center line */
 		for (j=0; j < (padsize-k)/2; j++)
@@ -879,194 +990,217 @@ center_fname (const char *ibuff, const char *catbuff, int padsize)
 		for (; j<padsize; j++)
 			obuff[j] = ' ';
 		obuff[j] = '\0';
-
-	} else { /* ilen+catlen > padsize */
-		/* center line: cut prefix */
+	} else {
+		/* cut prefix */
 		j=0;
 		obuff[j++] = '<';
 		for (i=k-padsize+1; i<ilen; i++)
 			obuff[j++] = ibuff[i];
-		for (i=0; i<catlen; i++)
-				obuff[j++] = catbuff[i];
+		for (i=0; i<catlen; i++, j++)
+			obuff[j] = catbuff[i];
 		obuff[j] = '\0';
 	}
 
 	return (obuff);
 }
 
-static void
-shadow_line (int count, int focus)
-{
-	static char mid_buff[100];
-	attr_t attr = at[COLOR_SHADOW_TEXT];
-
-	if (count > 1) {
-		snprintf(mid_buff, 30, "--- %d lines ---", count);
-	} else {
-		snprintf(mid_buff, 30, "--- 1 line ---");
-	}
-	wmove (cnf.wtext, focus, 0);
-	wclrtoeol (cnf.wtext);
-	wattron (cnf.wtext, attr);
-	mvwaddnstr (cnf.wtext, focus, cnf.pref, mid_buff, cnf.maxx);
-	wattroff (cnf.wtext, attr);
-
-	return;
-}
-
-static void
-empty_line (int focus)
-{
-	wmove (cnf.wtext, focus, 0);
-	wclrtoeol (cnf.wtext);
-	mvwaddnstr (cnf.wtext, focus, 0, TILDE, cnf.maxx);
-	return;
-}
-
-/******************************************************************************
-disp_c_local_macros() {
+/* other simple outputs, shadow line, empty line
 */
-
-#define SETCOLOR(id, fg, bg, mask) \
-	i = id; \
-	init_pair (i, COLOR_ ## fg, COLOR_ ## bg); \
-	at[i] = COLOR_PAIR(i) | (mask);
-
-#define SET2COLOR(id, fg, bg, mask) \
-	i = id; \
-	init_pair (i, COLOR_ ## fg, -1); \
-	at[i] = COLOR_PAIR(i) | (mask);
-
-/*
+static void
+shadow_empty_line (int focus, int count)
+{
+	wmove (stdscr, cnf.head+focus, 0);
+	set_color_attribute (stdscr, COLOR_SHADOW_TEXT);
+	wclrtoeol (stdscr);
+	if (count > 1) {
+		mvwprintw (stdscr, cnf.head+focus, cnf.pref, "--- %d lines ---", count);
+	} else if (count == 1) {
+		mvwprintw (stdscr, cnf.head+focus, cnf.pref, "--- 1 line ---");
+	} else {
+		mvwaddnstr (stdscr, cnf.head+focus, 0, "~", 1);
+	}
+	wattrset (stdscr, A_NORMAL);
+	return;
 }
-******************************************************************************/
+
+/* color configuration after nc colors set
+* --- cnf.cpairs[] regardless of COLORS is 8 or 64, we use the 8 base colors, hardcoded 0x3f index mask ---
+*/
+int
+init_colors_and_cpal (void)
+{
+	short pair, fg, bg;
+	chtype bkgd;
+
+	if (!cnf.bootup) {
+		/* init cnf.cpairs -- only once, after start_color() */
+		pair=1; /* skip pair 0 anyway */
+		for (bg=0; bg < 8; bg++) {
+			for (fg=0; fg < 8; fg++) {
+				if (init_pair(pair, fg, bg) != ERR) {
+					cnf.cpairs[bg*8+fg] = COLOR_PAIR(pair);
+				}
+				pair++;
+			}
+		}
+	}
+
+	/* copy configured palette to cnf.cpal */
+	if (cnf.palette >= 0 && cnf.palette < cnf.palette_count) {
+		cnf.cpal = cnf.palette_array[ cnf.palette ];
+	}
+
+	/* after each palette change */
+	bkgd = (chtype)' ' | cnf.cpairs[cnf.cpal.bits[COLOR_NORMAL_TEXT] & 0x3f];
+	wbkgdset (stdscr, bkgd);
+
+	return 0;
+}
+
+static const char *color_names[8] = {
+	"black",
+	"red",
+	"green",
+	"yellow",
+	"blue",
+	"magenta",
+	"cyan",
+	"white"
+};
+
+/* parse color palette config string, not using nc color macros and defines
+*/
+int
+color_palette_parser(const char *input)
+{
+	int len, i, j, fg, bg, bold, reverse, ret=1;
+	CPAL cpal, *ptr;
+	memset(cpal.name, '\0', sizeof(cpal.name));
+
+	len = strlen(input);
+
+	for (j=0; j < len && input[j] != ' '; j++) {
+		if (j < (int)sizeof(cpal.name)-1)
+			cpal.name[j] = input[j];
+	}
+
+	for (i=0; i < CPAL_BITS && j < len; i++) {
+		if (input[j] == ' ')
+			j++;
+		if (j+3 >= len)
+			break;
+		fg = (input[j] >= '0' && input[j] <= '7') ? input[j]-'0' : 7;
+		j++;
+		bg = (input[j] >= '0' && input[j] <= '7') ? input[j]-'0' : 0;
+		j++;
+		bold = (input[j] == 'b');
+		j++;
+		reverse = (input[j] == 'r');
+		j++;
+		cpal.bits[i] = ((8*bg+fg) & 0x3f) | bold*0x40 | reverse*0x80;
+	}
+	if (i == CPAL_BITS) {
+		if (cnf.palette_array == NULL) {
+			ptr = (CPAL *)MALLOC(sizeof(CPAL) * 1);
+			if (ptr == NULL) {
+				ERRLOG(0xE034);
+				ret = 1;
+			} else {
+				cnf.palette_array = ptr;
+				cnf.palette_array[ 0 ] = cpal;
+				cnf.palette_count = 1;
+				ret = 0;
+			}
+		} else {
+			ptr = (CPAL *)REALLOC((void *)cnf.palette_array, sizeof(CPAL) * (size_t)(cnf.palette_count + 1));
+			if (ptr == NULL) {
+				ERRLOG(0xE007);
+				ret = 1;
+			} else {
+				cnf.palette_array = ptr;
+				cnf.palette_array[ cnf.palette_count ] = cpal;
+				cnf.palette_count++;
+				ret = 0;
+			}
+		}
+	}
+
+	return ret;
+}
 
 void
-init_colors (int palette)
+color_test(void)
 {
-	short i;
+	short pair, fg, bg;
+	int opt_bold, opt_reverse, i;
+	const int width=8; // the text width of matrix entries
+	char buff[8+1];
+	memset(buff, '\0', sizeof(buff));
 
-	if (palette < 0 || palette > PALETTE_MAX) {
-		palette = 0;
+	initscr ();	/* Begin */
+	cbreak ();
+	noecho ();
+	nonl ();
+	clear ();
+	if (!has_colors()) {
+		endwin();
+		fprintf(stderr, "color test: this terminal has no colors\n");
+		return;
+	}
+	start_color();
+
+	// terminal size bare minimum: 34x80, good from 40x80
+	wprintw (stdscr, "eda: color test -- COLORS %d COLOR_PAIRS %d -- using 8 base colors\n",
+		COLORS, COLOR_PAIRS);
+	if (LINES >= 39) wprintw (stdscr, "\n");
+
+	/* init pairs -- skip pair 0 anyway */
+	pair=1;
+	for (bg=0; bg < 8; bg++) {
+		for (fg=0; fg < 8; fg++) {
+			if (init_pair(pair, fg, bg) != ERR) {
+				cnf.cpairs[bg*8+fg] = COLOR_PAIR(pair);
+			}
+			pair++;
+		}
 	}
 
-	if (palette == 1) {		/* gnome-terminal and forks, tango palette */
-		tracemsg ("light background");
-
-		SETCOLOR(COLOR_NORMAL_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_TAGGED_TEXT, BLUE, WHITE, A_BOLD);
-		SETCOLOR(COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SEARCH_TEXT, WHITE, RED, 0);
-
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, CYAN, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLUE, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, WHITE, RED, 0);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, WHITE, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); //not bold
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, WHITE, CYAN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, WHITE, A_REVERSE); // not bold
-
-		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
-		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
-		SETCOLOR(COLOR_SHADOW_TEXT, CYAN, WHITE, 0);
-
-	} else if (palette == 0) {	/* originally for xterm, green-on-black */
-		tracemsg ("dark background");
-
-		SETCOLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
-		SETCOLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
-		SETCOLOR(COLOR_HIGH_TEXT, WHITE, BLACK, 0);
-		SETCOLOR(COLOR_SEARCH_TEXT, RED, BLACK, 0);
-
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, WHITE, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, RED, BLACK, A_BOLD);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
-		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
-		SETCOLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
-
-	} else if (palette == 2) {	/* for terminals with transparent background */
-		tracemsg ("transparent");
-
-		SET2COLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
-		SET2COLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
-		SETCOLOR(COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SEARCH_TEXT, WHITE, RED, 0);
-
-		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_BOLD);
-		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_REVERSE); // not bold
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, WHITE, RED, A_BOLD);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, WHITE, BLUE, 0);
-		SETCOLOR(COLOR_CMDLINE_TEXT, WHITE, BLUE, 0);
-		SET2COLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
-
-	} else if (palette == 3) {	/* for the console (after transparent) */
-		tracemsg ("console");
-
-		SET2COLOR(COLOR_NORMAL_TEXT, GREEN, BLACK, 0);
-		SET2COLOR(COLOR_TAGGED_TEXT, CYAN, BLACK, 0);
-		SETCOLOR(COLOR_HIGH_TEXT, YELLOW, BLACK, A_BOLD|A_REVERSE);
-		SETCOLOR(COLOR_SEARCH_TEXT, WHITE, RED, 0);
-
-		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, GREEN, BLACK, A_BOLD);
-		SET2COLOR(COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, CYAN, BLACK, A_BOLD);
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, YELLOW, BLACK, A_REVERSE); // not bold
-		SETCOLOR(COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, WHITE, RED, A_BOLD);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_NORMAL_TEXT, BLACK, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_TAGGED_TEXT, BLUE, GREEN, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_NORMAL_TEXT, BLACK, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_TAGGED_TEXT, BLUE, YELLOW, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_HIGH_TEXT, BLACK, WHITE, 0);
-		SETCOLOR(COLOR_SELECT_FLAG+COLOR_FOCUS_FLAG+COLOR_SEARCH_TEXT, BLACK, RED, 0);
-
-		SETCOLOR(COLOR_TRACEMSG_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_STATUSLINE_TEXT, BLACK, CYAN, 0);
-		SETCOLOR(COLOR_CMDLINE_TEXT, BLACK, CYAN, 0);
-		SET2COLOR(COLOR_SHADOW_TEXT, GREEN, BLACK, 0);
+	// print header
+	wprintw (stdscr, "%-*s", width, " ");
+	for (fg=0; fg < 8; fg++) {
+		wprintw (stdscr, "%-*s", width, color_names[fg]);
+		if (fg < 7) wprintw (stdscr, " ");
 	}
+	wprintw (stdscr, "\n");
 
-	wbkgd (cnf.wstatus, ' ' | at[COLOR_STATUSLINE_TEXT]);
-	wbkgd (cnf.wbase, ' ' | at[COLOR_CMDLINE_TEXT]);
-	if (palette != 2)
-		wbkgd (cnf.wtext, ' ' | at[COLOR_NORMAL_TEXT]);
+	opt_bold = opt_reverse = 0;
+	for (i=0; i < 4; i++) {
+		// 8x8 color matrix with normal, bold, reverse, reverse+bold options
+		opt_bold = i & 1;
+		opt_reverse = i & 2;
 
+		for (bg=0; bg < 8; bg++) {
+			wprintw (stdscr, "%-*s", width, color_names[bg]);
+			for (fg=0; fg < 8; fg++) {
+				sprintf(buff, "{%d%d%c%c}", fg, bg, (opt_bold ? 'b' : '_'), (opt_reverse ? 'r' : '_'));
+				//sprintf(buff, "{%02x}", bg*8+fg + (opt_bold ? 0x40 : 0) + (opt_reverse ? 0x80 : 0));
+				attron( cnf.cpairs[bg*8+fg] );
+				if (opt_bold)
+					attron(A_BOLD);
+				if (opt_reverse)
+					attron(A_REVERSE);
+				wprintw (stdscr, "%-*s", width, buff);
+				attrset(A_NORMAL);
+				if (fg < 7) wprintw (stdscr, " ");
+			}
+			wprintw (stdscr, "\n");
+		}
+		if (LINES >= 39) wprintw (stdscr, "\n");
+	}
+	refresh ();
+	if (LINES > 34) wprintw (stdscr, "Press any key");
+	(void) wgetch(stdscr);
+
+	endwin ();	/* End */
 	return;
 }

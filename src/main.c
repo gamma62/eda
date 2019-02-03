@@ -40,8 +40,9 @@
 #include "proto.h"
 
 /* global config */
+extern CONFIG cnf;
 CONFIG cnf;
-
+extern const char long_version_string[];
 #ifdef DEVELOPMENT_VERSION
 const char long_version_string[] = "eda v." VERSION "-rev." REV;
 #else
@@ -52,7 +53,6 @@ const char long_version_string[] = "eda v." VERSION;
 static void sigh (int sig);
 static void leave (const char *reason);
 static void set_defaults (void);
-static void put_string_to_file (const char *filename, const char *string);
 
 /*
 * Set defaults, get args, set sighandler, start monitor.
@@ -62,7 +62,7 @@ main (int argc, char *argv[])
 {
 	int opt;
 	char find_symbol[TAGSTR_SIZE];
-	int loadtags = 0, keytest = 0;
+	int loadtags = 0, keytest = 0, colortest = 0;
 	int which_next = 0;
 	struct sigaction sigAct;
 
@@ -84,7 +84,6 @@ KEY_F1	help\n\
 KEY_S_F1	manual\n\
 #Description: show the eda manual\n\
 	shell_cmd man -P cat eda\n\
-	finish_in_fg\n\
 	go_top\n\
 .\n\
 ### see eda(1) and edamacro(5) for further help; sample files are in /usr/local/share/eda by default\n\
@@ -94,7 +93,7 @@ KEY_S_F1	manual\n\
 	/*
 	* argument processing
 	*/
-	while ((opt = getopt(argc, argv, "hVkp:tj:a:n")) != -1)
+	while ((opt = getopt(argc, argv, "hVkp:tj:a:nc")) != -1)
 	{
 		switch (opt) {
 		case 'p':
@@ -118,6 +117,9 @@ KEY_S_F1	manual\n\
 			break;
 		case 'n':
 			cnf.noconfig = 1;
+			break;
+		case 'c':
+			colortest = 1;
 			break;
 		case 'V':
 			printf ("%s\n", long_version_string);
@@ -150,6 +152,8 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 		print version and exit\n\
 	eda -k\n\
 		run as key tester, to help create sequence file\n\
+	eda -c\n\
+		run color test, for custom color palette setting\n\
 	eda [options] filename [+line] [filename [+line] ...]\n\
 		options: \n\
 		-p project	load project with settings and file list\n\
@@ -168,23 +172,22 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	/* setup syslog */
 #ifdef DEVELOPMENT_VERSION
 	openlog("eda", LOG_PID, LOG_LOCAL0);
-	if (cnf.noconfig) {
-		setlogmask( LOG_MASK(LOG_CRIT) );
-	}
 #endif
 
 	if (!isatty(1)) {
 		leave("no tty");	/* isatty(1) */
 	}
 
+	if (cnf.noconfig)
+		cnf.automacro[0] = '\0'; // no automacro with noconfig
+	if (cnf.automacro[0] != '\0')
+		cnf.gstat |= (GSTAT_SILENCE | GSTAT_MACRO_FG); // macro flags for automacro
+
 	if (process_rcfile(cnf.noconfig) || process_keyfile(cnf.noconfig) || process_seqfile(cnf.noconfig)) {
 		leave("resource processing failed");
 	}
 	if (process_macrofile(cnf.noconfig)) {
 		leave("macro processing failed");
-	}
-	if (!cnf.noconfig) {
-		cnf.gstat |= GSTAT_FIXCR; /* only with normal configuration */
 	}
 
 	/* set signal handler */
@@ -193,19 +196,24 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	sigAct.sa_handler = sigh;
 	sigaction(SIGHUP, &sigAct, NULL);	/* Hangup detected on controlling terminal or death of controlling process */
 	sigaction(SIGINT, &sigAct, NULL);	/* Interrupt from keyboard (Ctrl-C) ... catch and ignore the first time */
-	sigaction(SIGQUIT, &sigAct, NULL);	/* Quit from keyboard (Ctrl-\) -- CORE */
 	sigaction(SIGPIPE, &sigAct, NULL);	/* Broken pipe: write to pipe with no readers ... catch and ignore silently */
 	sigaction(SIGTERM, &sigAct, NULL);	/* Termination signal */
 	/* signal(SIGCHLD, SIG_DFL); --- Child stopped or terminated --- do not catch it; needed for waitpid() and Unix98 pty */
 	sigAct.sa_handler = SIG_IGN;
+	sigaction(SIGQUIT, &sigAct, NULL);	/* Quit from keyboard (Ctrl-\) */
 	sigaction(SIGUSR1, &sigAct, NULL);
 	sigaction(SIGUSR2, &sigAct, NULL);
 	/* signal(SIGWINCH, SIG_DFL); --- Window resize signal --- do not catch it; needed for delayed resize, KEY_RESIZE */
 
+	if (colortest) {
+		if (isatty(0) && isatty(1))
+			color_test();
+		leave(""); //color_test finished
+	}
 	if (keytest) {
 		if (isatty(0) && isatty(1))
 			key_test();
-		leave("keytest finished");
+		leave(""); //key_test finished
 	}
 
 	/* load project, settings and files --- before log start */
@@ -262,7 +270,7 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 
 	/* tags load and jump to */
 	if (loadtags) {
-		if (!tag_load_file()) {
+		if (!tag_load_file("")) {
 			if (find_symbol[0] != '\0') {
 				which_next = tag_jump_to(find_symbol); /* 0 or 1 */
 				/* 0 - cannot open tags file --> empty ring if no other files
@@ -346,14 +354,25 @@ leave (const char *reason)
 	/* sequence tree */
 	free_seq_tree(cnf.seq_tree);
 
-	/* tags */
+	/* tags -- cnf.taglist */
 	tag_rm_all();
 
-	/* motion history -- useless */
+	/* motion history -- cnf.mhistory */
 	mhist_clear(-1);
 
 	/* macros */
 	drop_macros();
+
+	/* moved from event_handler() */
+	clhistory_cleanup(0);
+	FREE(cnf.clhistory);
+	cnf.clhistory = NULL;
+
+	FREE(cnf.palette_array);
+	cnf.palette_array = NULL;
+
+	FREE(cnf.temp_buffer);
+	cnf.temp_buffer = NULL;
 
 	if (reason && reason[0] != '\0') {
 		fprintf(stderr, "%s\n", reason);
@@ -429,16 +448,22 @@ set_defaults(void)
 	/* global settings */
 	cnf.gstat = 0;
 	cnf.gstat |= (GSTAT_SHADOW | GSTAT_SMARTIND | GSTAT_MOVES | GSTAT_CASES);
-	cnf.gstat |= (GSTAT_AUTOTITLE | GSTAT_INDENT | GSTAT_NOKEEP);
-	cnf.gstat |= (GSTAT_CLOSE_OVER | GSTAT_SAVE_INODE);
+	cnf.gstat |= (GSTAT_INDENT | GSTAT_NOKEEP);
+	cnf.gstat |= (GSTAT_CLOS_OVER | GSTAT_SAV_INODE);
 	cnf.gstat &= ~(GSTAT_MOUSE);	/* explicit off */
 	cnf.tabsize = 8;
 	cnf.indentsize = (cnf.gstat & GSTAT_INDENT) ? 1 : 4;	/* 1 tab or 4 spaces */
+	cnf.head = (cnf.gstat & GSTAT_TABHEAD) ? 2 : 1;
 	cnf.pref = (cnf.gstat & GSTAT_PREFIX) ? PREFIXSIZE : 0;
-	cnf.gstat &= ~(GSTAT_FIXCR);	/* explicit off */
+	cnf.gstat |= GSTAT_FIXCR;	/* explicit on */
 
+	cnf.cpal = (CPAL) { "default", { 0x02, 0x06, 0x07, 0x01, 0x42, 0x46, 0x47, 0x41, 0x10, 0x14, 0x38, 0x08, 0x18, 0x1c, 0x38, 0x08, 0x27, 0x30, 0x02, 0x27 } };
+	cnf.palette_array = NULL;
+	cnf.palette_count = 0;
 	cnf.palette = 0;
-	cnf.trace = 0;		/* count of tracemsg[] lines */
+
+	cnf.lsdirsort = 0;
+	cnf.trace = 0;		/* count of tracerow[] lines */
 
 	/* wgetch engine and terminal resize */
 	cnf.seq_tree = NULL;
@@ -447,8 +472,7 @@ set_defaults(void)
 	cnf.ring_curr = 0;
 	cnf.ring_size = 0;
 	for(i=0; i < RINGSIZE; i++) {
-		cnf.fdata[i].basename[0] = '\0';
-		cnf.fdata[i].dirname[0] = '\0';
+		cnf.fdata[i].fpath[0] = '\0';
 		cnf.fdata[i].flevel = 1;
 		cnf.fdata[i].fflag = 0;
 		cnf.fdata[i].curr_line = NULL;
@@ -490,7 +514,7 @@ set_defaults(void)
 	strncpy(cnf.find_opts,	". -type f -name '*.[ch]' -exec egrep -nH -w", sizeof(cnf.find_opts));
 	strncpy(cnf.tags_file,	"./tags",		sizeof(cnf.tags_file));
 	strncpy(cnf.make_path,	"/usr/bin/make",	sizeof(cnf.make_path));
-	strncpy(cnf.make_opts,	"-f Makefile",		sizeof(cnf.make_opts));
+	strncpy(cnf.make_opts,	"",			sizeof(cnf.make_opts));
 	strncpy(cnf.sh_path,	"/bin/sh",		sizeof(cnf.sh_path));
 	strncpy(cnf.diff_path,	"/usr/bin/diff",	sizeof(cnf.diff_path));
 	for(i=0; i < 10; i++) {
@@ -498,52 +522,54 @@ set_defaults(void)
 		cnf.vcs_path[i][0] = '\0';
 	}
 
-	ptr = getenv("HOME");
-	if (ptr != NULL) {
-		strncpy(cnf._home, ptr, sizeof(cnf._home));
-		cnf._home[sizeof(cnf._home)-1] = '\0';
-	} else {
-		fprintf(stderr, "getenv HOME failed (%s)\n", strerror(errno));
-		/* fallback */
-		cnf._home[0] = '~';
-		cnf._home[1] = '\0';
-		if (glob_name(cnf._home, sizeof(cnf._home))) {
-			cnf._home[0] = '\0';
-			fprintf(stderr, "get home dir failed (%s)\n", strerror(errno));
-		}
-	}
-
+	/* PWD and HOME alternatives; PWD is not set with sudo
+	*/
 	if (getcwd(cnf._pwd, sizeof(cnf._pwd)-1) == NULL) {
-		cnf._pwd[0] = '\0';
-		fprintf(stderr, "getcwd failed (%s)\n", strerror(errno));
+		// no symlink
+		leave("failed set defaults");
 	}
-	/* optional alternative */
-	ptr = getenv("PWD");
-	if (ptr != NULL) {
-		strncpy(cnf._altpwd, ptr, sizeof(cnf._altpwd));
-		cnf._altpwd[sizeof(cnf._altpwd)-1] = '\0';
-	} else {
-		cnf._altpwd[0] = '\0';
-		fprintf(stderr, "getenv PWD failed (%s)\n", strerror(errno));
+	if (read_extcmd_line ("pwd", 1, cnf._altpwd, sizeof(cnf._altpwd))) {
+		// may have symlink
+		leave("failed set defaults");
+	}
+	ptr = getenv("HOME");
+	if (ptr == NULL) {
+		leave("failed set defaults");
+	}
+	strncpy(cnf._home, ptr, sizeof(cnf._home));
+	cnf._home[sizeof(cnf._home)-1] = '\0';
+	if ((chdir(cnf._home) == -1)
+	|| (getcwd(cnf._althome, sizeof(cnf._althome)-1) == NULL)
+	|| (chdir(cnf._altpwd) == -1))
+	{
+		leave("failed set defaults");
 	}
 
-	strncpy(cnf.myhome, cnf._home, sizeof(cnf.myhome));
-	cnf.myhome[sizeof(cnf.myhome)-10] = '\0';
-	/* the HOME is maybe a symlink, get the real path into cnf._home */
-	if ((chdir(cnf.myhome) == -1)
-	|| (getcwd(cnf._home, sizeof(cnf._home)-1) == NULL) || (chdir(cnf._pwd) == -1)) {
-		leave("chdir failed");
-	}
 	/* the homedir of eda */
-	strncat(cnf.myhome, "/.eda/", 10);
+	strncpy(cnf.myhome, cnf._home, sizeof(cnf.myhome)-7);
+	cnf.myhome[sizeof(cnf.myhome)-7] = '\0';
+	strncat(cnf.myhome, "/.eda/", 6);
 	cnf.l1_home = strlen(cnf._home);
+	cnf.l2_althome = strlen(cnf._althome);
 	cnf.l1_pwd = strlen(cnf._pwd);
 	cnf.l2_altpwd = strlen(cnf._altpwd);
-	cnf.l2_myhome = strlen(cnf.myhome);
+	cnf.l3_myhome = strlen(cnf.myhome);
 
 	if (cnf.l1_pwd == cnf.l2_altpwd && strncmp(cnf._pwd, cnf._altpwd, cnf.l1_pwd) == 0) {
 		cnf._altpwd[0] = '\0';
 		cnf.l2_altpwd = 0;
+	}
+	if (cnf.l1_home == cnf.l2_althome && strncmp(cnf._home, cnf._althome, cnf.l1_home) == 0) {
+		cnf._althome[0] = '\0';
+		cnf.l2_althome = 0;
+	}
+
+	/* pre-allocate space */
+	cnf.temp_als = ALLOCSIZE(LINESIZE_INIT);
+	cnf.temp_buffer = (char *) MALLOC(cnf.temp_als);
+	if (cnf.temp_buffer == NULL) {
+		ERRLOG(0xE02F);
+		cnf.temp_als = 0;
 	}
 
 	logsize = (sizeof(cnf.log) / sizeof(cnf.log[0]));
@@ -553,6 +579,11 @@ set_defaults(void)
 
 	/* testing */
 	memset(cnf.automacro, 0, sizeof(cnf.automacro));
+
+	cnf.errsiz = sizeof(cnf.errlog)/sizeof(cnf.errlog[0]);
+	for(cnf.ie=0; cnf.ie < cnf.errsiz; cnf.ie++)
+		cnf.errlog[cnf.ie] = 0;
+	cnf.ie = 0;
 
 	return;
 }
@@ -571,12 +602,15 @@ tracemsg(const char *format, ...)
 	/* do nothing if cnf.maxx is 0,
 	 * like before cnf.bootup
 	 */
-	if (!cnf.bootup || (cnf.gstat & GSTAT_SILENT) || cnf.maxx < 20)
+	if (!cnf.bootup || (cnf.gstat & GSTAT_SILENCE) || cnf.maxx < 20)
 		return;
 	if (cnf.trace >= TRACESIZE)
 		return;
 
 	va_start (args, format);
+	/* format string is not a string literal [-Wformat-nonliteral]
+	 * but all calls of this function provide literal string as format
+	 */
 	vsnprintf(temp, sizeof(temp)-1, format, args);
 	va_end (args);
 	temp[sizeof(temp)-1] = '\0'; /* safe */
@@ -594,6 +628,13 @@ tracemsg(const char *format, ...)
 			j++;
 		}
 		i++;
+	}
+
+	/* check last two lines and drop duplicate */
+	if (cnf.trace >= 2) {
+		if (!strncmp(cnf.tracerow[cnf.trace-2], cnf.tracerow[cnf.trace-1], sizeof(cnf.tracerow[0]))) {
+			--cnf.trace;
+		}
 	}
 
 	return;
@@ -640,7 +681,7 @@ record (const char *funcname, const char *parameter)
 /*
 * append string to file, file in ~/.eda/ or relative to
 */
-static void
+void
 put_string_to_file (const char *filename, const char *string)
 {
 	FILE *fp = NULL;

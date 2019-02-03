@@ -2,7 +2,7 @@
 # do not edit, save a copy to ~/.eda/ instead
 
 # macro file for eda with commented samples,
-# details about syntax and functions in edamacro(5)
+# see details about syntax and functions in edamacro(5)
 #
 #---sample
 #KEY_NONE	macro_API
@@ -11,20 +11,15 @@
 #	keypress_enter
 #	type_text	[^G] : the buffer name
 #	type_text	[$0] : the whole input
-#	type_text	fields [$1] [$2] [^G] [$3] [$4] [$5] [$6] [$7] [$8] [$9] end
+#	type_text	input fields [$1] [$2] [$3] [$4] [$5] [$6] [$7] [$8] [$9] end
 #	shell_cmd	date +fw%V
-#	finish_in_fg
 #	switch_text_cmd
 #.
 #---end sample
 #
-# Note:
-# the functions
-#	shell_cmd  make_cmd  filter_cmd  filter_shadow_cmd
-# fork to background by default
-# to capture the end of the background process in a macro do not forget to call
-#	finish_in_fg
-# and to overwrite the selection lines pushed to *sh* buffer use the function
+# Notes:
+# selection lines are filtered by external process the result shows up in *sh* buffer
+# to overwrite the original selection lines from *sh* buffer use the function
 #	over_select
 #
 # Some 'must have' macros
@@ -37,56 +32,20 @@ KEY_F1	help
 KEY_S_F1	manual
 #Description: show the eda manual
 	shell_cmd man -P cat eda
-	finish_in_fg
 	go_top
 .
 KEY_NONE	man
 #Description: open manual page
 	shell_cmd man -P cat $0
-	finish_in_fg
 	go_top
 .
 KEY_NONE	ts
 #Description: tabsize setting
 	set tabsize $1
 .
-KEY_NONE	save_cmds
-#Description: save the output of "cmds" to cmds.txt
-	show_commands
-	select_all
-	add_file cmds.txt
-	delete_lines all
-	go_top
-	cp_select
-	file_file
-	quit_file
-.
 #
-# Some vi compatibility (just for fun)
+# VCS interface (examples)
 #
-KEY_NONE	:w
-#Description: alias for save
-	save_file
-.
-KEY_NONE	:wq
-#Description: alias for file
-	file_file
-.
-KEY_NONE	:q!
-#Description: alias for qquit
-	drop_file
-.
-KEY_NONE	:qo
-#Description: alias for qoth
-	quit_others
-.
-#
-# VCS interface
-#
-KEY_NONE	cvs
-#Description: alias to run any CVS command
-	vcstool cvs $0
-.
 KEY_NONE	svn
 #Description: alias to run any Subversion command
 	vcstool svn $0
@@ -99,136 +58,77 @@ KEY_NONE	git
 #Description: alias to run any Git command
 	vcstool git $0
 .
-KEY_NONE	hgi
-#Description: very short info about branch / revision status
-	vcstool hg id -b
-	vcstool hg id -nit
-.
 KEY_NONE	hginfo
 #Description: run hg commands to get info: summary, diff stat, status
 	vcstool hg sum
 	vcstool hg diff --stat
 	vcstool hg status
 .
-KEY_NONE	hgdiff
-#Description: run hg diff on current file and process the outcome
-	bm_set 9
-	filter_all func
-	vcstool hg diff -p -wbB --noprefix ^G
-	is_special diff
-	process_diff
-	bm_jump9
-.
-KEY_NONE	svndiff
-#Description: run svn diff on current file and process the outcome
-	filter_all func
-	vcstool svn diff -x -w $0
-	is_special diff
-	process_diff
-.
 KEY_NONE	hglog
-#Description: run hg glog
+#Description: run hg log
 	vcstool hg log -G -l 50
+	go_top
+.
+KEY_NONE	gitinfo
+#Description: run git commands to get base info
+	vcstool git log --oneline -1
+	vcstool git diff --stat
+	vcstool git status -b -s
+.
+KEY_NONE	gitlog
+#Description: run git log, current branch only
+	vcstool git log --pretty=tformat:'%cd%n_%h_%ce_|_%s' --abbrev-commit --date=short -50
 	go_top
 .
 #
 # Tools
 #
-KEY_NONE	ps
-#Description: get the list of processes, ps -eHo, for example
-	shell_cmd ps -eHo pid,ppid,user,tty,%cpu,%mem,nlwp,sid,pgid,args
-	finish_in_fg
-.
-KEY_NONE	cindent
-#Description: reindent C code, all visible lines
-	select_all
-	filter_cmd indent -kr -ts8 -ci8 -di8 -i8 -ip8 -l125 -lc125 -
-	finish_in_fg
-	over_select
-.
-KEY_NONE	xmlindent
-#Description: reindent xml text, all visible lines
-	select_all
-	filter_cmd xmllint --format -
-	finish_in_fg
-	over_select
-.
 KEY_NONE	py
 #Description: settings for python
 	set indent space 4
 	set find_opts . -type f ( -name '*.py' ) -exec egrep -nH -w
 .
-KEY_NONE	allpy
-#Description: all python blocks, first level
-	filter_all /^(\s*(def|class) (_|\w).*):|__main__/
-.
 KEY_NONE	pyc
-#Description: python check example, change as you wish
-#	shell_cmd check_python.sh ^G
-#	finish_in_fg
-	shell_cmd python -m py_compile ^G
-	finish_in_fg
-#	shell_cmd pyflakes ^G
-#	finish_in_fg
-#	shell_cmd pylint -E ^G
-#	finish_in_fg
+#Description: python syntax checker example
+	shell_cmd check_python.sh ^G
 .
-KEY_NONE	js
-#Description: settings for javascript or java
-	set indent space 4
-	set tabsize 4
-	set find_opts . -type f ( -name '*.js' -o -name '*.java' -o -name '*.json' ) -exec egrep -nH -w
+KEY_NONE	xmlindent
+#Description: reindent xml text
+	select_all
+	filter_cmd xmllint --format -
+	over_select
 .
 #
-# X11 selection and the clipboard I/O
+# X11 primary and clipboard I/O -- this sample is based on xsel
 #
-KEY_NONE	<primary
-#Description: insert lines from X11 primary selection
+KEY_NONE	<p
+#Description: insert lines from X11 PRIMARY selection
 	go_text
 	go_end
 	keypress_enter
 	reset_select
 	line_select
 	filter_cmd xsel --output --primary
-	finish_in_fg
 	over_select
 .
-KEY_NONE	<clipboard
-#Description: insert lines from X11 clipboard
+KEY_NONE	<c
+#Description: insert lines from X11 CLIPBOARD -- an alternative to shift-control-v
 	go_text
 	go_end
 	keypress_enter
 	reset_select
 	line_select
 	filter_cmd xsel --output --clipboard
-	finish_in_fg
 	over_select
 .
-KEY_NONE	<xtra
-#Description: insert lines from the extra internal selection
-	shell_cmd cat ~/.eda/selection
-	finish_in_fg
-	filter_less /^$|^\$/
-	over_select
-.
-KEY_NONE	>primary
-#Description: copy visible selection lines to X11 primary selection
+KEY_NONE	>p
+#Description: copy visible selection lines to X11 PRIMARY selection
 	filter_cmd xsel --input --primary
-	finish_in_fg
 	drop_file
 .
-KEY_NONE	>clipboard
-#Description: copy visible selection lines to X11 clipboard
+KEY_NONE	>c
+#Description: copy visible selection lines to X11 CLIPBOARD -- an alternative to shift-control-c
 	filter_cmd xsel --input --clipboard
-	finish_in_fg
 	drop_file
-.
-KEY_NONE	>xtra
-#Description: copy visible selection lines to extra internal selection
-	add_file ~/.eda/selection
-	delete_lines all
-	go_top
-	cp_select
-	file_file
 .
 ###

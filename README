@@ -1,111 +1,81 @@
-README file for Eda, the 0.9.37 release, updated for 0.9.53
+README for Eda
 
-eda - text editor and analyzer for programmers
+eda - text editor and source code analyzer
 
 
-install from sources:
-----------------------
-
-unpack the release tar.gz:
+INSTALL
+-----------------
   tar xzf eda-0.9.37.tar.gz
-
-configure using autotools:
-  ./configure --prefix /usr --sysconf /etc
-
-see './configure --help' for the details
-
-make binary and all, install as root:
   make
   sudo make install
+  make clean
 
-
-installed files:
+FILES
 -----------------
-configuration files: /etc/eda/eda* and the same at ~/.eda/
-program homedir: /usr/share/eda
-  here are edamacro, macro scripts and other sample files
-  edamacro is a system wide config file also
-docs: /usr/share/doc/eda
-manuals: /usr/share/man/man1/eda.1
-         /usr/share/man/man5/edamacro.5
-misc:
-  /usr/share/applications/eda.desktop
-  /usr/share/pixmaps/eda-icon.png
+configuration: /etc/eda/
+datadir: /usr/share/eda
+datadir: /usr/local/share
+manuals: /usr/local/man
+docs: /usr/local/share/doc
+user configuration, macros, everything: ~/.eda/
 
-
-post install config:
+post install
 ---------------------
-eda works well with xterm, xfce4-terminal, gnome-terminal, etc
-the eda wrapper script, xeda, uses "x-terminal-emulator -e eda ..." call,
-whatever alternative you choose, some config is necessary
- * to have all key bindings available in eda (this is important)
- * to select the right terminal colors (nice to have)
-tested on ubuntu 9.04 and debian 6.0.1 and later versions
+copy edarc from /etc/eda to ~/.eda/ and update the following fields
+  find_path make_path sh_path diff_path
+  vcstool ...
+do not use sh, use bash instead
 
-what the terminal emulator should do (or donot do)
-1. send esc sequence on Meta-XXX keys
-2. do not catch simple Ctrl-key and Meta-key combinations,
-and function keys, base and with Ctrl modifier
-see output of "cmds" in eda, what key we wish to use
-3. key bindings can be redefined, see /etc/eda/edakeys
+copy edamacro from /usr/local/share/eda/ to ~/.eda/
+add your custom macros based on samples, see eda(1) and edamacro(5)
 
-  === gnome-terminal
-  = gnome-terminal sends esc sequence on Meta-XXX keys by default
-  Compatibility: keep defaults
-    Backspace key generates: ASCII DEL
-    Delete key generates: Escape sequence
-  Select-by-word-characters: optional change, for convenience
-    from -A-Za-z0-9,./?%&#:_=+@~
-    to   -A-Za-z0-9._+
-  Keyboard Shortcuts: suggested changes, gnome-terminal should not catch keys
-    disable menu access, menu shortcut keys, Alt+<number> keys (important)
-    use Alt+Left, Alt+Right for Prev/Next tab switch
-    keep Shift+Control+[A-Z] keys and Control+[0+-] keys for zoom
+optionally, copy edaseq and edakeys from /usr/local/share/eda/ to ~/.eda/
+edaseq contains the escape sequencies for function and control keys
+edakeys contains the key -> function binding (default values)
+update key bindings and check it with 'eda -k'
 
-  === xterm
-  = xterm sends high bit if Meta-  modifier is down, in this case add the following define to your config.h
-  #define META_SETS_HIGHBIT
-  = otherwise, to receive escape sequencies, add this line to /etc/X11/app-defaults/XTerm
-  *metaSendsEscape: true
+eda works well with xterm but needs meta keys must send escape
+sample .Xdefaults for configuration
+!!!
+XTerm*metaSendsEscape: true
+! font and sizes (example)
+XTerm*faceName: Liberation Mono
+XTerm*faceSize: 14
+XTerm*faceSize1: 10
+XTerm*faceSize2: 12
+XTerm*faceSize3: 16
+XTerm*faceSize4: 18
+XTerm*faceSize5: 20
+XTerm*faceSize6: 22
+! not important for eda, just an example
+XTerm*foreground: DarkGrey
+XTerm*background: black
+!!!
 
-  === switch BackSpace and Ctrl-H
-  = if you have no other choice, BackSpace and Ctrl-H can be switched in eda, if you add this line to your config.h
-  #define THE_BACKSPACE_C_H_CHEAT
+for other terminal emulators, create compatible settings
+set similar colors like in xterm
+  or run 'eda -c' and create custom color palette, add to edarc
+disable conflicting Function and Alt- key bindings (this is important)
+  run 'eda -k' and test Func, Shift-Func, Del, BackSpace, cursor keys with Ctrl- and Alt-
+select-word-characters: -A-Za-z0-9._+ (this is optional)
 
-  === project files
-  the project can contain the project file itself, but
-  project files are strict on line numbers, if the line number is invalid the project open fails
+external tools
+---------------------
+the tools with _path in edarc are mandatory, like diff, bash
 
+VCS (Version Control System) like hg, git, svn/svnlite, etc for development
+  upto 10 VCS tools, see edarc and edamacro, the diff must be a unified diff
 
-extensions:
-------------
-the macro API is ready, edamacro contains some examples also
-see the detailed function API in edamacro(5)
+sed, awk, make and compile tools, checkers, formatters -- see edamacro
 
+something for clipboard i/o (for example xsel) -- see edamacro
 
-benefits:
-----------
-+ eda is actually an editor and a regexp based filter engine in one,
-  filters provide layers of visible lines to edit the file transparently,
-  filter masks can be switched and copied up and down easily
-+ line based selection handling for cp/mv/rm and (un)indent/(un)shift,
-+ operations on block of lines like for single lines, pad, cut/lcut, join
-+ folding whole functions or blocks, jump to matching brace, etc
-+ regex based search, highlight (patterns or lines), replace
-+ multifile search, external and internal
-+ external tools (make, find/egrep, version control) binding
-+ parsers for external and internal tools (make, lsdir, etc)
-+ output filter APIs for printing (a2ps) or others (indent, macros, etc)
-+ bookmarks, motion history, projects
-+ version control tools supported: cvs, subversion, mercurial
-+ macro interface (with record facility)
-+ ctags support, show value, jump to definition
-there are lot of invisible features, the useful ones were kept and improved,
-the useless or experimental ones were pushed to the archive
+ctags is supported for development
 
-Eda is engine oriented, the GUI is replaceble and less important.
-The main target in the development was to have a flexible design, open for
-changes in the engine, without restrictions from GUI.
-
-The 0.9.53 version is a public birthday.
+Coverity Scan
+---------------------
+<a href="https://scan.coverity.com/projects/gamma62-eda">
+  <img alt="Coverity Scan Build Status"
+       src="https://scan.coverity.com/projects/3772/badge.svg"/>
+</a>
 

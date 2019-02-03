@@ -33,6 +33,7 @@
 extern CONFIG cnf;
 
 /* local proto */
+static int over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end);
 static int shift_engine (int type);
 static int lcut_block_engine (int curpos, int left);
 
@@ -684,8 +685,7 @@ wr_select (int fd, int with_shadow)
 				length = strlen(mid_buff);
 				out = write (fd, mid_buff, (size_t)length);
 				if (out != length) {
-					SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
-						fd, out, length, strerror(errno));
+					ERRLOG(0xE0A2);
 					break;
 				}
 				count++;
@@ -693,8 +693,7 @@ wr_select (int fd, int with_shadow)
 			/* line buffer, important */
 			out = write (fd, lp_src->buff, (size_t)lp_src->llen);
 			if (out != lp_src->llen) {
-				SELE_LOG(LOG_ERR, "write (to fd=%d) failed (%d!=%d) (%s)",
-					fd, out, lp_src->llen, strerror(errno));
+				ERRLOG(0xE0A1);
 				break;
 			}
 			count++;
@@ -714,7 +713,7 @@ wr_select (int fd, int with_shadow)
  *	the more in 'selection', delete rest
  *	relocate 'selection' curr_line upwards if it would be removed otherwise
 */
-int
+static int
 over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 {
 	int target_ri;
@@ -743,14 +742,12 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 		return -2;
 	}
 	reset_select();
-	SELE_LOG(LOG_DEBUG, "target: lno_first %d [%s] lno_last %d [%s]",
-		lno_first, lp_target->buff, lno_last, lp_target_end->buff);
+	// target: lno_first lno_last
 
 	while (!src_ready && TEXT_LINE(lp_src) && !target_ready && TEXT_LINE(lp_target)) {
 		/* in the range of original selection lines,
 		 * overwrite the buffer
 		 */
-		SELE_LOG(LOG_DEBUG, "overwrite: [%s] with [%s]", lp_target->buff, lp_src->buff);
 		if (milbuff (lp_target, 0, lp_target->llen, lp_src->buff, lp_src->llen)) {
 			ans = -1;
 			break;
@@ -771,7 +768,7 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 		cnf.fdata[target_ri].fflag |= FSTAT_CHANGE;
 	if (ans)
 		return ans;
-	SELE_LOG(LOG_DEBUG, "after %d overwrite: lno_first %d curr lineno %d", over, lno_first, cnf.fdata[target_ri].lineno);
+	// after [over]: lno_first and lineno
 
 	if (!src_ready && TEXT_LINE(lp_src)) {
 		/* append the rest of source */
@@ -779,7 +776,6 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 			if (lp_src == lp_src_end)
 				src_ready = 1;
 
-			SELE_LOG(LOG_DEBUG, "insert: [%s]", lp_src->buff);
 			lp = insert_line_before (lp_target, lp_src->buff);
 			if (lp == NULL) {
 				ans = -1;
@@ -797,7 +793,7 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 		cnf.fdata[target_ri].num_lines += insert;
 		if (insert > 0)
 			cnf.fdata[target_ri].fflag |= FSTAT_CHANGE;
-		SELE_LOG(LOG_DEBUG, "after %d insert: curr lineno %d", insert, cnf.fdata[target_ri].lineno);
+		// after [insert]: lineno
 
 	} else if (!target_ready && TEXT_LINE(lp_target)) {
 		/* remove the rest of 'selection' */
@@ -807,7 +803,7 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 			cnf.fdata[target_ri].curr_line = lp_target;
 			prev_lp (target_ri, &(cnf.fdata[target_ri].curr_line), &cnt);
 			cnf.fdata[target_ri].lineno = lno_first - cnt;
-			SELE_LOG(LOG_DEBUG, "after relocate (to first %d - cnt %d): curr lineno %d", lno_first, cnt, cnf.fdata[target_ri].lineno);
+			// after relocate
 		}
 
 		while (!target_ready && TEXT_LINE(lp_target)) {
@@ -817,14 +813,14 @@ over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end)
 			if (HIDDEN_LINE(target_ri, lp_target)) {
 				lp_target = lp_target->next;
 			} else {
-				SELE_LOG(LOG_DEBUG, "delete: [%s]", lp_target->buff);
+				// delete
 				clr_opt_bookmark(lp_target);
 				/* skip to next, if TEXT_LINE */
 				lp_target = lll_rm (lp_target);	/* in over_select_eng() */
 				delete++;
 			}
 		}
-		SELE_LOG(LOG_DEBUG, "after %d delete: curr lineno %d", delete, cnf.fdata[target_ri].lineno);
+		// after [delete]: lineno
 
 		/* update */
 		if (lno_first < cnf.fdata[target_ri].lineno)
@@ -887,7 +883,7 @@ over_select (void)
 	}
 
 	/* drop source buffer */
-	if (cnf.gstat & GSTAT_CLOSE_OVER) {
+	if (cnf.gstat & GSTAT_CLOS_OVER) {
 		cnf.ring_curr = src_ri;
 		drop_file();
 	}
@@ -956,8 +952,8 @@ static int
 shift_engine (int type)
 {
 	LINE *lp=NULL;
-	int lineno=0, i=0;
-	char *first_chars=NULL;
+	int lineno=0, err=0;
+	char first_chars[64]; /* is tabsize=62 a limitation? */
 	int prefix=0;
 	long mod=0;
 
@@ -977,11 +973,16 @@ shift_engine (int type)
 	}
 
 	if (type == INDENT_RIGHT) {
-		for (i=0; i<cnf.indentsize; i++) {
-			csere (&first_chars, &prefix, 0, 0, ((cnf.gstat & GSTAT_INDENT) ? "\t" : " "), 1);
-		}
+		memset(first_chars, '\0', sizeof(first_chars));
+		prefix = (cnf.indentsize <= 62) ? cnf.indentsize : 62;
+		if (cnf.gstat & GSTAT_INDENT)
+			memset(first_chars, '\t', (size_t)prefix);
+		else
+			memset(first_chars, ' ', (size_t)prefix);
 	} else if (type == SHIFT_RIGHT) {
-		csere (&first_chars, &prefix, 0, 0, " ", 1);
+		prefix = 1;
+		first_chars[0] = ' ';
+		first_chars[1] = '\0';
 	}
 
 	/* do not change empty lines
@@ -997,7 +998,8 @@ shift_engine (int type)
 				}
 				break;
 			case INDENT_RIGHT:
-				if (milbuff (lp, 0, 0, first_chars, prefix)) {
+				if (milbuff (lp, 0, 0, first_chars, (int)prefix)) {
+					err = 1;
 					break;
 				}
 				lp->lflag |= LSTAT_CHANGE;
@@ -1011,6 +1013,7 @@ shift_engine (int type)
 			case SHIFT_RIGHT:
 				first_chars[0] = lp->buff[0];
 				if (milbuff (lp, 0, 0, first_chars, 1)) {
+					err = 1;
 					break;
 				}
 				mod++;
@@ -1023,12 +1026,9 @@ shift_engine (int type)
 		next_lp (cnf.select_ri, &lp, NULL);
 	}
 
-	if (first_chars != NULL) {
-		FREE(first_chars);
-		first_chars = NULL;
-	}
-
-	if (mod==0) {
+	if (err) {
+		tracemsg ("failed");
+	} else if (mod==0) {
 		tracemsg ("nothing shifted");
 	} else {
 		if (SELECT_FI.curr_line->lflag & LSTAT_SELECT) {
@@ -1091,7 +1091,6 @@ pad_block (const char *opt_curpos)
 	}
 
 	if (ret) {
-		SELE_LOG(LOG_ERR, "selection padding failed: ri=%d ret=%d", cnf.select_ri, ret);
 		tracemsg ("padding failed");
 	} else if (mod==0) {
 		tracemsg ("nothing changed");
@@ -1274,7 +1273,6 @@ split_block (const char *opt_curpos)
 		return (0);
 	}
 
-	SELE_LOG(LOG_DEBUG, "curpos value %d", curpos);
 	while (lp_source->lflag & LSTAT_SELECT)
 	{
 		lncol = get_col(lp_source, curpos);
@@ -1293,8 +1291,6 @@ split_block (const char *opt_curpos)
 		}
 
 		if (lncol < lp_source->llen-1) {
-			SELE_LOG(LOG_DEBUG, "lncol %d < lp->llen-1 %d (insert %d bytes)",
-				lncol, lp_source->llen, lp_source->llen-1-lncol);
 			/* copy data from SOURCE to TARGET, bytes from lncol
 			*/
 			if (milbuff (lx, 0, 0, &lp_source->buff[lncol], lp_source->llen-1-lncol)) {
@@ -1303,19 +1299,14 @@ split_block (const char *opt_curpos)
 			}
 			/* realloc SOURCE, cut bytes from lncol to line end
 			*/
-			SELE_LOG(LOG_DEBUG, "(source) strip bytes from lncol to line end");
 			(void) milbuff (lp_source, lncol, lp_source->llen, "\n", 1);
 			lp_source->lflag |= LSTAT_CHANGE;
-		} else {
-			SELE_LOG(LOG_DEBUG, "lncol %d >= lp->llen-1 %d (do nothing)",
-				lncol, lp_source->llen-1);
 		}
 
 		next_lp (cnf.select_ri, &lp_source, NULL);
 	}
 
 	if (ret) {
-		SELE_LOG(LOG_ERR, "failed: ri=%d ret=%d", cnf.select_ri, ret);
 		tracemsg ("split operation failed");
 	} else if (mod==0) {
 		tracemsg ("nothing changed");
@@ -1348,7 +1339,7 @@ join_block (const char *separator)
 
 	memset (errbuff, 0, ERRBUFF_SIZE);
 	if (separator[0] == '\0') {
-		strncpy (expr_tmp, "^$", 20);
+		strncpy (expr_tmp, "^$", 3);
 	} else if (separator[0] == '^') {
 		strncpy (expr_tmp, separator, sizeof(expr_tmp));
 		expr_tmp[sizeof(expr_tmp)-1] = '\0';
@@ -1358,13 +1349,12 @@ join_block (const char *separator)
 		expr_tmp[sizeof(expr_tmp)-1] = '\0';
 	}
 	regexp_shorthands (expr_tmp, expr_new, sizeof(expr_new));
-	SELE_LOG(LOG_DEBUG, "separator expression [%s]", expr_new);
+	// separator: [expr_new]
 
 	ret = regcomp (&reg, expr_new, REGCOMP_OPTION);
 	if (ret) {
 		regerror(ret, &reg, errbuff, ERRBUFF_SIZE);
-		SELE_LOG(LOG_ERR, "pattern [%s]: regcomp failed (%d): %s", expr_new, ret, errbuff);
-		tracemsg("%s", errbuff);
+		ERRLOG(0xE081);
 		return (1);
 	}
 
@@ -1378,11 +1368,9 @@ join_block (const char *separator)
 		}
 	}
 	if (!TEXT_LINE(lp_target) || !(lp_target->lflag & LSTAT_SELECT)) {
-		SELE_LOG(LOG_DEBUG, "selection not visible");
-		tracemsg ("selection not visible");
+		tracemsg ("no selection lines");
 		return (0);
 	}
-	SELE_LOG(LOG_DEBUG, "target lineno %d", lineno);
 
 	/* count down upto separator
 	*/
@@ -1391,7 +1379,7 @@ join_block (const char *separator)
 	while (lx->lflag & LSTAT_SELECT)
 	{
 		if (!regexec(&reg, lx->buff, 1, &pmatch, 0)) {
-			SELE_LOG(LOG_DEBUG, "match? lineno %d -- so:%ld eo:%ld", lineno, (long)pmatch.rm_so, (long)pmatch.rm_eo);
+			// match?
 			if (pmatch.rm_so >= 0 && (pmatch.rm_eo == 0 || pmatch.rm_so < pmatch.rm_eo)) {
 				break;	/* ok, match */
 			}
@@ -1407,15 +1395,14 @@ join_block (const char *separator)
 	regfree (&reg);
 
 	if (!(TEXT_LINE(lx)) || !(lx->lflag & LSTAT_SELECT)) {
-		SELE_LOG(LOG_DEBUG, "separator line not found");
-		tracemsg ("separator line not found");
+		tracemsg ("separator line not found (pattern [%s])", expr_new);
 		return (0);
 	}
-	SELE_LOG(LOG_DEBUG, "separator reached, lineno %d (old watch %d) padsize %d", lineno, cnf.select_w, padsize);
+	// separator reached, [lineno]
 	cnf.select_w = lineno;
 
 	if (CURR_FILE.lineno > cnf.select_w) {
-		SELE_LOG(LOG_DEBUG, "change current line from %d to %d", CURR_FILE.lineno, cnf.select_w);
+		// change current line
 		CURR_LINE = lx;
 		CURR_FILE.lineno = cnf.select_w;
 	}
@@ -1425,7 +1412,6 @@ join_block (const char *separator)
 	lp_source = lx;
 	next_lp (cnf.ring_curr, &lp_source, &cnt);
 	lineno += cnt;
-	SELE_LOG(LOG_DEBUG, "source lineno %d (target lines count %d)", lineno, count);
 
 	/* start joining: lp_target + lp_source
 	*/
@@ -1454,7 +1440,7 @@ join_block (const char *separator)
 		next_lp (cnf.ring_curr, &lp_target, &cnt);
 		lineno += cnt;
 	}
-	SELE_LOG(LOG_DEBUG, "one-to-one session finished (current %d) mod=%d", lineno, mod);
+	// one-to-one session finished
 
 	/* lp_target is the separator, insert rest of block before this line
 	*/
@@ -1487,11 +1473,10 @@ join_block (const char *separator)
 
 			mod++;
 		}
-		SELE_LOG(LOG_DEBUG, "inserting rest of sources finished (current %d) mod=%d", lineno, mod);
+		// inserting rest of sources finished
 	}
 
 	if (ret) {
-		SELE_LOG(LOG_ERR, "failed: ri=%d ret=%d", cnf.ring_curr, ret);
 		tracemsg ("join operation failed");
 	} else if (mod==0) {
 		tracemsg ("nothing changed");

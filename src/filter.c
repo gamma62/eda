@@ -31,8 +31,9 @@
 extern CONFIG cnf;
 
 /* local proto */
-static int filter_func_bottom_up (int action, int fmask);
-static int filter_func_top_down (int action, int fmask);
+static int filter_func_eng_clang (int action, int fmask, char *symbol);
+static int filter_func_eng_other (int action, int fmask, char *symbol);
+static int filter_func_eng_easy (int action, int fmask, char *symbol);
 
 /*
 * base movement: move to next line point,
@@ -50,8 +51,8 @@ next_lp (int ri, LINE **linep_p, int *count)
 	cnt = 0;
 	lx = *linep_p;
 	if (lx == NULL) {
-		FILT_LOG(LOG_CRIT, "assert, start line lx==NULL");
-		return (0);
+		ERRLOG(0xE072); /* start line lx==NULL */
+		return (1);
 	}
 	while ( (lx->next != NULL) && !(lx->lflag & LSTAT_BOTTOM) ) {
 		lx = lx->next;
@@ -64,7 +65,7 @@ next_lp (int ri, LINE **linep_p, int *count)
 	*linep_p = lx;
 	if (count != NULL)
 		*count = cnt;
-	return (1);
+	return (0);
 } /* next_lp */
 
 /*
@@ -83,8 +84,8 @@ prev_lp (int ri, LINE **linep_p, int *count)
 	cnt = 0;
 	lx = *linep_p;
 	if (lx == NULL) {
-		FILT_LOG(LOG_CRIT, "assert, start line lx==NULL");
-		return (0);
+		ERRLOG(0xE071); /* start line lx==NULL */
+		return (1);
 	}
 	while ( (lx->prev != NULL) && !(lx->lflag & LSTAT_TOP) ) {
 		lx = lx->prev;
@@ -97,7 +98,7 @@ prev_lp (int ri, LINE **linep_p, int *count)
 	*linep_p = lx;
 	if (count != NULL)
 		*count = cnt;
-	return (1);
+	return (0);
 } /* prev_lp  */
 
 /* ------------------------------------------------------------------ */
@@ -112,7 +113,7 @@ int
 filter_all (const char *expr)
 {
 	return (filter_base(FILTER_ALL, expr));
-} /* filter_all */
+}
 
 /*
 ** filter_more - make more lines visible according to the parameter;
@@ -124,7 +125,7 @@ int
 filter_more (const char *expr)
 {
 	return (filter_base(FILTER_MORE, expr));
-} /* filter_more */
+}
 
 /*
 ** filter_less - make less lines visible according to the parameter;
@@ -136,7 +137,7 @@ int
 filter_less (const char *expr)
 {
 	return (filter_base(FILTER_LESS, expr));
-} /* filter_less */
+}
 
 /*
 ** filter_m1 - make 1 line more visible around sequences of visible lines
@@ -171,51 +172,6 @@ filter_m1 (void)
 
 	return (0);
 }
-
-#if 0
-//
-// filter_l1 - make 1 line less visible around sequences of hidden lines
-//	(expand hidden ranges, focus line moves down, maybe)
-//
-int
-filter_l1 (void)
-{
-	int prev, masked, cnt;
-	int fmask;
-	LINE *lx;
-
-	/* activate filter */
-	CURR_FILE.fflag |= FMASK(CURR_FILE.flevel);
-	fmask = FMASK(CURR_FILE.flevel);
-
-	lx = CURR_FILE.top->next;
-	prev = (lx->lflag & fmask);
-
-	while (TEXT_LINE(lx)) {
-		masked = (lx->lflag & fmask);
-		if (prev != masked) {
-			if (masked) {
-				lx->prev->lflag |= fmask;
-			} else {
-				lx->lflag |= fmask;
-			}
-		}
-		prev = masked;
-		lx = lx->next;
-	}
-
-	/* skip to next if CURR_LINE is masked, and pull focus line
-	 */
-	if (CURR_LINE->lflag & fmask) {
-		next_lp (cnf.ring_curr, &(CURR_LINE), &cnt);
-		CURR_FILE.lineno += cnt;
-		CURR_FILE.lncol = get_col(CURR_LINE, CURR_FILE.curpos);
-	}
-	update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
-
-	return (0);
-}
-#endif
 
 /* ------------------------------------------------------------------ */
 
@@ -260,14 +216,10 @@ filter_base (int action, const char *expr)
 			ret = 0;
 		}
 
-	} else if (len < 3) {
-		/* the minimum is required */
-		return(0);
-
 	} else {
 
 		/* altered lines */
-		if (strncmp(expr, "alter", len)==0) {
+		if (len >= 3 && strncmp(expr, "alter", len)==0) {
 			lx = CURR_FILE.top->next;
 			while (TEXT_LINE(lx)) {
 				if (lx->lflag & (LSTAT_ALTER | LSTAT_CHANGE)) {
@@ -282,7 +234,7 @@ filter_base (int action, const char *expr)
 			}
 			ret = 0;
 
-		} else if (strncmp(expr, "selection", len)==0) {
+		} else if (len >= 3 && strncmp(expr, "selection", len)==0) {
 			lx = CURR_FILE.top->next;
 			lineno = 1;
 			while (TEXT_LINE(lx)) {
@@ -299,7 +251,7 @@ filter_base (int action, const char *expr)
 			}
 			ret = 0;
 
-		} else if (strncmp(expr, "aliens", len)==0) {
+		} else if (len >= 5 && strncmp(expr, "aliens", len)==0) {
 			lx = CURR_FILE.top->next;
 			lineno = 1;
 			while (TEXT_LINE(lx)) {
@@ -316,30 +268,38 @@ filter_base (int action, const char *expr)
 			}
 			ret = 0;
 
-		} else if (strncmp(expr, "function", len)==0) {
+		} else if (len >= 4 && strncmp(expr, "function", len)==0) {
 			ret = filter_func (action, fmask);
 
-		} else if (expr[0] == ':') {
+		} else if (len >= 2 && expr[0] == ':') {
 			ret = 1;
 			lineno = atoi(&expr[1]);
 			if (lineno >= 1 && lineno <= CURR_FILE.num_lines) {
+				if (action & FILTER_ALL) {
+					lx = CURR_FILE.top->next;
+					while (TEXT_LINE(lx)) {
+						lx->lflag |= fmask;
+						lx = lx->next;
+					}
+				}
 				lx = lll_goto_lineno (cnf.ring_curr, lineno);
 				if (TEXT_LINE(lx)) {
 					CURR_LINE = lx;
 					CURR_FILE.lineno = lineno;
+					if (action & (FILTER_MORE | FILTER_ALL))
+						lx->lflag &= ~fmask;
+					else if (action & FILTER_LESS)
+						lx->lflag |= fmask;
 					ret = 0;
 				}
 			}
-			if (ret == 0) {
-				if (action & (FILTER_MORE | FILTER_ALL))
-					lx->lflag &= ~fmask;
-				else if (action & FILTER_LESS)
-					lx->lflag |= fmask;
-			}/* no else branch here! */
 
-		} else {
+		} else if (len >= 3) {
 			/* regcomp fail is possible */
 			ret = filter_regex (action, fmask, expr);
+		} else {
+			/* the minimum length is required */
+			return(0);
 		}
 	} /* len */
 
@@ -375,266 +335,500 @@ filter_func (int action, int fmask)
 {
 	int ret=0;
 
+	/* temp view all */
+	CURR_FILE.fflag &= ~fmask;
 	if (CURR_FILE.ftype == C_FILETYPE) {
-		ret = filter_func_bottom_up (action, fmask);
-	} else if (CURR_FILE.ftype == PERL_FILETYPE ||
-		CURR_FILE.ftype == TCL_FILETYPE ||
-		CURR_FILE.ftype == SHELL_FILETYPE ||
-		CURR_FILE.ftype == PYTHON_FILETYPE ||
-		CURR_FILE.ftype == TEXT_FILETYPE)
-	{
-		ret = filter_func_top_down (action, fmask);
-	} else {
-		ret = 0;
+		ret = filter_func_eng_clang (action, fmask, NULL);
+	} else if (CURR_FILE.ftype == PERL_FILETYPE || CURR_FILE.ftype == SHELL_FILETYPE) {
+		ret = filter_func_eng_other (action, fmask, NULL);
+	} else if (CURR_FILE.ftype == PYTHON_FILETYPE) {
+		ret = filter_func_eng_easy (action, fmask, NULL);
 	}
+	/* temp view disabled */
+	CURR_FILE.fflag |= fmask;
 
 	return (ret);
 }
 
-/*
-* view or hide C/C++ function headers: more or less, this algorithm is running from bottom to top
+/* copy the somewhat cleaner code from inbuff to outbuff without shifting bytes,
+* just overwrite -- this is for C/C++ language sources;
+* assumed the code is compilable, but multiline comments or strings can mislead;
+* the preprocessor instructions can make confusion also
+*/
+void
+purify_for_matching_clang (char *outb, const char *inbuff, int len)
+{
+	int offset, xch, i, missed=0;
+
+	offset = 0;
+	while (offset < len && inbuff[offset] != '\0') {
+		outb[offset] = inbuff[offset];
+		if (inbuff[offset] == '\'') {
+			/* C literal with apostrophe 0x27 */
+			offset++;
+			if (offset+1 < len && inbuff[offset] != '\\' && inbuff[offset+1] == '\'') {
+				/* C literal found */
+				outb[offset] = ' ';
+				outb[offset+1] = inbuff[offset+1];
+				offset += 2;
+			} else if (offset+2 < len && inbuff[offset] == '\\' && inbuff[offset+2] == '\'') {
+				/* C literal found with char escape */
+				outb[offset] = ' ';
+				outb[offset+1] = ' ';
+				outb[offset+2] = inbuff[offset+2];
+				offset += 3;
+			} else {
+				missed++;
+				// "failed literal match offset=%d [%s]", offset, inbuff);
+			}
+		} else if (inbuff[offset] == '"') {
+			/* one-line C string with double quotes 0x22 */
+			xch = inbuff[offset];
+			offset++;
+			for (i = offset; i < len; i++) {
+				if (inbuff[i-1] != '\\' && inbuff[i] == xch) {
+					while (offset < i)
+						outb[offset++] = ' ';
+					outb[offset] = inbuff[offset];
+					offset++;
+					break;
+				}
+			}
+			if (i > offset) {
+				missed++;
+				FILT_LOG(LOG_NOTICE, "failed string match offset=%d [%s]", offset, inbuff); /* testing */
+			}
+		} else if (offset+1 < len && inbuff[offset] == '/' && inbuff[offset+1] == '/') {
+			/* C++ comment found, clear to EoL */
+			while (offset < len-1)
+				outb[offset++] = ' ';
+			outb[offset] = inbuff[offset];
+			offset++;
+			break;
+		} else if (offset+1 < len && inbuff[offset] == '/' && inbuff[offset+1] == '*') {
+			/* one-line C comments */
+			offset++;
+			outb[offset] = inbuff[offset];
+			offset++;
+			for (i = offset; i+1 < len; i++) {
+				if (inbuff[i] == '*' && inbuff[i+1] == '/') {
+					offset -= 2;
+					while (offset <= i+1)
+						outb[offset++] = ' ';
+					break;
+				}
+			}
+			if (i > offset) {
+				missed++;
+				// "failed /**/ offset=%d", offset);
+			}
+		} else {
+			offset++; /* skip and keep other chars */
+		}
+	}
+	outb[offset] = '\0';
+
+	if (missed + offset!=len) {
+		;/* stateless function */
+		FILT_LOG(LOG_NOTICE, "finished (missed=%d) fname=%s", missed + offset!=len, CURR_FILE.fname);
+	}
+	return;
+}
+
+/* copy the somewhat cleaner code from inbuff to outbuff without shifting bytes,
+* just overwrite -- this is for Perl, Shell and similar language sources;
+* multiline strings, here-documents and regex patterns can make confusion
+*/
+void
+purify_for_matching_other (char *outb, const char *inbuff, int len)
+{
+	int offset, xch, i, missed=0;
+
+	offset = 0;
+	while (offset < len && inbuff[offset] != '\0') {
+		outb[offset] = inbuff[offset];
+		if (inbuff[offset] == '"' || inbuff[offset] == '\'') {
+			/* one-line string with double quotes 0x22 or apostrophe 0x27 */
+			xch = inbuff[offset];
+			offset++;
+			for (i = offset; i < len; i++) {
+				if (inbuff[i-1] != '\\' && inbuff[i] == xch) {
+					while (offset < i)
+						outb[offset++] = ' ';
+					outb[offset] = inbuff[offset];
+					offset++;
+					break;
+				}
+			}
+			if (i > offset) {
+				missed++;
+				// "failed string match offset=%d [%s]", offset, inbuff);
+			}
+		} else if ((offset==0 || inbuff[offset-1]==' ') && inbuff[offset] == '#') {
+			/* comment found, clear to EoL --- think $#+ $#- $ARGV and ${#array} ${#@} $# etc */
+			while (offset < len-1)
+				outb[offset++] = ' ';
+			outb[offset] = inbuff[offset];
+			offset++;
+			break;
+		} else {
+			offset++; /* skip and keep other chars */
+		}
+	}
+	outb[offset] = '\0';
+
+	if (missed + offset!=len) {
+		;/* stateless function */
+		FILT_LOG(LOG_NOTICE, "finished (missed=%d) fname=%s", missed + offset!=len, CURR_FILE.fname);
+	}
+	return;
+}
+
+/* function/block header patterns
+*/
+#define C_MATCHNAME		"([a-zA-Z_][a-zA-Z0-9:_]*)"
+#define C_HEADER_ONE_PATTERN	C_MATCHNAME "[[:blank:]]*[(][^)]*[)]"
+#define C_HEADER_TOP_PATTERN	C_MATCHNAME "[[:blank:]]*[(][,*a-zA-Z0-9:_[:blank:]]*$"
+// on BoL but optionally with typedef
+#define C_STRUCTURE_PATTERN	"(struct|enum|union)[[:blank:]]+" C_MATCHNAME "[^,()]*$"
+// literal struct assignment
+#define C_STRUCTURE_4PATTERN	"([^[:blank:]]+)[[:blank:]]*=[[:blank:]]*[{]"
+// easy header patterns
+#define PERL_MATCHNAME		"([.a-zA-Z0-9:_]+)"
+#define PERL_HEADER_PATTERN	"^sub[[:blank:]]+" PERL_MATCHNAME
+#define SHELL_MATCHNAME		"([a-zA-Z0-9_]+)"
+#define SHELL_HEADER_PATTERN	"^function[[:blank:]]+" SHELL_MATCHNAME "|" "^" SHELL_MATCHNAME "[[:blank:]]*[(][)]"
+#define PYTHON_MATCHNAME	"([a-zA-Z0-9_]+)"
+#define PYTHON_HEADER_PATTERN	"^[[:blank:]]*(def|class)[[:blank:]]+" PYTHON_MATCHNAME ".*:" "|" "(__main__).?:"
+
+/* headers can be very different, depending on indentation style,
+* the closing curly brace seems to be a good startpoint to explore the hierarchy
 */
 static int
-filter_func_bottom_up (int action, int fmask)
+filter_func_eng_clang (int action, int fmask, char *symbol)
 {
-	LINE *lx=NULL, *lp=NULL;
-	int level=IL_NONE;
-	regex_t reg1, reg2, reg3;
+	LINE *lx;
+	regex_t reg1, reg2, reg3, reg4;
 	const char *expr;
 	regmatch_t pmatch[10];	/* match and sub match */
+	int starting_lno;
+	int lncol, lno, show_hide, searching_for_header;
 
-	if (CURR_FILE.ftype == C_FILETYPE) {
-		expr = C_HEADER_PATTERN;
-		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
+	if (CURR_FILE.num_lines < 1)
+		return 0;
+
+	if (action & FILTER_ALL) {
+		/* hide all lines */
+		lx = CURR_FILE.top->next;
+		while (TEXT_LINE(lx)) {
+			lx->lflag |= fmask;
+			lx = lx->next;
 		}
-		expr = C_STRUCTURE_PATTERN;
-		if (regcomp (&reg2, expr, REGCOMP_OPTION)) {
-			regfree (&reg1);
-			return (1); /* internal regcomp failed */
+	}
+
+	starting_lno = CURR_FILE.lineno;
+	if (action & FILTER_GET_SYMBOL) {
+		/* get next block-end lno */
+		lx = CURR_LINE;
+		lno = CURR_FILE.lineno;
+		while (TEXT_LINE(lx) && lx->buff[0] != '}') {
+			lx = lx->next;
+			lno++;
 		}
 	} else {
-		/* unknown */
-		return (0);
+		/* get last block-end lno in the file */
+		lx = CURR_FILE.bottom->prev;
+		lno = CURR_FILE.num_lines;
+		while (TEXT_LINE(lx) && lx->buff[0] != '}') {
+			lx = lx->prev;
+			lno--;
+		}
 	}
+	if (!(TEXT_LINE(lx) && lx->buff[0] == '}'))
+		return 0;
 
-	expr = HEADER_PATTERN_END;
+	expr = C_HEADER_ONE_PATTERN;
+	if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
+		ERRLOG(0xE08B);
+		return 1; /* internal regcomp failed */
+	}
+	expr = C_HEADER_TOP_PATTERN;
+	if (regcomp (&reg2, expr, REGCOMP_OPTION)) {
+		ERRLOG(0xE08A);
+		regfree (&reg1);
+		return 1; /* internal regcomp failed */
+	}
+	expr = C_STRUCTURE_PATTERN;
 	if (regcomp (&reg3, expr, REGCOMP_OPTION)) {
+		ERRLOG(0xE089);
 		regfree (&reg1);
 		regfree (&reg2);
-		return (1); /* internal regcomp failed */
+		return 1; /* internal regcomp failed */
+	}
+	expr = C_STRUCTURE_4PATTERN;
+	if (regcomp (&reg4, expr, REGCOMP_OPTION)) {
+		ERRLOG(0xE088);
+		regfree (&reg1);
+		regfree (&reg2);
+		regfree (&reg3);
+		return 1; /* internal regcomp failed */
 	}
 
-	lx = CURR_FILE.bottom->prev;
-	level = IL_NONE;
+	searching_for_header = 0;
 	while (TEXT_LINE(lx)) {
-		if (lx->llen < 1) {
-			; /* error */
-
-		} else if (lx->buff[0] == CLOSE_CURBRAC) {
-			level = IL_END;
-		} else if (lx->buff[0] == OPEN_CURBRAC) {
-			level = IL_BEGIN;
-
-		} else if (level == IL_END) {
-			/* simple extra check, if block is empty */
-			if (lx->llen > 3 && strchr(&lx->buff[0], OPEN_CURBRAC) != NULL) {
-				/* safe guess */
-				level = IL_BEGIN;
-			} else {
-				level = IL_INTERN;
-			}
-		} else if (level == IL_HEADER) {
-			level = IL_NONE;
-
-		} else if (CURR_FILE.ftype == C_FILETYPE) {
-			if (level == IL_INTERN) {
-				if (!regexec(&reg2, lx->buff, 10, pmatch, 0)) {
-					level = IL_HEADER;
-				}
-				else if (!regexec(&reg3, lx->buff, 10, pmatch, 0)) {
-					lp = TEXT_LINE(lx->prev) ? lx->prev : NULL;
-					if (lx->llen > 3 && lx->buff[0] != ' ' && lx->buff[0] != '\t' &&
-					!regexec(&reg1, lx->buff, 10, pmatch, 0))
-					{
-						level = IL_HEADER;
-					}
-					else if (lp && lp->llen > 3 && lp->buff[0] != ' ' && lp->buff[0] != '\t' &&
-					!regexec(&reg1, lp->buff, 10, pmatch, 0))
-					{
-						/* lp is a valid header, lx is a good begin */
-						level = IL_BEGIN;
-					}
-				}
-
-			} else if (level == IL_BEGIN) {
-				lp = TEXT_LINE(lx->prev) ? lx->prev : NULL;
-				if (!regexec(&reg2, lx->buff, 10, pmatch, 0)) {
-					level = IL_HEADER;
-				}
-				else if (lx->llen > 3 && lx->buff[0] != ' ' && lx->buff[0] != '\t' &&
-				!regexec(&reg1, lx->buff, 10, pmatch, 0))
-				{
-					level = IL_HEADER;
-				}
-				else if (lp && lp->llen > 3 && lp->buff[0] != ' ' && lp->buff[0] != '\t' &&
-				!regexec(&reg1, lp->buff, 10, pmatch, 0))
-				{
-					/* lp is a valid header, lx is still a good begin */
-					level = IL_BEGIN;
-				} else {
-					/* match failed */
-					level = IL_NONE;
-				}
-			}
-		}
-
-		/* set flag for hide or clear to make visible */
-		if (level & (IL_HEADER | IL_BEGIN | IL_END)) {
+		if (lx->buff[0] == '}') {
 			if (action & (FILTER_MORE | FILTER_ALL))
 				lx->lflag &= ~fmask;
 			else if (action & FILTER_LESS)
 				lx->lflag |= fmask;
-		} else if (action & FILTER_ALL) {
-			lx->lflag |= fmask;
+			lncol = 0;
+			lx = tomatch_eng (lx, &lno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_CLANG);
+			if (!(TEXT_LINE(lx) && lx->buff[lncol] == '{'))
+				break;
+			searching_for_header = 1;
+
+		} else {
+			if (searching_for_header) {
+				show_hide = 0;
+				if (lx->buff[lncol] == '{') {
+					show_hide = 1;
+				}
+
+				if ((lx->llen > 1) && ((lx->buff[0] == '*') || (lx->buff[0] == ' ' && lx->buff[1] == '*'))) {
+					/* not a function header, maybe a comment ---> unhide, reset lncol, skip regex */
+					show_hide = 0;
+					lncol = 0;
+				}
+				else if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
+					show_hide = 1;
+					searching_for_header = 0;
+				}
+				else if (!regexec(&reg2, lx->buff, 10, pmatch, 0)) {
+					show_hide = 2;
+					searching_for_header = 0;
+				}
+				else if ((lx->llen > 5) && (lx->buff[0]=='t' || lx->buff[0]=='s' || lx->buff[0]=='e' || lx->buff[0]=='u') &&
+				!regexec(&reg3, lx->buff, 10, pmatch, 0)) {
+					/* ^(?:typedef )?(struct|enum|union) */
+					show_hide = 3;
+					searching_for_header = 0;
+				}
+				else if (lncol > 5) {
+					if ((lx->buff[lncol-1] == '=') || (lx->buff[lncol-2] == '=' && lx->buff[lncol-1] == ' '))
+					{
+						if (!regexec(&reg4, lx->buff, 10, pmatch, 0)) {
+							show_hide = 4;
+							searching_for_header = 0;
+						}
+					}
+				}
+
+				if (show_hide) {
+					/* set flag for hide or clear to make visible */
+					if (action & (FILTER_MORE | FILTER_ALL))
+						lx->lflag &= ~fmask;
+					else if (action & FILTER_LESS)
+						lx->lflag |= fmask;
+				}
+				if (!searching_for_header) {
+					if (action & FILTER_GET_SYMBOL) {
+						if ((symbol != NULL) && (lno <= starting_lno)) {
+							int ix, iy, nsub;
+							// maybe 2 subpatterns
+							nsub = (pmatch[2].rm_so >= 0 && pmatch[2].rm_so < pmatch[2].rm_eo) ? 2 : 1;
+							// hack... sizeof(symbol) is TAGSTR_SIZE
+							for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
+								symbol[iy++] = lx->buff[ix];
+							symbol[iy] = '\0';
+							FILT_LOG(LOG_NOTICE, "reg%d nsub %d -- %ld %ld symbol [%s]",
+								searching_for_header, nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+						}
+						break;
+					}
+				}
+			}
+
+			lx = lx->prev;
+			lno--;
 		}
-
-		lx = lx->prev;
 	}
-
-	if (CURR_FILE.ftype == C_FILETYPE) {
-		regfree (&reg1);
-		regfree (&reg2);
-	}
+	regfree (&reg1);
+	regfree (&reg2);
 	regfree (&reg3);
+	regfree (&reg4);
 
-	return (0);
-} /* filter_func_bottom_up */
+	return 0;
+}
 
-/*
-* view or hide function block headers: more or less, this algorithm is running from top to bottom
+/* the "main" is not necessarily a block, the source is often just flat,
+* so the only reliable pattern is the header line, use the regexp match
 */
 static int
-filter_func_top_down (int action, int fmask)
+filter_func_eng_other (int action, int fmask, char *symbol)
 {
-	LINE *lx=NULL;
-	int level=IL_NONE;
-	regex_t reg1, reg2;
+	LINE *lx;
+	regex_t reg1;
 	const char *expr;
 	regmatch_t pmatch[10];	/* match and sub match */
+	int lncol, lno, searching_for_brace;
+
+	if (CURR_FILE.num_lines < 1)
+		return 0;
+
+	if (action & FILTER_ALL) {
+		/* hide all lines */
+		lx = CURR_FILE.top->next;
+		while (TEXT_LINE(lx)) {
+			lx->lflag |= fmask;
+			lx = lx->next;
+		}
+	}
 
 	if (CURR_FILE.ftype == PERL_FILETYPE) {
 		expr = PERL_HEADER_PATTERN;
 		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
-		}
-	} else if (CURR_FILE.ftype == TCL_FILETYPE) {
-		expr = TCL_HEADER_PATTERN;
-		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
+			ERRLOG(0xE087);
+			return 1; /* internal regcomp failed */
 		}
 	} else if (CURR_FILE.ftype == SHELL_FILETYPE) {
 		expr = SHELL_HEADER_PATTERN;
 		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
-		}
-	} else if (CURR_FILE.ftype == PYTHON_FILETYPE) {
-		expr = PYTHON_HEADER_PATTERN;
-		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
-		}
-	} else if (CURR_FILE.ftype == TEXT_FILETYPE) {
-		expr = TEXT_HEADER_PATTERN;
-		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
-			return (1); /* internal regcomp failed */
+			ERRLOG(0xE086);
+			return 1; /* internal regcomp failed */
 		}
 	} else {
-		/* unknown */
-		return (0);
+		return 0;
 	}
 
-	expr = HEADER_PATTERN_END2;
-	if (regcomp (&reg2, expr, REGCOMP_OPTION)) {
-		regfree (&reg1);
-		return (1); /* internal regcomp failed */
-	}
-
-	lx = CURR_FILE.top->next;
-	level = IL_NONE;
-	while (TEXT_LINE(lx)) {
-		if (lx->llen < 1) {
-			; /* error */
-
-		} else if (CURR_FILE.ftype == PYTHON_FILETYPE) {
-			/* simple check, header or not */
+	if (action & FILTER_GET_SYMBOL) {
+		lx = CURR_LINE;
+		lno = CURR_FILE.lineno;
+		while ((symbol != NULL) && TEXT_LINE(lx)) {
 			if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
-				level = IL_HEADER;
-			} else {
-				level = IL_NONE;
-			}
-		} else if (CURR_FILE.ftype == TEXT_FILETYPE) {
-			/* simple check, header or not */
-			if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
-				level = IL_HEADER;
-			} else {
-				level = IL_NONE;
+				int ix, iy, nsub;
+				// maybe 2 subpatterns
+				nsub = (pmatch[2].rm_so >= 0 && pmatch[2].rm_so < pmatch[2].rm_eo) ? 2 : 1;
+				// hack... sizeof(symbol) is TAGSTR_SIZE
+				for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
+					symbol[iy++] = lx->buff[ix];
+				symbol[iy] = '\0';
+				// "reg1 nsub %d -- %ld %ld symbol [%s]",
+				// nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+				break;
 			}
 
-		} else if (level == IL_NONE) {
-			/* header check -> IL_HEADER or IL_BEGIN */
+			lx = lx->prev;
+			lno--;
+		}
+	} else {
+		lx = CURR_FILE.top->next;
+		lno = 1;
+		searching_for_brace = 0;
+		while (TEXT_LINE(lx)) {
 			if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
-				if (!regexec(&reg2, lx->buff, 10, pmatch, 0)) {
-					/* double match, jump over IL_HEADER */
-					level = IL_BEGIN;
-				} else {
-					/* next line should be IL_BEGIN */
-					level = IL_HEADER;
+				if (action & (FILTER_MORE | FILTER_ALL))
+					lx->lflag &= ~fmask;
+				else if (action & FILTER_LESS)
+					lx->lflag |= fmask;
+				searching_for_brace = 1;
+			}
+
+			if (searching_for_brace) {
+				/* opening brace on the header line or later */
+				for (lncol = 0; lncol < lx->llen; lncol++) {
+					if (lx->buff[lncol] == '{')
+						break;
+				}
+				if (lx->buff[lncol] == '{') {
+					if (action & (FILTER_MORE | FILTER_ALL))
+						lx->lflag &= ~fmask;
+					else if (action & FILTER_LESS)
+						lx->lflag |= fmask;
+					searching_for_brace = 0;
+
+					lx = tomatch_eng (lx, &lno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_OTHER);
+					if (!(TEXT_LINE(lx) && lx->buff[lncol] == '}'))
+						break;
+
+					if (action & (FILTER_MORE | FILTER_ALL))
+						lx->lflag &= ~fmask;
+					else if (action & FILTER_LESS)
+						lx->lflag |= fmask;
+				} else if (++searching_for_brace > 2) {
+					/* checked the header and following line is enough */
+					searching_for_brace = 0;
 				}
 			}
 
-		} else if (level == IL_HEADER) {
-			if (lx->buff[0] == OPEN_CURBRAC) {
-				level = IL_BEGIN;
-			} else {
-				/* this is somehow an error */
-				level = IL_NONE;
-			}
-
-		} else if (level == IL_BEGIN) {
-			if (lx->buff[0] == CLOSE_CURBRAC) {
-				/* empty block */
-				level = IL_END;
-			} else {
-				level = IL_INTERN;
-			}
-
-		} else if (level == IL_INTERN) {
-			if (lx->buff[0] == CLOSE_CURBRAC) {
-				level = IL_END;
-			}
-
-		} else if (level == IL_END) {
-			level = IL_NONE;
+			lx = lx->next;
+			lno++;
 		}
+	}
+	regfree (&reg1);
 
-		/* set flag for hide or clear to make visible */
-		if (level & (IL_HEADER | IL_BEGIN | IL_END)) {
-			if (action & (FILTER_MORE | FILTER_ALL))
-				lx->lflag &= ~fmask;
-			else if (action & FILTER_LESS)
-				lx->lflag |= fmask;
-		} else if (action & FILTER_ALL) {
-			lx->lflag |= fmask;
+	return 0;
+}
+
+/* no brace for hierarchy, use the regex pattern for match
+*/
+static int
+filter_func_eng_easy (int action, int fmask, char *symbol)
+{
+	LINE *lx;
+	regex_t reg1;
+	const char *expr;
+	regmatch_t pmatch[10];	/* match and sub match */
+
+	if (CURR_FILE.num_lines < 1)
+		return 0;
+
+	if (CURR_FILE.ftype == PYTHON_FILETYPE) {
+		expr = PYTHON_HEADER_PATTERN;
+		if (regcomp (&reg1, expr, REGCOMP_OPTION)) {
+			ERRLOG(0xE085);
+			return 1; /* internal regcomp failed */
 		}
-
-		lx = lx->next;
+	} else {
+		return 0;
 	}
 
+	if (action & FILTER_GET_SYMBOL) {
+		lx = CURR_LINE;
+		while ((symbol != NULL) && TEXT_LINE(lx)) {
+			if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
+				int ix, iy, nsub;
+				// even 3 subpatterns
+				nsub = (pmatch[3].rm_so >= 0 && pmatch[2].rm_so < pmatch[3].rm_eo) ? 3 :
+					((pmatch[2].rm_so >= 0 && pmatch[2].rm_so < pmatch[2].rm_eo) ? 2 : 1);
+				// hack... sizeof(symbol) is TAGSTR_SIZE
+				for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
+					symbol[iy++] = lx->buff[ix];
+				symbol[iy] = '\0';
+				// "reg1 nsub %d -- %ld %ld symbol [%s]",
+				// nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+				break;
+			}
+			lx = lx->prev;
+		}
+	} else {
+		lx = CURR_FILE.top->next;
+		while (TEXT_LINE(lx)) {
+			if (!regexec(&reg1, lx->buff, 10, pmatch, 0)) {
+				if (action & (FILTER_MORE | FILTER_ALL))
+					lx->lflag &= ~fmask;
+				else if (action & FILTER_LESS)
+					lx->lflag |= fmask;
+			} else {
+				if (action & FILTER_ALL)
+					lx->lflag |= fmask;
+			}
+			lx = lx->next;
+		}
+	}
 	regfree (&reg1);
-	regfree (&reg2);
 
-	return (0);
-} /* filter_func_top_down */
+	return 0;
+}
 
 /*
 * return current block or function name
@@ -644,116 +838,48 @@ char *
 block_name (int ri)
 {
 	char *symbol=NULL;
-	LINE *lx=NULL, *lp_end=NULL, *lp=NULL;
-	int lineno=0, lncol=0;
-	int fmask=0, mask_active=0;
+	int orig_ri, action, fmask, mask_active;
+
+	if (ri < 0 || ri >= RINGSIZE || !(cnf.fdata[ri].fflag & FSTAT_OPEN))
+		return (symbol);
 
 	symbol = (char *) MALLOC(TAGSTR_SIZE);
 	if (symbol == NULL) {
-		return symbol;
-	}
-	symbol[0] = '\0';
-
-	if (ri < 0 || ri >= RINGSIZE || !(cnf.fdata[ri].fflag & FSTAT_OPEN)) {
+		ERRLOG(0xE021);
 		return (symbol);
 	}
+	strncpy(symbol, "(unknown)", 10); /* TAGSTR_SIZE */
 
-	/* general fallback */
-	strncpy(symbol, "(unknown)", 10);
-
-	if (CURR_FILE.ftype != C_FILETYPE &&
-	CURR_FILE.ftype != PERL_FILETYPE &&
-	CURR_FILE.ftype != TCL_FILETYPE &&
-	CURR_FILE.ftype != SHELL_FILETYPE)
-	{
-		return (symbol);
-	}
-
-	/* try to find block end... */
-	lx = CURR_LINE;
-	lineno = CURR_FILE.lineno;
-	while (TEXT_LINE(lx)) {
-		if (lx->llen > 0 && lx->buff[lncol] == CLOSE_CURBRAC) {
-			break;
-		}
-		lx = lx->next;
-		lineno++;
-	}
-
-	if (!TEXT_LINE(lx)) {
-		FILT_LOG(LOG_DEBUG, "block end not found");
-		return (symbol);
-	}
-
-	/* block-end found, save it */
-	lp_end = lx;
+	/* CURR_FILE must be set for the engine */
+	orig_ri = cnf.ring_curr;
+	cnf.ring_curr = ri;
 
 	fmask = FMASK(CURR_FILE.flevel);
 	mask_active = (LMASK(cnf.ring_curr) != 0);
 
-	/* try to find block begin... */
+	/* temp view all */
 	if (mask_active)
 		CURR_FILE.fflag &= ~fmask;
-	lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
+
+	action = FILTER_GET_SYMBOL;
+	if (CURR_FILE.ftype == C_FILETYPE) {
+		filter_func_eng_clang (action, fmask, symbol);
+		FILT_LOG(LOG_NOTICE, "symbol: clang [%s]", symbol); /* for testing */
+	} else if (CURR_FILE.ftype == PERL_FILETYPE || CURR_FILE.ftype == SHELL_FILETYPE) {
+		filter_func_eng_other (action, fmask, symbol);
+		FILT_LOG(LOG_NOTICE, "symbol: other [%s]", symbol); /* for testing */
+	} else if (CURR_FILE.ftype == PYTHON_FILETYPE) {
+		filter_func_eng_easy (action, fmask, symbol);
+		FILT_LOG(LOG_NOTICE, "symbol: easy [%s]", symbol); /* for testing */
+	}
+
+	/* restore temp view */
 	if (mask_active)
 		CURR_FILE.fflag |= fmask;
 
-	if (!TEXT_LINE(lx) || lineno > CURR_FILE.lineno+1) {
-		FILT_LOG(LOG_DEBUG, "block begin not found");
-		return (symbol);
-	}
-	if (lx->buff[0] == OPEN_CURBRAC) {
-		lx = lx->prev;
-		if (!TEXT_LINE(lx)) {
-			FILT_LOG(LOG_DEBUG, "block header missing");
-			return (symbol);
-		}
-	}
+	/* restore CURR_FILE */
+	cnf.ring_curr = orig_ri;
 
-	/* new fallback */
-	strncpy(symbol, "(file level)", 13);
-
-	/* on the header line, try to match block name... */
-	if (CURR_FILE.ftype == C_FILETYPE) {
-		if (lx->llen > 10 && strncmp(&lx->buff[0], "typedef", 7) == 0) {
-			regexp_match(&lx->buff[0], C_STRUCTURE_PATTERN, 4, symbol);
-			FILT_LOG(LOG_DEBUG, "C typedef ... [%s]", symbol);
-		} else {
-			if (!regexp_match(&lx->buff[0], C_STRUCTURE_PATTERN, 2, symbol)) {
-				; /* ok, match */
-				FILT_LOG(LOG_DEBUG, "C structure ... [%s]", symbol);
-			} else {
-				lp = TEXT_LINE(lx->prev) ? lx->prev : NULL;
-				if (lx->llen > 3 && lx->buff[0] != ' ' && lx->buff[0] != '\t' &&
-				!regexp_match(&lx->buff[0], C_HEADER_PATTERN, 1, symbol))
-				{
-					; /* ok, match */
-					FILT_LOG(LOG_DEBUG, "C header ... [%s]", symbol);
-				}
-				else if (lp && lp->llen > 3 && lp->buff[0] != ' ' && lp->buff[0] != '\t' &&
-				!regexp_match(&lp->buff[0], C_HEADER_PATTERN, 1, symbol))
-				{
-					; /* ok, match */
-					FILT_LOG(LOG_DEBUG, "C header (prev) ... [%s]", symbol);
-				}
-			}
-		}
-	} else if (CURR_FILE.ftype == PERL_FILETYPE) {
-		regexp_match(&lx->buff[0], PERL_HEADER_PATTERN, 1, symbol);
-		FILT_LOG(LOG_DEBUG, "Perl ... [%s]", symbol);
-	} else if (CURR_FILE.ftype == TCL_FILETYPE) {
-		regexp_match(&lx->buff[0], TCL_HEADER_PATTERN, 1, symbol);
-		FILT_LOG(LOG_DEBUG, "Tcl ... [%s]", symbol);
-	} else if (CURR_FILE.ftype == SHELL_FILETYPE) {
-		if (lx->llen > 10 && strncmp(&lx->buff[0], "function", 8) == 0) {
-			regexp_match(&lx->buff[0], SHELL_HEADER_PATTERN, 1, symbol);
-		} else {
-			regexp_match(&lx->buff[0], SHELL_HEADER_PATTERN, 2, symbol);
-		}
-		FILT_LOG(LOG_DEBUG, "Shell ... [%s]", symbol);
-	}
-
-	FILT_LOG(LOG_DEBUG, "symbol [%s]", symbol);
 	return (symbol);
 } /* block_name */
 
@@ -991,6 +1117,31 @@ decr2_filter_level (void)
 	return (0);
 } /* decr2_filter_level */
 
+/* ------------------------------------------------------------------ */
+
+/* re-allocate space for common tasks, never less
+*/
+int
+common_space (int length)
+{
+	char *ptr;
+	unsigned als = (length > 0) ? (unsigned)length : 1;
+
+	if (ALLOCSIZE(als) > cnf.temp_als) {
+		cnf.temp_als = ALLOCSIZE(als);
+		ptr = (char *) REALLOC((void *)cnf.temp_buffer, cnf.temp_als);
+		if (ptr == NULL) {
+			ERRLOG(0xE001);
+			cnf.temp_buffer = NULL;
+			cnf.temp_als = 0;
+		} else {
+			cnf.temp_buffer = ptr;
+		}
+	}
+
+	return (cnf.temp_buffer == NULL);
+}
+
 /*
 ** tomatch - go to the matching block character;
 **	pairs of Parenthesis "()", Square bracket "[]", Curly bracket "{}" and Angle bracket "<>" are searched
@@ -1003,9 +1154,8 @@ tomatch (void)
 	int o_lineno=0, o_lnoff=0, o_focus=0;
 
 	lp = CURR_LINE;
-	if (!TEXT_LINE(lp)) {
-		return (0);
-	}
+	if (!TEXT_LINE(lp))
+		return (0); /* cannot start from top or bottom */
 
 	lineno = o_lineno = CURR_FILE.lineno;
 	o_focus = CURR_FILE.focus;
@@ -1030,12 +1180,14 @@ tomatch (void)
 *	return the new line pointer (or NULL if anything failed) and set lineno, lncol
 */
 LINE *
-tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int set_focus)
+tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int config_bits)
 {
 	LINE *ret_lp=NULL;
 	int lineno, restore_focus, lncol;
 	int fcnt, found;
 	char chcur, tofind, dir, delim, ch;
+	int fallback = !(config_bits & TOMATCH_WITH_PURIFY);
+	char *tmpbuff;
 
 	/* initializing */
 	lineno = *io_lineno;
@@ -1068,24 +1220,25 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int set_focus)
 		lncol++;	/* initial skip */
 		delim++;
 		while (TEXT_LINE(lp)) {
+			if (!fallback && !common_space(lp->llen)) {
+				tmpbuff = cnf.temp_buffer;
+				if (config_bits & PURIFY_CLANG)
+					purify_for_matching_clang (tmpbuff, lp->buff, lp->llen);
+				else
+					purify_for_matching_other (tmpbuff, lp->buff, lp->llen);
+			} else {
+				tmpbuff = lp->buff; /* failure */
+				fallback = 2;
+			}
 
 			/* search in this line (skip 0x0a) */
 			while (lncol < lp->llen-1) {
-				ch = lp->buff[lncol];
-				/* in-line character constant check */
-				if ((ch == '\'') && (lncol+2 < lp->llen-1) &&
-				(lp->buff[lncol+2] == '\'')) {
-					lncol += 2;
-				} else if ((ch == '\'') && (lncol+3 < lp->llen-1) &&
-				(lp->buff[lncol+1] == '\\') && (lp->buff[lncol+3] == '\'')) {
-					lncol += 3;
-				} else {
-					if (ch == chcur) {
-						++delim;
-					} else if (ch == tofind && --delim == 0) {
-						found=1;
-						break;
-					}
+				ch = tmpbuff[lncol];
+				if (ch == chcur) {
+					++delim;
+				} else if (ch == tofind && --delim == 0) {
+					found=1;
+					break;
 				}
 				lncol++;
 			}
@@ -1106,24 +1259,25 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int set_focus)
 		lncol--;	/* initial skip */
 		delim++;
 		while (TEXT_LINE(lp)) {
+			if (!fallback && !common_space(lp->llen)) {
+				tmpbuff = cnf.temp_buffer;
+				if (config_bits & PURIFY_CLANG)
+					purify_for_matching_clang (tmpbuff, lp->buff, lp->llen);
+				else
+					purify_for_matching_other (tmpbuff, lp->buff, lp->llen);
+			} else {
+				tmpbuff = lp->buff; /* failure */
+				fallback = 2;
+			}
 
 			/* search in this line */
 			while (lncol >= 0) {
-				ch = lp->buff[lncol];
-				/* in-line character constant check */
-				if ((ch == '\'') && (lncol-2 >= 0) &&
-				(lp->buff[lncol-2] == '\'')) {
-					lncol -= 2;
-				} else if ((ch == '\'') && (lncol-3 >= 0) &&
-				(lp->buff[lncol-2] == '\\') && (lp->buff[lncol-3] == '\'')) {
-					lncol -= 3;
-				} else {
-					if (ch == chcur) {
-						++delim;
-					} else if (ch == tofind && --delim == 0) {
-						found=1;
-						break;
-					}
+				ch = tmpbuff[lncol];
+				if (ch == chcur) {
+					++delim;
+				} else if (ch == tofind && --delim == 0) {
+					found=1;
+					break;
 				}
 				lncol--;
 			}
@@ -1145,7 +1299,7 @@ tomatch_eng (LINE *lp, int *io_lineno, int *io_lncol, int set_focus)
 	if (found) {
 		ret_lp = lp;
 		*io_lineno = lineno;
-		if (set_focus == TOMATCH_SET_FOCUS) {
+		if (config_bits & TOMATCH_SET_FOCUS) {
 			update_focus(FOCUS_AVOID_BORDER, cnf.ring_curr);
 		} else {
 			CURR_FILE.focus = restore_focus;
@@ -1171,20 +1325,27 @@ forcematch (void)
 	char mask_active=0;
 
 	lp = CURR_LINE;
-	if (!TEXT_LINE(lp)) {
-		return (0);
-	}
+	if (!TEXT_LINE(lp))
+		return (0); /* cannot start from top or bottom */
 
 	lineno = CURR_FILE.lineno;
 	lncol = CURR_FILE.lncol;
 	fmask = FMASK(CURR_FILE.flevel);
 	mask_active = (LMASK(cnf.ring_curr) != 0);
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag &= ~fmask;
+
+	if (CURR_FILE.ftype == C_FILETYPE) {
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_CLANG);
+	} else if (CURR_FILE.ftype == PERL_FILETYPE ||
+		CURR_FILE.ftype == SHELL_FILETYPE ||
+		CURR_FILE.ftype == PYTHON_FILETYPE) {
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_OTHER);
+	} else { /* TEXT_FILETYPE */
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	}
 
-	lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
 	if (lp != NULL) {
 		/* unhide */
 		lp->lflag &= ~fmask;
@@ -1194,11 +1355,11 @@ forcematch (void)
 		CURR_FILE.lncol = lncol;
 		update_curpos(cnf.ring_curr);
 		update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
+		FILT_LOG(LOG_NOTICE, "success: lncol %d line [%s]", CURR_FILE.lncol, CURR_LINE->buff); /* for testing */
 	}
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag |= fmask;
-	}
 
 	return (0);
 } /* forcematch */
@@ -1215,19 +1376,25 @@ fold_block (void)
 	char mask_active=0, do_unhide=0;
 
 	lp = CURR_LINE;
-	if (!TEXT_LINE(lp)) {
-		return (0);
-	}
+	if (!TEXT_LINE(lp))
+		return (0); /* cannot start from top or bottom */
 	lineno = CURR_FILE.lineno;
 	lncol = CURR_FILE.lncol;
 	fmask = FMASK(CURR_FILE.flevel);
 	mask_active = (LMASK(cnf.ring_curr) != 0);
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag &= ~fmask;
-	}
 
-	lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
+	if (CURR_FILE.ftype == C_FILETYPE) {
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_CLANG);
+	} else if (CURR_FILE.ftype == PERL_FILETYPE ||
+		CURR_FILE.ftype == SHELL_FILETYPE ||
+		CURR_FILE.ftype == PYTHON_FILETYPE) {
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_OTHER);
+	} else { /* TEXT_FILETYPE */
+		lp = tomatch_eng (lp, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
+	}
 	if (lp != NULL) {
 
 		/* hide or unhide other lines back towards current */
@@ -1270,9 +1437,8 @@ fold_block (void)
 		/* current lineno/focus/lncol does not change */
 	}
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag |= fmask;
-	}
 
 	return (0);
 } /* fold_block */
@@ -1287,7 +1453,7 @@ fold_thisfunc (void)
 	LINE *lp_end=NULL;
 	LINE *lp_head=NULL;
 	LINE *lx=NULL;
-	int lineno=0, lncol=0;
+	int lineno, lncol;
 	int fmask=0;
 	int mask_active=0, do_unhide=0;
 	int hidden_to_end=0, hidden_to_head=0;
@@ -1298,50 +1464,44 @@ fold_thisfunc (void)
 	/* try to find block end... */
 	lx = CURR_LINE;
 	lineno = CURR_FILE.lineno;
+	lncol = 0;
 	while (TEXT_LINE(lx)) {
-		if (lx->llen > 0 && lx->buff[lncol] == CLOSE_CURBRAC) {
+		if (lx->llen > 0 && lx->buff[lncol] == '}')
 			break;
-		}
 		lx = lx->next;
 		lineno++;
 		if (lx->lflag & fmask) hidden_to_end++;
 	}
-
-	if (!TEXT_LINE(lx)) {
-		FILT_LOG(LOG_DEBUG, "block end not found");
-		return (1);	/* end not found */
-	}
+	if (!TEXT_LINE(lx))
+		return (1);	/* block end not found */
 
 	/* found, save block-end for the loop */
 	lp_end = lx;
-	FILT_LOG(LOG_DEBUG, "hidden lines to end %d, end hidden: %d",
-		hidden_to_end, ((lp_end->lflag & fmask) != 0));
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag &= ~fmask;
-	}
 
-	lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
-	if (!TEXT_LINE(lx)) {
-		FILT_LOG(LOG_DEBUG, "block begin not found (tomatch)");
-		if (mask_active) {
+	if (CURR_FILE.ftype == C_FILETYPE) {
+		lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_CLANG);
+	} else if (CURR_FILE.ftype == PERL_FILETYPE ||
+		CURR_FILE.ftype == SHELL_FILETYPE ||
+		CURR_FILE.ftype == PYTHON_FILETYPE) {
+		lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS | PURIFY_OTHER);
+	} else { /* TEXT_FILETYPE */
+		lx = tomatch_eng (lp_end, &lineno, &lncol, TOMATCH_DONT_SET_FOCUS);
+	}
+	if (!(TEXT_LINE(lx) && lineno <= CURR_FILE.lineno+1)) {
+		/* start lineno is not in the detected block, or block match failed */
+		if (mask_active)
 			CURR_FILE.fflag |= fmask;
-		}
-		return (1);	/* begin not found */
-	} else if (lineno > CURR_FILE.lineno+1) {
-		FILT_LOG(LOG_DEBUG, "block begin not found, current (%d) is before block (%d)", CURR_FILE.lineno, lineno);
-		if (mask_active) {
-			CURR_FILE.fflag |= fmask;
-		}
-		return (1);	/* begin not found */
+		return (1);	/* no match */
 	}
 
 	/* found, save block-head for the loop */
 	lp_head = lx;
 
-	if (mask_active) {
+	if (mask_active)
 		CURR_FILE.fflag |= fmask;
-	}
 
 	lx = lp_head;
 	while (TEXT_LINE(lx)) {
@@ -1352,11 +1512,8 @@ fold_thisfunc (void)
 		if (lx->lflag & fmask) hidden_to_head++;
 	}
 
-	FILT_LOG(LOG_DEBUG, "hidden lines to head %d, head hidden: %d",
-		hidden_to_head, ((lp_head->lflag & fmask) != 0));
-
-	if (((lp_head->lflag & fmask)==0) || ((lp_end->lflag & fmask)==0)) {
-		/* header and footer both visible, change internal lines */
+	if (((lp_head->lflag & fmask)==0) && ((lp_end->lflag & fmask)==0)) {
+		/* header and footer is visible, change internal lines */
 
 		do_unhide = (hidden_to_end + hidden_to_head > 0);
 

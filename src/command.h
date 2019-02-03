@@ -52,10 +52,10 @@ TABLE table[] = {
 	{ "center",	KEY_F5, 2,		PN(center_focusline),	0x00},
 	{ "",		KEY_M_LESSTHAN, -1,	PN(clhistory_prev),	0x00},
 	{ "", 		KEY_M_GREATHAN, -1,	PN(clhistory_next),	0x00},
-	{ "scroll1u", 	KEY_M_J, -1,		PN(scroll_1line_up),	0x00},
-	{ "scroll1dn", 	KEY_M_K, -1,		PN(scroll_1line_down),	0x00},
-	{ "scrollup", 	KEY_M_B, -1,		PN(scroll_screen_up),	0x00},
-	{ "scrolldn",	KEY_M_SPACE, -1,	PN(scroll_screen_down),	0x00},
+	{ "", 		KEY_M_J, -1,		PN(scroll_1line_up),	0x00},
+	{ "", 		KEY_M_K, -1,		PN(scroll_1line_down),	0x00},
+	{ "", 		KEY_M_B, -1,		PN(scroll_screen_up),	0x00},
+	{ "",		KEY_M_N, -1,		PN(scroll_screen_down),	0x00},
 
 	/* file I/O and switching buffers */
 	{ "ed",		-1, 1,			PN(add_file),		0x11},
@@ -73,7 +73,6 @@ TABLE table[] = {
 	{ "fall",	KEY_NONE, 2,		PN(file_all),		0x00},
 	{ "sall",	KEY_NONE, 2,		PN(save_all),		0x00},
 	{ "hide",	KEY_NONE, 4,		PN(hide_file),		0x00},
-	{ "popen",	KEY_C_RSQBRAC, 5,	PN(parse_open),		0x00},
 
 	/* in-line edit */
 	{ "deleol",	KEY_F6, 6,		PN(deleol),		0x0a},
@@ -99,11 +98,11 @@ TABLE table[] = {
 	{ "shright",	KEY_M_RCURBRAC, 3,	PN(shift_right),	0x02},
 
 	/* multiline selection operations */
-	{ "padb",	KEY_NONE, 3,		PN(pad_block),		0x13},
-	{ "cutb",	KEY_NONE, 3,		PN(cut_block),		0x13},
-	{ "lcutb",	KEY_NONE, 4,		PN(left_cut_block),	0x13},
-	{ "splitb",	KEY_NONE, 5,		PN(split_block),	0x17},
-	{ "joinb",	KEY_NONE, 4,		PN(join_block),		0x1b},
+	{ "padb",	-1, 3,			PN(pad_block),		0x13},
+	{ "cutb",	-1, 3,			PN(cut_block),		0x13},
+	{ "lcutb",	-1, 4,			PN(left_cut_block),	0x13},
+	{ "splitb",	-1, 5,			PN(split_block),	0x17},
+	{ "joinb",	-1, 4,			PN(join_block),		0x1b},
 
 	/* filtering while editing at different levels */
 	{ "all",	-1, 3,			PN(filter_all),		0x11},
@@ -120,6 +119,12 @@ TABLE table[] = {
 	{ "",		KEY_M_BACKSLASH, -1,	PN(incr_filter_cycle),	0x00},
 	{ "m1",		-1, 2,			PN(filter_m1),		0x00},
 
+	/* brace match and folding */
+	{ "match",	KEY_F9, 3,		PN(tomatch),		0x00},
+	{ "fmatch",	KEY_S_F9, 2,		PN(forcematch),		0x00},
+	{ "fblock",	KEY_S_F10, 2,		PN(fold_block),		0x00},
+	{ "thisf",	KEY_S_F11, 4,		PN(fold_thisfunc),	0x00},
+
 	/* search, change, highlight, regexp tools */
 	{ "/",		-1, 1,			PN(search),		0x01},
 	{ "",		KEY_C_L, -1,		PN(repeat_search),	0x00},
@@ -135,51 +140,42 @@ TABLE table[] = {
 	/* multifile search tools */
 	{ "find",	KEY_NONE, 4,		PN(find_cmd),		0x11},
 	{ "locate",	KEY_NONE, 3,		PN(locate_cmd),		0x11},
-	{ "locswitch",	KEY_NONE, 5,		PN(locate_find_switch),	0x00},
+	{ "lfswitch",	KEY_NONE, 2,		PN(locate_find_switch),	0x00},
 	{ "",		KEY_M_Q, -1,		PN(multisearch_cmd),	0x00},
 	{ "",		KEY_M_W, -1,		PN(find_window_switch),	0x00},
 	{ "fword",	KEY_NONE, 2,		PN(fw_option_switch),	0x00},
 	{ "fspath",	-1, 3,			PN(fsearch_path_macro),	0x01},
 	{ "fseargs",	-1, 4,			PN(fsearch_args_macro),	0x01},
 
-	/* brace match and folding */
-	{ "match",	KEY_F9, 3,		PN(tomatch),		0x00},
-	{ "fmatch",	KEY_S_F9, 2,		PN(forcematch),		0x00},
-	{ "fblock",	KEY_S_F10, 2,		PN(fold_block),		0x00},
-	{ "thisf",	KEY_S_F11, 4,		PN(fold_thisfunc),	0x00},
-
-	/* using ctags */
-	{ "lt",		-1, 2,			PN(tag_load_file),	0x00},
-	{ "symbol",	KEY_F10, 3,		PN(tag_view_info),	0x11},
-	{ "jump",	KEY_F11, 1,		PN(tag_jump_to),	0x11},
-	{ "jback",	KEY_C_T, 2,		PN(tag_jump_back),	0x00},
-
 	/* external tools, filter pipes, VCS calls and unified diffs */
 	{ "sh",		-1, 2,			PN(shell_cmd),		0x01},
-	{ "ish",	-1, 3,			PN(ishell_cmd),		0x11},
 	{ "make",	-1, 4,			PN(make_cmd),		0x11},
 	{ "|",		-1, 1,			PN(filter_cmd),		0x01},
 	{ "||",		-1, 2,			PN(filter_shadow_cmd),	0x01},
 	{ "vcstool",	-1, 7,			PN(vcstool),		0x01},
 	{ "pdiff",	KEY_NONE, 2,		PN(process_diff),	0x00},
+	{ "hgdiff",	KEY_NONE, 6,		PN(internal_hgdiff),	0x11},
+	{ "gitdiff",	KEY_NONE, 7,		PN(internal_gitdiff),	0x11},
 
-	/* resources, keys, macros, projects, changing buffer type */
-	{ "set",	-1, 3,			PN(set),		0x01},
+	/* resources, keys, macros, projects, buffer type */
+	{ "set",	-1, 3,			PN(set),		0x11},
 	{ "rc",		-1, 2,			PN(load_rcfile),	0x00},
 	{ "keys",	-1, 3,			PN(load_keyfile),	0x00},
 	{ "macros",	-1, 5,			PN(load_macrofile),	0x00},
 	{ "remac",	KEY_NONE, 3,		PN(reload_macros),	0x00},
-	{ "sp",		-1, 2,			PN(save_project),	0x01},
-	{ "is",		-1, 2,			PN(is_special),		0x01},
+	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
+	{ "sp",		-1, 2,			PN(save_project),	0x11},
+	{ "palette",	KEY_M_SLASH, 4,		PN(rotate_palette),	0x00},
+	{ "prefix",	KEY_M_AT, 4,		PN(prefix_macro),	0x00},
+	{ "tabhead",	KEY_M_EXCLAM, 4,	PN(tabhead_macro),	0x00},
+	{ "smartind",	KEY_M_MINUS, 5,		PN(smartind_macro),	0x00},
+	{ "shadow",	KEY_NONE, 6,		PN(shadow_macro),	0x00},
+	{ "is",		-1, 2,			PN(is_special),		0x11},
 
-	/* buffer views and UI changes, ringlist, lsdir */
-	{ "palette",	KEY_M_QMARK, 3,		PN(rotate_palette),	0x00},
-	{ "pref",	KEY_M_AT, 4,		PN(prefix_macro),	0x00},
-	{ "smart",	KEY_M_MINUS, 3,		PN(smartind_macro),	0x00},
-	{ "shadow",	KEY_M_HASH, 3,		PN(shadow_macro),	0x00},
+	/* lists and parsers (press Enter) */
 	{ "ring",	KEY_M_R, 2,		PN(list_buffers),	0x00},
-	{ "lsdir",	-1, 2,			PN(lsdir_cmd),		0x11},
-	{ "redraw",	KEY_C_R, 6,		PN(force_redraw),	0x00},
+	{ "lsdir",	KEY_M_Y, 2,		PN(lsdir_cmd),		0x11},
+	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
 
 	/* bookmarks */
 	{ "bms",	KEY_M_ZERO, 3,		PN(bm_set),		0x11},
@@ -193,29 +189,34 @@ TABLE table[] = {
 	{ "b7",		KEY_M_SEVEN, 2,		PN(bm_jump7),		0x00},
 	{ "b8",		KEY_M_EIGHT, 2,		PN(bm_jump8),		0x00},
 	{ "b9",		KEY_M_NINE, 2,		PN(bm_jump9),		0x00},
-	{ "shbms",	KEY_S_F7, 3,		PN(show_bookmarks),	0x00},
+	{ "shbms",	KEY_NONE, 3,		PN(show_bookmarks),	0x00},
+
+	/* using ctags */
+	{ "lt",		-1, 2,			PN(tag_load_file),	0x11},
+	{ "symbol",	KEY_F10, 3,		PN(tag_view_info),	0x11},
+	{ "jump",	KEY_F11, 1,		PN(tag_jump_to),	0x11},
+	{ "jback",	KEY_C_T, 2,		PN(tag_jump_back),	0x00},
 
 	/* export/insert, view block name and anything else */
 	{ "",		KEY_C_B, -1,		PN(ins_bname),		0x00},
 	{ "",		KEY_C_V, -1,		PN(ins_varname),	0x00},
 	{ "",		KEY_C_G, -1,		PN(ins_filename),	0x00},
 	{ "",		KEY_C_X, -1,		PN(cp_text2cmd),	0x00},
+	{ "",		KEY_M_X, -1,		PN(cp_name2open),	0x00},
 	{ "vbn",	KEY_S_F2, 3,		PN(view_bname),		0x00},
 	{ "wcase",	KEY_C_W, 2,		PN(word_case),		0x02},
-	{ "cmds",	KEY_NONE, 3,		PN(show_commands),	0x00},
 	{ "version",	KEY_NONE, 7,		PN(version),		0x00},
 	{ "pwd",	KEY_NONE, 3,		PN(pwd),		0x00},
 	{ "uptime",	KEY_NONE, 6,		PN(uptime),		0x00},
-	{ "xtitle",	-1, 4,			PN(xterm_title),	0x01},
+	{ "xtitle",	-1, 2,			PN(xterm_title),	0x01},
 	{ "msg",	-1, 3,			PN(message),		0x01},
 	{ "xmsg",	-1, 4,			PN(msg_from_text),	0x00},
+	{ "tutor",	KEY_NONE, 5,		PN(typing_tutor),	0x00},
 	{ "stop",	KEY_NONE, 4,		PN(stop_bg_process),	0x00},
 	{ "mouse",	KEY_NONE, 5,		PN(mouse_support),	0x00},
-	{ "record",	KEY_NONE, 6,		PN(recording_switch),	0x00},
 
-	/* functions for macros (function pointers reference) */
+	/* functions for macros (need function pointers for reference) */
 
-	{ "",		-1, -1,		PN(finish_in_fg),		0x00},
 	/* command line and text area */
 	{ "",		-1, -1,		PN(switch_text_cmd),		0x00},
 	{ "",		-1, -1,		PN(go_text),			0x00},

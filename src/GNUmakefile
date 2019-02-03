@@ -25,12 +25,15 @@ ARCH = $(shell uname -m)
 OS = $(shell uname -s)
 REV = $(shell cat ../REV 2>/dev/null || echo 0)
 
-CFLAGS = -W -Wall -g -O0 -Wformat -Werror=format-security \
-	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes -I.. \
-	-D_GNU_SOURCE
+CFLAGS = -Wall -Wextra -O2 -pipe -std=c99 -fstack-protector -fno-strict-aliasing \
+	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes \
+	-Wformat -Wformat-security -Wsign-conversion -Wcast-qual -Wcast-align \
+	-Wwrite-strings -Wmissing-declarations -Wmissing-prototypes \
+	-D_GNU_SOURCE \
+	-I.. -I/usr/local/include -I/usr/local/include/ncurses
+
 LDFLAGS = -lncurses
 
-HDRS = main.h curses_ext.h command.h proto.h keys.h rkeys.h
 OBJS = main.o ed.o fh.o lll.o cmd.o disp.o keys.o cmdlib.o select.o filter.o \
 	util.o search.o tags.o pipe.o rc.o ring.o
 SRCS = $(OBJS:.o=.c)
@@ -42,6 +45,30 @@ all: eda
 eda: $(OBJS)
 	$(CC) -o $@ $(OBJS) $(LDFLAGS)
 
+main.o: main.c $(SRCS) ../config.h curses_ext.h main.h proto.h command.h
+	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c $< -o $@
+
+cmd.o: cmd.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
+ed.o: ed.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
+
+keys.o: keys.c ../config.h curses_ext.h main.h proto.h command.h keys.h rkeys.h
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c $< -o $@
+
+rc.o: rc.c ../config.h main.h proto.h command.h keys.h rkeys.h
+	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c $< -o $@
+
+cmdlib.o: cmdlib.c ../config.h main.h proto.h
+disp.o: disp.c ../config.h main.h proto.h
+fh.o: fh.c ../config.h main.h proto.h
+filter.o: filter.c ../config.h main.h proto.h
+lll.o: lll.c ../config.h main.h proto.h
+pipe.o: pipe.c ../config.h main.h proto.h
+ring.o: ring.c ../config.h main.h proto.h
+search.o: search.c ../config.h main.h proto.h
+select.o: select.c ../config.h main.h proto.h
+tags.o: tags.c ../config.h main.h proto.h
+util.o: util.c ../config.h main.h proto.h
+
 install:
 	install -d -m 755  $(DESTDIR)$(prefix)/bin/
 	install -m 755 -p -s eda  $(DESTDIR)$(prefix)/bin/
@@ -49,43 +76,32 @@ install:
 	install -m 644 -p edarc edakeys  $(DESTDIR)$(sysconfdir)/eda/
 	install -m 644 -p edaseq.$(OS)  $(DESTDIR)$(sysconfdir)/eda/edaseq
 	install -d -m 755  $(DESTDIR)$(datadir)/eda/
-	install -m 644 -p edarc edakeys edaseq.* edamacro sample.proj  $(DESTDIR)$(datadir)/eda/
-	install -m 755 -p xeda set_op.pl  $(DESTDIR)$(datadir)/eda/
+	install -m 644 -p edarc edakeys edaseq.* edamacro  $(DESTDIR)$(datadir)/eda/
+	install -m 644 -p ../check_perl.sh ../check_python.sh ../check_xml.sh  $(DESTDIR)$(datadir)/eda/
 
 uninstall:
-	for f in eda ; do \
+	@for f in eda ; do \
 	  if test -f $(DESTDIR)$(prefix)/bin/$$f ; then rm -f $(DESTDIR)$(prefix)/bin/$$f ; fi ; \
 	done
-	for f in edarc edakeys edaseq ; do \
+	@for f in edarc edakeys edaseq ; do \
 	  if test -f $(DESTDIR)$(sysconfdir)/eda/$$f ; then rm -f $(DESTDIR)$(sysconfdir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(sysconfdir)/eda || true
-	for f in edarc edakeys edaseq.* edamacro sample.proj set_op.pl xeda ; do \
+	@rmdir $(DESTDIR)$(sysconfdir)/eda 2>/dev/null || true
+	@for f in edarc edakeys edaseq.* edamacro check_perl.sh check_python.sh check_xml.sh ; do \
 	  if test -f $(DESTDIR)$(datadir)/eda/$$f ; then rm -f $(DESTDIR)$(datadir)/eda/$$f ; fi ; \
 	done
-	-rmdir $(DESTDIR)$(datadir)/eda || true
+	@rmdir $(DESTDIR)$(datadir)/eda 2>/dev/null || true
 
 clean:
-	-rm -f *.o *.i *~ eda
-
-# ------------------------------------
-
-main.o: main.c $(SRCS) $(HDRS)
-	$(CC) $(CFLAGS) -DREV=\"$(REV)\" -DVERSION=\"$(VERSION)\" -c main.c -o $@
-
-rc.o: rc.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -DPROGHOME=\"$(datadir)/eda\" -c rc.c -o $@
-
-keys.o: keys.c
-	$(CC) $(CFLAGS) -DCONFPATH=\"$(sysconfdir)/eda\" -c keys.c -o $@
+	-rm -f *.o *~ eda
 
 # ------------------------------------
 
 .SUFFIXES: .i .o
 
-#.c.o:
-#	$(CC) $(CFLAGS) -o $@ -c $^
-#.c.i:
-#	$(CC) -E -W -Wall -I.. -o $@ -c $^
+.c.o:
+	$(CC) $(CFLAGS) -o $@ -c $<
+.c.i:
+	$(CC) $(CFLAGS) -E -o $@ -c $<
 
 # ------------------------------------

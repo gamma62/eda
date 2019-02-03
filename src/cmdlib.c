@@ -23,13 +23,14 @@
 #include <config.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>		/* stat */
-#include <sys/stat.h>
-#include <unistd.h>		/* write, fcntl */
+#include <stdlib.h>
+#include <sys/stat.h>		/* lstat */
+#include <time.h>		/* localtime strftime */
+#include <unistd.h>		/* write fcntl readlink */
 #include <fcntl.h>
+#include <dirent.h>		/* opendir readdir */
+#include <glob.h>		/* glob globfree */
 #include <errno.h>
-#include <time.h>
-#include <dirent.h>
 #include <syslog.h>
 #include "main.h"
 #include "proto.h"
@@ -41,25 +42,30 @@ extern const char long_version_string[];
 #define ONE_SIZE  1024
 
 typedef struct lsdir_item_tag {
-	int _type[2];		/* lstat type and stat type */
-	char entry[FNAMESIZE];	/* original dir entry */
-	char one_line[ONE_SIZE];
+	int _type;		/* lstat */
+	char entry[FNAMESIZE];	/* original d_name or gl_pathv */
+	unsigned _size;		/* for sorting */
+	time_t _mtime;		/* for sorting */
+	char one_line[ONE_SIZE];	/* the outcome */
 } LSDIRITEM;
 
 /* local proto */
-static int one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item);
-static int lsdir_item_cmp (const void *p1, const void *p2);
+static int one_lsdir_line (const char *fullpath, unsigned offset, LSDIRITEM **items, unsigned *item_count);
+static int lsdir_item_cmp_entry (const void *p1, const void *p2);
+static int lsdir_item_cmp_mtime (const void *p1, const void *p2);
+static int lsdir_item_cmp_size (const void *p1, const void *p2);
 static int set_diff_section (int *diff_type, int *ring_tg);
 static int select_diff_section (int *diff_type, int *ring_tg);
 static int unhide_udiff_range (int ri, const char *range, int *target_line, int *target_length);
 static void mark_diff_line (int ri, int lineno);
 
 /*
-** nop - no operation, does nothing, only for testing
+** nop - no operation
 */
 int
 nop (void)
 {
+	cnf.gstat |= GSTAT_UPDNONE;
 	return (0);
 }
 
@@ -70,6 +76,7 @@ int
 version (void)
 {
 	tracemsg ("%s", long_version_string);
+	tracemsg ("%s", curses_version());
 
 	return (0);
 }
@@ -80,10 +87,8 @@ version (void)
 int
 pwd (void)
 {
-	char buffer[1024];
-
-	read_extcmd_line ("pwd", 1, buffer, sizeof(buffer));
-	tracemsg ("pwd %s", buffer);
+	tracemsg ("_pwd     %s", cnf._pwd);
+	tracemsg ("_altpwd  %s", cnf._altpwd);
 
 	return (0);
 }
@@ -94,21 +99,23 @@ pwd (void)
 int
 uptime (void)
 {
-	char buffer[1024];
-	char cmd[100];
+	char cmd[100], buffer[100], buffer2[100];
+	int len;
 
 	read_extcmd_line ("uptime", 1, buffer, sizeof(buffer));
-	tracemsg ("system uptime %s", buffer);
-
-	tracemsg ("pid %d", cnf.pid);
-
-	snprintf(cmd, sizeof(cmd), "ps -o etime -p %d", cnf.pid);
-	read_extcmd_line (cmd, 2, buffer, sizeof(buffer));
-	tracemsg ("elapsed time %s", buffer);
+	tracemsg ("%s", buffer);
 
 	snprintf(cmd, sizeof(cmd), "ps -o start -p %d", cnf.pid);
 	read_extcmd_line (cmd, 2, buffer, sizeof(buffer));
-	tracemsg ("time of start %s", buffer);
+	len = strlen(buffer);
+	strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, buffer, &len);
+
+	snprintf(cmd, sizeof(cmd), "ps -o etime -p %d", cnf.pid);
+	read_extcmd_line (cmd, 2, buffer2, sizeof(buffer2));
+	len = strlen(buffer2);
+	strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, buffer2, &len);
+
+	tracemsg ("pid %d, started %s, elapsed time %s", cnf.pid, buffer, buffer2);
 
 	return (0);
 }
@@ -252,15 +259,11 @@ ringlist_parser (const char *dataline)
 
 	if (rx != -1) {
 		if (rx >= 0 && rx < RINGSIZE && (cnf.fdata[rx].fflag & FSTAT_OPEN)) {
-			PD_LOG(LOG_DEBUG, "switch to ri=%d", rx);
 			/* do not set lineno here */
 			cnf.ring_curr = rx;		/* jump */
 			ret = 0;
-		} else {
-			PD_LOG(LOG_DEBUG, "ri=%d is not open", rx);
 		}
 	} else if (bmx != -1) {
-		PD_LOG(LOG_DEBUG, "try bookmark %d", bmx);
 		ret = jump2_bookmark(bmx);
 	}
 
@@ -293,18 +296,17 @@ dirlist_parser (const char *dataline)
 
 	dlen = strlen(dataline);
 	if (dlen <= MAGIC55) {
-		PD_LOG(LOG_ERR, "dataline %d is short, not usable!", dlen);
+		/* it's short */
 		return (NULL);
 	}
 	if (strncmp(dataline, "$ lsdir", 7) == 0) {
 		/* header */
-		PD_LOG(LOG_DEBUG, "dataline is the header, nothing todo");
 		return (NULL);
 	}
 
 	res = get_rest_of_line(&word, &wl, dataline, MAGIC55, dlen);
 	if (res || word == NULL) {
-		PD_LOG(LOG_ERR, "cannot get rest of line");
+		/* cannot get rest of line */
 		FREE(word); word=NULL;
 		return (NULL);
 	}
@@ -312,34 +314,32 @@ dirlist_parser (const char *dataline)
 	if (word[0] == '/') {
 		/* already absolute path */
 		fn = canonicalpath(word); /* maybe NULL, the return value */
-		PD_LOG(LOG_DEBUG, "abs.path [%s]", fn);
 		FREE(word); word = NULL;
 	} else {
 		/* relative path */
 		lx = CURR_FILE.top->next;
 		res = get_rest_of_line(&dn, &dl, lx->buff, MAGIC12, lx->llen);
 		if (res || dn == NULL) {
-			PD_LOG(LOG_ERR, "cannot get rest of header line");
+			/* cannot get rest of header line */
 			FREE(word); word = NULL;
 			return (NULL);
 		}
 		/* get dirname from first (header) line */
 		if (dl > 1 && dn[dl-1] == '/') {
-			res = csere(&word, &wl, 0, 0, dn, dl);
+			res = csere (&word, &wl, 0, 0, dn, dl);
 		} else {
-			res = csere(&word, &wl, 0, 0, dn, dl);
-			res |= csere(&word, &wl, wl, 0, "/", 1);
+			/* append '/' */
+			res = csere (&word, &wl, 0, 0, dn, dl) || csere (&word, &wl, wl, 0, "/", 1);
 		}
 		FREE(dn); dn = NULL;
 		if (res) {
-			PD_LOG(LOG_ERR, "cannot get dirname from header");
+			/* cannot get dirname from header */
 			FREE(word); word = NULL;
 			return (NULL);
 		}
 		/* compiled absolute path */
 		fn = canonicalpath(word); /* maybe NULL, the return value */
 		/* orig. word was rel.path */
-		PD_LOG(LOG_DEBUG, "rel.path [%s] -> abs.path [%s]", word, fn);
 		FREE(word); word = NULL;
 	}
 
@@ -349,113 +349,136 @@ dirlist_parser (const char *dataline)
 /*
 */
 static int
-one_lsdir_line (const char *fullname, struct stat *test, LSDIRITEM *item)
+one_lsdir_line (const char *fullpath, unsigned offset, LSDIRITEM **items, unsigned *item_count)
 {
-	int perm=0;
-	long long size;
-	int nlink;
-	unsigned uid, gid;
+	LSDIRITEM *last;
+	struct stat test;
 	time_t t;
 	struct tm *tm_p;
 	char tbuff[20];
-	int got;
-	char linkname[FNAMESIZE];
-	linkname[0] = '\0';
+	char addition[FNAMESIZE], linkname[FNAMESIZE];
 
 /* yet another magic format string - the directory listing */
-#define MAGICFORMAT  "%04o %4d %6d %6d %12lld %s"
+#define MAGICFORMAT  "%c%04o %4d %6d %6d %12lld %s %s%s\n"
 
-	if (cnf.lsdir_opts & LSDIR_L) {
-		perm = test->st_mode & 07777;
-		nlink = test->st_nlink;
-		uid = test->st_uid;
-		gid = test->st_gid;
-		size = test->st_size;
-
-		t = test->st_mtime;
-		tm_p = localtime(&t);
-		strftime(tbuff, 19, "%Y-%m-%d %H:%M", tm_p);
-		tbuff[19] = '\0';
-
-		if (item->_type[0] == 'l') {
-			if (stat(fullname, test)) {
-				/* dead link, the referred file cannot be stat-ed */
-				return 1;
-			}
-			/* st_mode must be correct */
-			memset(linkname, 0, sizeof(linkname));
-			got = readlink(fullname, linkname, sizeof(linkname)-1);
-			if (got < 1) {
-				strncpy(linkname, "...\0", 4); /* cannot happen? */
-			}
-		}
-
-		if (S_ISDIR(test->st_mode)) {
-			item->_type[1] = 'd';
-			if (item->_type[0] == 'l') {
-				snprintf(item->one_line, ONE_SIZE, "l" MAGICFORMAT " %s -> %s/\n",
-					perm, nlink, uid, gid, size, tbuff, item->entry, linkname);
-			} else {
-				snprintf(item->one_line, ONE_SIZE, "d" MAGICFORMAT " %s/\n",
-					perm, nlink, uid, gid, size, tbuff, item->entry);
-			}
-			item->one_line[ONE_SIZE-1] = '\0';
-		} else if (S_ISREG(test->st_mode)) {
-			item->_type[1] = '-';
-			if (item->_type[0] == 'l') {
-				snprintf(item->one_line, ONE_SIZE, "l" MAGICFORMAT " %s -> %s\n",
-					perm, nlink, uid, gid, size, tbuff, item->entry, linkname);
-			} else {
-				snprintf(item->one_line, ONE_SIZE, "-" MAGICFORMAT " %s\n",
-					perm, nlink, uid, gid, size, tbuff, item->entry);
-			}
-			item->one_line[ONE_SIZE-1] = '\0';
-		} else {
-			snprintf(item->one_line, ONE_SIZE, "?" MAGICFORMAT " ???\n",
-				perm, nlink, uid, gid, size, tbuff);
-			item->one_line[ONE_SIZE-1] = '\0';
-			/* char special device or block device or whatever */
-			return 2;
-		}
-
-	} else {
-		if (item->_type[0] == 'l') {
-			if (stat(fullname, test)) {
-				return 1;
-			}
-			/* st_mode must be correct */
-		}
-		if (S_ISDIR(test->st_mode)) {
-			item->_type[1] = 'd';
-			snprintf(item->one_line, ONE_SIZE, "%s/\n", item->entry);
-		} else {
-			item->_type[1] = '-';
-			snprintf(item->one_line, ONE_SIZE, "%s\n", item->entry);
-		}
-		item->one_line[ONE_SIZE-1] = '\0';
+	++*item_count;
+	last = (LSDIRITEM *) REALLOC((void *)*items, sizeof(LSDIRITEM) * (*item_count));
+	if (last == NULL) {
+		ERRLOG(0xE006);
+		*item_count = 0;
+		return 1;
 	}
+	*items = last;
+	last = &last[*item_count -1];
+
+	strncpy(last->entry, fullpath+offset, FNAMESIZE);
+	last->entry[FNAMESIZE-1] = '\0';
+	if (lstat(fullpath, &test)) {
+		// lstat failed
+		snprintf(last->one_line, ONE_SIZE, "%s (failed)\n", last->entry);
+		return 1;
+	}
+	last->_mtime = test.st_mtime;
+	last->_size = test.st_size;
+
+	t = test.st_mtime;
+	tm_p = localtime(&t);
+	strftime(tbuff, 19, "%Y-%m-%d %H:%M", tm_p);
+	tbuff[19] = '\0';
+
+	addition[0] = '\0';
+	if (S_ISLNK(test.st_mode)) {
+		last->_type = 'l';
+		strncat(addition, " -> ", 10);
+		memset(linkname, '\0', sizeof(linkname));
+		if (readlink(fullpath, linkname, sizeof(linkname)-1) > 1)
+			strncat(addition, linkname, sizeof(addition)-10);
+		else
+			strncat(addition, "(failed)", sizeof(addition)-10);
+		/* this can be a dead link, but no room here to follow the chain */
+	}
+	else if (S_ISREG(test.st_mode))
+		last->_type = '-';
+	else if (S_ISDIR(test.st_mode))
+		last->_type = 'd';
+	else
+		last->_type = '?';
+
+	snprintf(last->one_line, ONE_SIZE, MAGICFORMAT,
+		last->_type,
+		test.st_mode & 07777,
+		(int)test.st_nlink,
+		test.st_uid,
+		test.st_gid,
+		(long long)test.st_size,
+		tbuff,
+		last->entry, addition);
 
 	return 0;
 }
 
-/*
+/* sort by name, lexicographical, directories first
 */
 static int
-lsdir_item_cmp (const void *p1, const void *p2)
+lsdir_item_cmp_entry (const void *p1, const void *p2)
 {
 	const LSDIRITEM *item1=p1;
 	const LSDIRITEM *item2=p2;
-	/* check the stat() types */
-	if (item1->_type[1] == item2->_type[1]) {
+	if (item1->_type == item2->_type) {
+		/* sort by name between same types */
 		return (strncmp(item1->entry, item2->entry, FNAMESIZE));
-	} else if (item1->_type[1] == 'd') {
+	} else if (item1->_type == 'd') {
 		return -1;
-	} else {
+	} else if (item2->_type == 'd') {
 		return 1;
+	} else {
+		/* all non-dirs come later, sorted by name */
+		return (strncmp(item1->entry, item2->entry, FNAMESIZE));
 	}
 }
 
-/* lsdir is the worker behind lsdir_cmd and general_parser
+/* sort by mtime, oldest first, newest last, regardless of type
+*/
+static int
+lsdir_item_cmp_mtime (const void *p1, const void *p2)
+{
+	const LSDIRITEM *item1=p1;
+	const LSDIRITEM *item2=p2;
+	if (item1->_mtime < item2->_mtime)
+		return -1;
+	if (item1->_mtime > item2->_mtime)
+		return 1;
+	return 0;
+}
+
+/* sort by size, smallest first, largest last - directories before other items
+*/
+static int
+lsdir_item_cmp_size (const void *p1, const void *p2)
+{
+	const LSDIRITEM *item1=p1;
+	const LSDIRITEM *item2=p2;
+	if (item1->_type == item2->_type) {
+		if (item1->_size < item2->_size)
+			return -1;
+		if (item1->_size > item2->_size)
+			return 1;
+		return 0;
+	} else if (item1->_type == 'd') {
+		return -1;
+	} else if (item2->_type == 'd') {
+		return 1;
+	} else {
+		if (item1->_size < item2->_size)
+			return -1;
+		if (item1->_size > item2->_size)
+			return 1;
+		return 0;
+	}
+
+}
+
+/* lsdir is the worker behind lsdir_cmd
 */
 int
 lsdir (const char *dirpath)
@@ -463,15 +486,14 @@ lsdir (const char *dirpath)
 	DIR *dir = NULL;
 	struct dirent *de = NULL;
 	char fullpath[FNAMESIZE*2];
-	int length = 0;
-	struct stat test;
+	unsigned len, length, i, item_count=0;
 	char one_line[ONE_SIZE];
-	LSDIRITEM *items=NULL, *last_item=NULL;
-	int ii=0, item_count=0;
+	LSDIRITEM *items=NULL;
+	glob_t globbuf;
 	LINE *lp=NULL, *lx=NULL;
-	int ret = 0;
-
-	memset(fullpath, 0, sizeof(fullpath));
+	struct stat test;
+	int use_readdir=1, ret=0;
+	char dotdot[3] = "..\0";
 
 	clean_buffer();
 	/* additional flags */
@@ -479,94 +501,108 @@ lsdir (const char *dirpath)
 	/* disable inline editing, adding lines */
 	CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
 
+	use_readdir = (stat(dirpath, &test)==0 && (S_ISDIR(test.st_mode)));
+
+	/* keep length and fullpath for stat() calls
+	*/
+	memset(fullpath, 0, sizeof(fullpath));
+	if (use_readdir) {
+		strncpy(fullpath, dirpath, FNAMESIZE-2);
+		fullpath[FNAMESIZE-2] = '\0';
+		length = strlen(fullpath);
+		/* make sure terminal '/' is there */
+		if (fullpath[length-1] != '/') {
+			fullpath[length++] = '/';
+			fullpath[length] = '\0';
+		}
+	} else {
+		strncpy(fullpath, cnf._pwd, FNAMESIZE-2);
+		fullpath[FNAMESIZE-2] = '\0';
+		strncat(fullpath, "/", 1);
+		length = cnf.l1_pwd+1;
+	}
+	if (length >= FNAMESIZE-1)
+		return 1;
+
 	/* header
 	*/
-	if (cnf.lsdir_opts) {
-		length = 9;
-		strncpy(one_line, "$ lsdir -", 10);
-		if (cnf.lsdir_opts & LSDIR_L)
-			one_line[length++] = 'l';
-		if (cnf.lsdir_opts & LSDIR_A)
-			one_line[length++] = 'a';
-		one_line[length++] = ' ';
-		one_line[length] = '\0';
+	if (cnf.lsdir_opts & LSDIR_L) {
+		snprintf(one_line, 30, "$ lsdir -l%s ", (cnf.lsdir_opts & LSDIR_A) ? "a" : "");
 	} else {
-		length = 8;
-		strncpy(one_line, "$ lsdir ", 9);
+		snprintf(one_line, 20, "$ lsdir ");
 	}
-	// ONE_SIZE-length-1 > 0
-	snprintf(one_line+length, (size_t)(ONE_SIZE-length-1), "%s\n", dirpath);
+	len = strlen(one_line);
+	snprintf(one_line+len, (size_t)(ONE_SIZE-len-1), "%s\n", fullpath);
 	if ((lp = insert_line_before (CURR_FILE.bottom, one_line)) != NULL) {
 		CURR_FILE.num_lines++;
 	} else {
 		return 1;
 	}
 
-	/* keep length and dirpath in fullpath */
-	length = strlen(dirpath);
-	if (length >= FNAMESIZE-1) {
-		return 1;
+	items = NULL;
+	item_count = 0;
+	if (use_readdir) {
+		if ((dir = opendir (dirpath)) == NULL) {
+			tracemsg("opendir %s failed (%s)", dirpath, strerror(errno));
+			return 3;
+		}
+
+		while ((de = readdir (dir)) != NULL) {
+			if (de->d_name[0] == '.' && de->d_name[1] == '\0')
+				continue;
+			if (de->d_name[0] == '.' && (cnf.lsdir_opts & LSDIR_A) == 0) {
+				if (!(de->d_name[1] == '.' && de->d_name[2] == '\0'))
+					continue;
+			}
+
+			strncpy(fullpath+length, de->d_name, FNAMESIZE);
+			fullpath[2*FNAMESIZE-1] = '\0';
+
+			ret += one_lsdir_line (fullpath, length, &items, &item_count);
+		}
+		closedir (dir);
+	} else {
+		if (dirpath[0] == '/') {
+			fullpath[0] = '\0';
+			length = 0;
+		}
+
+		globbuf.gl_offs = 1;
+		/* without GLOB_MARK -- one_lsdir_line() will append it anyway */
+		if (glob(dirpath, GLOB_DOOFFS | GLOB_ERR, NULL, &globbuf)) {
+			tracemsg("glob %s failed (%s)", dirpath, strerror(errno));
+			globfree(&globbuf);
+			return 4;
+		}
+		globbuf.gl_pathv[0] = dotdot;
+
+		for (i = 0; i < globbuf.gl_offs+globbuf.gl_pathc; i++) {
+			if (globbuf.gl_pathv[i] == NULL) {
+				// skip NULL
+				continue;
+			}
+
+			strncpy(fullpath+length, globbuf.gl_pathv[i], FNAMESIZE);
+			fullpath[2*FNAMESIZE-1] = '\0';
+
+			ret += one_lsdir_line (fullpath, length, &items, &item_count);
+		}
+		globfree(&globbuf);
 	}
-	strncpy(fullpath, dirpath, FNAMESIZE-1);
-	fullpath[FNAMESIZE-1] = '\0';
-
-	dir = opendir (dirpath);
-	if (dir == NULL) {
-		tracemsg("Cannot read %s directory", dirpath);
-		return 3;
-	}
-
-	/* dir items
-	*/
-	while ((de = readdir (dir)) != NULL) {
-		if ((de->d_name[0] == '.') && ((de->d_name[1] == '\0') || ((cnf.lsdir_opts & LSDIR_A) == 0)))
-		{	/* hidden items not required */
-			continue;
-		}
-
-		item_count++;
-		if (item_count > 0) {
-			items = (LSDIRITEM *) REALLOC((void *)items, sizeof(LSDIRITEM) * (size_t)item_count);
-		} else {
-			item_count = 0;
-			FREE(items); items = NULL;
-		}
-		if (items == NULL) {
-			break;
-		}
-
-		last_item = &items[item_count-1];
-		last_item->_type[0] = last_item->_type[1] = '\0';
-		strncpy(fullpath+length, de->d_name, FNAMESIZE);
-		fullpath[2*FNAMESIZE-1] = '\0';
-		strncpy(last_item->entry, de->d_name, FNAMESIZE); /* d_name must fit into entry */
-		last_item->entry[FNAMESIZE-1] = '\0';
-
-		if (lstat(fullpath, &test)) {
-			item_count--;
-			PD_LOG(LOG_DEBUG, "lstat(%s) failed [%s], item_count decr --> (%d)", fullpath, strerror(errno), item_count);
-			continue;
-		} else if (S_ISLNK(test.st_mode)) {
-			last_item->_type[0] = 'l';
-		}
-
-		if (one_lsdir_line (fullpath, &test, last_item)) {
-			item_count--;
-			PD_LOG(LOG_DEBUG, "entry [%s] item_count decr --> (%d)", last_item->entry, item_count);
-			continue;
-		}
-	}
-	closedir (dir);
+	// finished %d items (err %d) dirsort:%d", item_count, ret, cnf.lsdirsort
 
 	/* qsort() and append_line() calls
 	*/
 	if (items != NULL) {
-		if (item_count > 0) {
-			qsort (items, (size_t)item_count, sizeof(LSDIRITEM), lsdir_item_cmp);
+		if (cnf.lsdirsort == 2) {
+			qsort (items, item_count, sizeof(LSDIRITEM), lsdir_item_cmp_size);
+		} else if (cnf.lsdirsort == 1) {
+			qsort (items, item_count, sizeof(LSDIRITEM), lsdir_item_cmp_mtime);
+		} else {
+			qsort (items, item_count, sizeof(LSDIRITEM), lsdir_item_cmp_entry);
 		}
-
-		for (ii=0; ii<item_count; ii++) {
-			lx = append_line (lp, items[ii].one_line);
+		for (i=0; i < item_count; i++) {
+			lx = append_line (lp, items[i].one_line);
 			if (lx != NULL) {
 				CURR_FILE.num_lines++;
 				lp = lx;
@@ -575,7 +611,6 @@ lsdir (const char *dirpath)
 				break;
 			}
 		}
-
 		FREE(items); items = NULL;
 	}
 
@@ -620,8 +655,8 @@ simple_parser (const char *dataline, int jump_mode)
 
 	/* simple match */
 	strncpy(patt0, "^([^:]+):([0-9]+)", 100);
-	/* ungreedy match */
-	strncpy(patt1, "^(.+?)([:-])([0-9]+)\\2", 100);
+	/* missing ungreedy match */
+	strncpy(patt1, "^(.+)[-]([0-9]+)[-]", 100);
 
 	if (len>2 && dataline[0] == '.' && dataline[1] == '/') {
 		dataline += 2;	/* cut useless prefix */
@@ -634,15 +669,9 @@ simple_parser (const char *dataline, int jump_mode)
 	if (!regexp_match(dataline, patt0, 1, filename)) {
 		split = strlen(filename);
 		linenum = strtol(&dataline[split+1], NULL, 10);
-		if (cnf.bootup) {
-			PD_LOG(LOG_DEBUG, "split=%d --> [%s] :%d", split, filename, linenum);
-		}
 	} else if (!regexp_match(dataline, patt1, 1, filename)) {
 		split = strlen(filename);
 		linenum = strtol(&dataline[split+1], NULL, 10);
-		if (cnf.bootup) {
-			PD_LOG(LOG_DEBUG, "split=%d --> [%s] :%d", split, filename, linenum);
-		}
 	}
 
 	ret = -1;
@@ -719,16 +748,12 @@ python_parser (const char *dataline)
 	linenum = -1;
 	if (!regexp_match(dataline, patt0, 1, strz)) {
 		linenum = strtol(strz, NULL, 10);
-		PD_LOG(LOG_DEBUG, "patt0 --> :%d", linenum);
 	} else if (!regexp_match(dataline, patt1, 1, strz)) {
 		linenum = strtol(strz, NULL, 10);
-		PD_LOG(LOG_DEBUG, "patt1 --> :%d", linenum);
 	} else if (!regexp_match(dataline, patt2, 1, strz)) {
 		linenum = strtol(strz, NULL, 10);
-		PD_LOG(LOG_DEBUG, "patt2 --> :%d", linenum);
 	} else if (!regexp_match(dataline, patt3, 1, strz)) {
 		linenum = strtol(strz, NULL, 10);
-		PD_LOG(LOG_DEBUG, "patt3 --> :%d", linenum);
 	}
 
 	ret = -1;
@@ -741,7 +766,6 @@ python_parser (const char *dataline)
 		    (cnf.fdata[origin].fflag & FSTAT_OPEN) && \
 		    !(cnf.fdata[origin].fflag & FSTAT_SCRATCH))
 		{
-			PD_LOG(LOG_DEBUG, "try switch to origin %d", origin);
 			safeback = cnf.ring_curr;
 			cnf.ring_curr = origin;
 			lx = lll_goto_lineno (cnf.ring_curr, linenum);
@@ -749,7 +773,7 @@ python_parser (const char *dataline)
 				set_position (cnf.ring_curr, linenum, lx);
 				ret = 0;
 			} else {
-				PD_LOG(LOG_ERR, "switch to origin %d failed, safeback %d", origin, safeback);
+				// switch failed
 				cnf.ring_curr = safeback;
 				ret = 1;
 			}
@@ -757,48 +781,6 @@ python_parser (const char *dataline)
 	}
 
 	return (ret);
-}
-
-/*
-** parse_open - get nonspace characters around cursor, assuming that is a filename
-**	try to open file
-*/
-int
-parse_open (void)
-{
-	LINE *lp;
-	char strz[FNAMESIZE];
-	int beg=0, end=0, lncol, len;
-
-#define FN(ch)	( ((ch) >= 'a' && (ch) <= 'z') || ((ch) >= 'A' && (ch) <= 'Z') || \
-		((ch) >= '0' && (ch) <= '9') || ((ch) == '_') || \
-		((ch) == '.') || ((ch) == '+') || ((ch) == '-') || ((ch) == '/') )
-
-	lp = CURR_LINE;
-	lncol = CURR_FILE.lncol;
-	if ( !TEXT_LINE(lp) || lncol >= lp->llen-1 || !FN(lp->buff[lncol]) ) {
-		return (0);
-	}
-	strz[0]='\0';
-
-	for (beg = lncol; beg >= 0 && FN(lp->buff[beg]); beg--)
-		;
-	++beg;
-	for (end = lncol; end < lp->llen-1 && FN(lp->buff[end]); end++)
-		;
-	--end;
-	PD_LOG(LOG_DEBUG, "lncol %d beg %d end %d", lncol, beg, end);
-	if (beg <= end) {
-		len = end-beg+1;
-		if (len < FNAMESIZE) {
-			strncpy (strz, &lp->buff[beg], (size_t)len);
-			strz[len] = '\0';
-			PD_LOG(LOG_DEBUG, "strz [%s]", strz);
-			add_file(strz);
-		}
-	}
-
-	return (0);
 }
 
 /*
@@ -819,7 +801,6 @@ diff_parser (const char *dataline)
 
 	ret = select_diff_section (&diff_type, &ring_tg);
 	if (ret) {
-		PD_LOG(LOG_DEBUG, "select_diff_section failed, ret=%d", ret);
 		return (ret);
 	}
 
@@ -841,7 +822,6 @@ diff_parser (const char *dataline)
 				}
 			}
 		} else {
-			PD_LOG(LOG_DEBUG, "diff parser only for @@... lines");
 			tracemsg("diff parser only for @@... lines");
 		}
 
@@ -851,6 +831,7 @@ diff_parser (const char *dataline)
 
 	if (ret==0) {
 		update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
+		go_home(); // sane position
 	}
 	return (ret);
 }
@@ -877,6 +858,7 @@ general_parser (void)
 	als = ALLOCSIZE(CURR_LINE->llen+10);
 	dataline = (char *) MALLOC (als);
 	if (dataline == NULL) {
+		ERRLOG(0xE033);
 		return;
 	}
 	strncpy(dataline, CURR_LINE->buff, (size_t)CURR_LINE->llen);
@@ -893,23 +875,21 @@ general_parser (void)
 		if (fname != NULL) {
 			if (stat(fname, &test) == 0) {
 				if (S_ISDIR(test.st_mode)) {
+					/* add trailing slash later */
 					lsdir(fname);
 				} else if (S_ISREG(test.st_mode)) {
 					/* read can fail (no permission, etc) */
-					PD_LOG(LOG_DEBUG, "try open %s", fname);
-					add_file(fname);
+					if (add_file(fname))
+						tracemsg("Failed to open %s", fname);
 				} else {
 					tracemsg("Cannot handle %s", fname);
-					PD_LOG(LOG_ERR, "cannot handle filesystem item, name=%s mode=0x%x", fname, test.st_mode);
 				}
 			} else {
 				tracemsg("Cannot stat %s", fname);
-				PD_LOG(LOG_ERR, "cannot stat %s (%s)", fname, strerror(errno));
 			}
 			FREE(fname); fname = NULL;
 		} else {
 			tracemsg("directory list parser failed");
-			PD_LOG(LOG_ERR, "dirlist_parser failed");
 		}
 	}
 	else if ((strncmp(CURR_FILE.fname, "*find*", 6) == 0) ||
@@ -928,55 +908,35 @@ general_parser (void)
 }
 
 /*
-** is_special - show buffer type or set buffer type,
-**	regular file types (c/cpp/c++, tcl/tk, perl, python, bash/shell, text) and
-**	special buffers (sh, ls, make, find, diff, configured VCS tools)
-**	regular filenames can be changed to equivalent name of same inode
+** is_special - show buffer or set buffer ftype, for
+**	regular file types (c/cpp/c++, perl, python, bash/shell, text) and
+**	special buffers (sh, ls, make, find, diff, configured VCS tools);
+**	or change fname to special buffer
 */
 int
 is_special (const char *special)
 {
 	unsigned slen=0, i=0;
 	char tfname[FNAMESIZE];
-	int ri = cnf.ring_curr;
-	struct stat test;
+	int ri = cnf.ring_curr, other_ri;
 
 	/* prepare tfname for comparison as well as for target filename */
 	slen=0;
 	if (special != NULL && special[0] != '\0') {
-		if ((stat(special, &test) == 0) && (CURR_FILE.stat.st_ino == test.st_ino)) {
-			/* give an equivalent name to the regular file */
-			slen = strlen(special);
-			if (slen > FNAMESIZE-1) {
-				tracemsg("filename is very long");
-				return (1);
+		/* create a buffer name, to use it later */
+		tfname[slen++] = '*';
+		for (i=0; special[i] != '\0' && i < sizeof(tfname)-2; i++) {
+			if (special[i] == '*') {
+				; /* skip */
+			} else if (special[i] >= 'A' && special[i] <= 'Z') {
+				tfname[slen] = special[i] - 'A' +'a';
+				slen++;
+			} else {
+				tfname[slen] = special[i];
+				slen++;
 			}
-
-			/* change CURR_FILE.fname */
-			strncpy(CURR_FILE.fname, special, FNAMESIZE);
-			CURR_FILE.fname[FNAMESIZE-1] = '\0';
-
-			/* update */
-			CURR_FILE.stat = test;
-
-			return (0);	/*done*/
-
-		} else {
-			/* create a buffer name, to use it later */
-			tfname[slen++] = '*';
-			for (i=0; special[i] != '\0' && i < sizeof(tfname)-2; i++) {
-				if (special[i] == '*') {
-					; /* skip */
-				} else if (special[i] >= 'A' && special[i] <= 'Z') {
-					tfname[slen] = special[i] - 'A' +'a';
-					slen++;
-				} else {
-					tfname[slen] = special[i];
-					slen++;
-				}
-			}
-			tfname[slen++] = '*';
 		}
+		tfname[slen++] = '*';
 	}
 	tfname[slen] = '\0';
 
@@ -1007,9 +967,6 @@ is_special (const char *special)
 				case PERL_FILETYPE:
 					tracemsg("Perl");
 					break;
-				case TCL_FILETYPE:
-					tracemsg("Tcl/Tk");
-					break;
 				case PYTHON_FILETYPE:
 					tracemsg("Python");
 					break;
@@ -1017,11 +974,8 @@ is_special (const char *special)
 					tracemsg("Bash/Shell");
 					break;
 				case TEXT_FILETYPE:
-					tracemsg("Text");
-					break;
-				case UNKNOWN_FILETYPE:
 				default:
-					tracemsg("Unknown");
+					tracemsg("Text");
 					break;
 			}
 		} else {
@@ -1052,18 +1006,14 @@ is_special (const char *special)
 		CURR_FILE.ftype = C_FILETYPE;
 	} else if (strncmp(tfname, "*perl*", slen) == 0) {
 		CURR_FILE.ftype = PERL_FILETYPE;
-	} else if ((strncmp(tfname, "*tcl*", slen) == 0) || (strncmp(tfname, "*tk*", slen) == 0)) {
-		CURR_FILE.ftype = TCL_FILETYPE;
 	} else if (strncmp(tfname, "*python*", slen) == 0) {
 		CURR_FILE.ftype = PYTHON_FILETYPE;
 	} else if ((strncmp(tfname, "*bash*", slen) == 0) || (strncmp(tfname, "*shell*", slen) == 0)) {
 		CURR_FILE.ftype = SHELL_FILETYPE;
 	} else if (strncmp(tfname, "*text*", slen) == 0) {
 		CURR_FILE.ftype = TEXT_FILETYPE;
-	} else if (strncmp(tfname, "*unknown*", slen) == 0) {
-		CURR_FILE.ftype = UNKNOWN_FILETYPE;
 
-	/* change basename, according to tfname, only for special buffers */
+	/* change fname, according to tfname, only for special buffers */
 	} else {
 		for(i=0; i < 10; i++) {
 			slen = strlen(cnf.vcs_tool[i]);
@@ -1078,19 +1028,29 @@ is_special (const char *special)
 			   (strncmp(tfname, "*diff*", 6) == 0) ||
 			   (strncmp(tfname, "*ring*", 6) == 0))
 		{
-			/* tfname may already exist in the ring, like *diff* or *sh*, multiple times? */
+			/* tfname may already exist in the ring, *diff* should be not doubled */
+			if (strncmp(tfname, "*diff*", 6) == 0) {
+				other_ri = query_scratch_fname (tfname);
+				if (other_ri != -1) {
+					cnf.ring_curr = other_ri;
+					drop_file();
+					cnf.ring_curr = ri;
+				}
+			}
 
 			CURR_FILE.fflag |= (FSTAT_SPECW | FSTAT_SCRATCH);
 			CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
 
-			CURR_FILE.basename[0] = '\0';
-			CURR_FILE.dirname[0] = '\0';
-
+			CURR_FILE.fpath[0] = '\0';
 			strncpy (CURR_FILE.fname, tfname, FNAMESIZE);
 			CURR_FILE.fname[FNAMESIZE-1] = '\0';
+			CURR_FILE.ftype = TEXT_FILETYPE;
+
+			/* ri not changed but the content, update titles and headers */
+			cnf.gstat |= GSTAT_REDRAW;
 
 			memset (&cnf.fdata[ri].stat, 0, sizeof(struct stat));
-			cnf.fdata[ri].ftype = UNKNOWN_FILETYPE;
+			cnf.fdata[ri].ftype = TEXT_FILETYPE;
 
 			CURR_FILE.fflag |= FSTAT_CMD | FSTAT_OPEN | FSTAT_FMASK;
 		}
@@ -1183,6 +1143,22 @@ prefix_macro (void)
 		set("prefix off");
 	} else {
 		set("prefix on");
+	}
+	/* cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS); */
+	return (0);
+}
+
+/*
+** tabhead_macro - set on/off the tab header under status line
+*/
+int
+tabhead_macro (void)
+{
+	if (cnf.gstat & GSTAT_TABHEAD) {
+		set("tabhead off");
+	} else {
+		set("tabhead on");
+		cnf.gstat |= GSTAT_REDRAW;
 	}
 	/* cnf.gstat &= ~(GSTAT_UPDNONE | GSTAT_UPDFOCUS); */
 	return (0);
@@ -1307,9 +1283,9 @@ fsearch_path_macro (const char *fpath)
 		suffix[slen] = '\0';
 
 		ix = strlen(fpath);
-		if (ix > 0 && ix+slen < sizeof(cnf.find_opts)) {
+		if (ix > 0 && ix+slen+1 < sizeof(cnf.find_opts)) {
 			strncpy(cnf.find_opts, fpath, ix+1);
-			strncat(cnf.find_opts, suffix, slen);
+			strncat(cnf.find_opts, suffix, slen); /* ...+slen+1 */
 		} else {
 			tracemsg ("find search path very large");
 			return (1);
@@ -1365,30 +1341,28 @@ fsearch_args_macro (const char *fparams)
 	}
 	if (ix > 0 && fparams[ix] != '\0') {
 		tracemsg("parameter string very large, cannot create patterns");
-		PD_LOG(LOG_ERR, "parameter string very large, cannot create patterns");
 		return (1);
 	}
 	patterns[iy] = '\0';
-	slen = iy;
+	slen = iy; /* length of text to be inserted */
 
 	p = strstr(cnf.find_opts, "-type f ");
 	q = strstr(cnf.find_opts, " -exec egrep");
 	ix = iy = 0;
 	if (p!=NULL && q!=NULL && p<q) {
-		ix = p - cnf.find_opts + 8;
-		iy = strlen(q);
+		ix = p - cnf.find_opts + 8; /* length of left side */
+		iy = strlen(q); /* length of right side */
 	} else {
 		tracemsg("cannot change find_opts setting, type and/or exec missing");
-		PD_LOG(LOG_ERR, "find_opts does not contain '-type f' and/or '-exec egrep' patterns");
 		return (1);
 	}
 	strncpy(suffix, q, iy);
 	suffix[iy] = '\0';
 
-	if (slen == 0) {
+	if (slen == 0) { // and ix+iy < sizeof(cnf.find_opts)
 		cnf.find_opts[ix] = '\0';
 		strncat(cnf.find_opts+ix, suffix, iy);
-	} else if (ix +1 +slen +1 +iy < sizeof(cnf.find_opts)) {
+	} else if (ix +1 +slen +1 +iy +1 < sizeof(cnf.find_opts)) {
 		cnf.find_opts[ix] = '(';
 		cnf.find_opts[ix+1] = '\0';
 		strncat(cnf.find_opts+ix+1, patterns, slen);
@@ -1397,7 +1371,6 @@ fsearch_args_macro (const char *fparams)
 		strncat(cnf.find_opts+ix+1+slen+1, suffix, iy);
 	} else {
 		tracemsg("replacement for find_opts very long");
-		PD_LOG(LOG_ERR, "replacement for find_opts very long");
 		return (1);
 	}
 
@@ -1500,74 +1473,46 @@ multisearch_cmd (void)
 int
 find_window_switch (void)
 {
-	int ring_i;
-	int origin;
-	static int find_first=0;
-	const char *fname_once=NULL, *fname_other=NULL, *fname_try=NULL;
+	int ri, origin, i, candidates[] = {-1, -1, -1, -1, -1, -1}, other;
 
-	/* jump from spec.buffer to file by origin */
 	if (strncmp(CURR_FILE.fname, "*find*", 6) == 0) {
 		origin = CURR_FILE.origin;
-		if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
-			PD_LOG(LOG_DEBUG, "*find* : spec.buffer %d --> file %d",
-				cnf.ring_curr, origin);
-			cnf.ring_curr = origin;
-			find_first = 1;
-		}
 	} else if (strncmp(CURR_FILE.fname, "*make*", 6) == 0) {
 		origin = CURR_FILE.origin;
-		if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
-			PD_LOG(LOG_DEBUG, "*make* : spec.buffer %d --> file %d",
-				cnf.ring_curr, origin);
-			cnf.ring_curr = origin;
-			find_first = 0;
-		}
 	} else if (strncmp(CURR_FILE.fname, "*sh*", 4) == 0) {
 		origin = CURR_FILE.origin;
-		if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
-			PD_LOG(LOG_DEBUG, "*sh* : spec.buffer %d --> file %d",
-				cnf.ring_curr, origin);
-			cnf.ring_curr = origin;
-			find_first = -1;
-		}
-
-	/* jump back to spec.buffer by checking them in order */
 	} else {
-		origin = cnf.ring_curr;
-		if (find_first == 1) {
-			fname_once="*find*";
-			fname_other="*make*";
-			fname_try="*sh*";
-		} else if (find_first == 0) {
-			fname_once="*make*";
-			fname_other="*find*";
-			fname_try="*sh*";
-		} else {
-			fname_once="*sh*";
-			fname_other="*find*";
-			fname_try="*make*";
-		}
 
-		ring_i = query_scratch_fname (fname_once);
-		if (ring_i == -1) {
-			ring_i = query_scratch_fname (fname_other);
-			if (ring_i == -1) {
-				ring_i = query_scratch_fname (fname_try);
+		/* jump back to spec.buffer */
+		origin = cnf.ring_curr;
+		for (ri = 0; ri < RINGSIZE; ri++) {
+			if ((cnf.fdata[ri].fflag & (FSTAT_OPEN | FSTAT_SPECW)) == (FSTAT_OPEN | FSTAT_SPECW)) {
+				other = (cnf.fdata[ri].origin == origin) ? 0 : 3;
+				if (strncmp(cnf.fdata[ri].fname, "*find*", 6) == 0) {
+					candidates[0+other] = ri;
+				} else if (strncmp(cnf.fdata[ri].fname, "*make*", 6) == 0) {
+					candidates[1+other] = ri;
+				} else if (strncmp(cnf.fdata[ri].fname, "*sh*", 4) == 0) {
+					candidates[2+other] = ri;
+				}
 			}
 		}
-
-		if (ring_i != -1) {
-			/* in the ring */
-			PD_LOG(LOG_DEBUG, "%s %s %s : from file %d --> spec.buffer %d",
-				fname_once, fname_other, fname_try, origin, ring_i);
-			cnf.ring_curr = ring_i;
-			CURR_FILE.origin = origin;
-		} else {
-			/* failed */
-			tracemsg("jump back to special buffer failed");
+		for (i = 0; i < 6; i++) {
+			if (candidates[i] != -1) {
+				cnf.ring_curr = candidates[i];
+				break;
+			}
 		}
+		/* do nothing if special window already closed */
+		return (0);
+
 	}
 
+	/* jump from spec.buffer to file by origin */
+	if (origin >= 0 && origin < RINGSIZE && (cnf.fdata[origin].fflag & FSTAT_OPEN)) {
+		cnf.ring_curr = origin;
+	}
+	/* do nothing if original window already closed */
 	return (0);
 }
 
@@ -1759,7 +1704,7 @@ xterm_title (const char *xtitle)
 	char xtbuf[100+10]; /* magic number! 100 */
 	int blen=0, wlen=0, slen=0;
 
-	/* internal function only with GSTAT_AUTOTITLE */
+	/* only with X, checking DISPLAY is easier than ps */
 	if (getenv("DISPLAY") == NULL) {
 		cnf.gstat &= ~GSTAT_AUTOTITLE;
 		return (0);
@@ -1779,8 +1724,8 @@ xterm_title (const char *xtitle)
 
 	slen = strlen(xtitle);
 	if (slen < 100) {
-		strncpy (xtbuf+blen, xtitle, 100);
-		blen += 100;
+		strncpy (xtbuf+blen, xtitle, (size_t)slen);
+		blen += slen;
 	} else {
 		xtbuf[blen++] = '.';
 		xtbuf[blen++] = '.';
@@ -1788,34 +1733,37 @@ xterm_title (const char *xtitle)
 		strncpy (xtbuf+blen, &xtitle[slen-97], 97);
 		blen += 97;
 	}
-
 	xtbuf[blen++] = 007;
 	xtbuf[blen] = '\0';
 
 	if (fcntl(1, F_SETFL, O_NONBLOCK) == -1) {
-		PD_LOG(LOG_ERR, "fcntl F_SETFL failed: %s", strerror(errno));
-		return (-1);
+		ERRLOG(0xE0B3);
+		return (2);
 	}
 	wlen = write(1, (void *)xtbuf, (size_t)blen);
 	if (wlen != blen) {
-		PD_LOG(LOG_ERR, "write failed: (%d!=%d) (%s)", wlen, blen, strerror(errno));
+		ERRLOG(0xE0AC);
 	}
 
 	return (wlen != blen);
 }
 
 /*
-** rotate_palette - change color palette setting in cycle
+** rotate_palette - change color palette setting in cycle, if there are more than the default
 */
 int
 rotate_palette (void)
 {
-	if (cnf.palette < PALETTE_MAX)
-		cnf.palette++;
-	else
-		cnf.palette = 0;
+	if (cnf.palette_count > 1) {
+		if (cnf.palette < cnf.palette_count-1)
+			cnf.palette++;
+		else
+			cnf.palette = 0;
 
-	init_colors (cnf.palette);
+		init_colors_and_cpal();
+		cnf.gstat |= GSTAT_REDRAW; // force update
+		tracemsg("palette -> %d [%s]", cnf.palette, cnf.cpal.name);
+	}
 
 	return (0);
 }
@@ -1973,8 +1921,7 @@ static int
 set_diff_section (int *diff_type, int *ring_tg)
 {
 	int ri_ = cnf.ring_curr;
-	int ris_ = cnf.ring_size;
-	char pattern[TAGSTR_SIZE];
+	const char *pattern;
 	char xmatch[TAGSTR_SIZE];
 	int orig_lineno = -1;
 	LINE *lx = NULL;
@@ -1991,7 +1938,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 		return (1);
 	}
 	if (CURR_FILE.num_lines < 5) {
-		tracemsg("empty diff");
+		tracemsg("no difference in version control");
 		return (1);
 	}
 
@@ -2008,10 +1955,11 @@ set_diff_section (int *diff_type, int *ring_tg)
 			CURR_FILE.lineno = CURR_FILE.num_lines;
 		}
 	}
-	strncpy(pattern, "'^([+]{3}|[-]{3}) '", 100);
+	pattern = "'^([+]{3}|[-]{3}) '";
 	filter_all(pattern);
 
 	if (orig_lineno == CURR_FILE.lineno) {
+		/* skip to the next line with "^+++ <filename>" */
 		if (TEXT_LINE(CURR_LINE->next) && !HIDDEN_LINE(ri_, CURR_LINE->next)) {
 			CURR_LINE = CURR_LINE->next;
 			CURR_FILE.lineno++;
@@ -2036,7 +1984,7 @@ set_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	strncpy(pattern, "^[+]{3} ([^[:blank:]]+)\t", 100);
+	pattern = "^[+]{3} ([^[:blank:]]+)(\t|$)";
 	if (regexp_match(CURR_LINE->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {
@@ -2047,18 +1995,13 @@ set_diff_section (int *diff_type, int *ring_tg)
 	/* open target file of diff (or switch to)
 	*/
 	if (try_add_file(xmatch)) {
-		tracemsg("cannot load target file");
-		PD_LOG(LOG_DEBUG, "cannot load target file [%s], given up", xmatch);
+		tracemsg("cannot load target file [%s]", xmatch);
 		return (4);
 	}
-	if (ris_ < cnf.ring_size) {
-		/* added buffer is new in the ring */
-		filter_less("");
-	}
 	*ring_tg = cnf.ring_curr;	/* save target file ring index */
+	filter_all("function");		/* prepare... before diff processing */
 	cnf.ring_curr = ri_;		/* back to diff file */
 
-	/* PD_LOG(LOG_DEBUG, "(type %d) done, target fname %s", *diff_type, xmatch); */
 	return (0);
 }
 
@@ -2071,11 +2014,9 @@ static int
 select_diff_section (int *diff_type, int *ring_tg)
 {
 	int ri_ = cnf.ring_curr;
-	int ris_ = cnf.ring_size;
 	LINE *lx = CURR_LINE;
 	int lineno = CURR_FILE.lineno;
 	int found = 0;
-	regex_t reg1;
 	const char *pattern;
 	char xmatch[TAGSTR_SIZE];
 
@@ -2086,7 +2027,7 @@ select_diff_section (int *diff_type, int *ring_tg)
 	*/
 	if ((strncmp(CURR_FILE.fname, "*diff*", 6) != 0))
 	{
-		tracemsg("not a (supported) diff");
+		tracemsg("not a *diff* buffer");
 		return (1);
 	}
 	if (CURR_FILE.num_lines < 5) {
@@ -2096,12 +2037,8 @@ select_diff_section (int *diff_type, int *ring_tg)
 
 	/* get appropriate section header (go upwards)
 	*/
-	pattern = "^([+]{3}|[-]{3}) ";
-	if (regcomp (&reg1, pattern, REGCOMP_OPTION)) {
-		return (1); /* internal regcomp failed */
-	}
 	while (!found) {
-		if (regexec(&reg1, lx->buff, 0, NULL, 0) == 0) {
+		if (!strncmp(lx->buff, "+++ ", 4) || !strncmp(lx->buff, "--- ", 4)) {
 			found = 1;
 		} else if (TEXT_LINE(lx->prev)) {
 			lx = lx->prev;
@@ -2110,7 +2047,6 @@ select_diff_section (int *diff_type, int *ring_tg)
 			break;
 		}
 	}
-	regfree (&reg1);
 	if (!found) {
 		tracemsg("cannot select diff header, not found");
 		return (2);
@@ -2130,7 +2066,7 @@ select_diff_section (int *diff_type, int *ring_tg)
 
 	/* the type of diff
 	*/
-	pattern = "^[+]{3} ([^[:blank:]]+)\t";
+	pattern = "^[+]{3} ([^[:blank:]]+)(\t|$)";
 	if (regexp_match(lx->buff, pattern, 1, xmatch) == 0) {
 		*diff_type = 1;
 	} else {
@@ -2141,18 +2077,12 @@ select_diff_section (int *diff_type, int *ring_tg)
 	/* open target file of diff (or switch to)
 	*/
 	if (try_add_file(xmatch)) {
-		tracemsg("cannot load target file");
-		PD_LOG(LOG_DEBUG, "cannot load target file [%s], given up", xmatch);
+		tracemsg("cannot load target file [%s]", xmatch);
 		return (4);
-	}
-	if (ris_ < cnf.ring_size) {
-		/* added buffer is new in the ring */
-		filter_less("");
 	}
 	*ring_tg = cnf.ring_curr;	/* save target file ring index */
 	cnf.ring_curr = ri_;		/* back to diff file */
 
-	/* PD_LOG(LOG_DEBUG, "(type %d) done, target fname %s", *diff_type, xmatch); */
 	return (0);
 }
 
@@ -2237,11 +2167,17 @@ process_diff (void)
 	/* @@ -RANGE0 +RANGE1 @@ */
 	patt1 = "^@@ \\-[0-9,]+ \\+([0-9,]+) @@";
 
+	/* some processing moved to another function
+	*/
 	ret = set_diff_section (&diff_type, &ring_tg);
 	if (ret) {
-		PD_LOG(LOG_DEBUG, "incomplete processing, given up");
-		if (ret == 4)
-			filter_more(patt1);
+		if (CURR_FILE.num_lines < 5) {
+			quit_file();
+			/* no change */
+			update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
+			return (0);
+		}
+		tracemsg("processing diff failed", ret); /* given up */
 		return (ret);
 	}
 	lx_ = CURR_LINE;
@@ -2253,6 +2189,7 @@ process_diff (void)
 		/* range: (number) | (begin,length) */
 
 		if (regcomp (&reg1, patt1, REGCOMP_OPTION)) {
+			ERRLOG(0xE083);
 			return (1); /* internal regcomp failed */
 		}
 
@@ -2293,16 +2230,92 @@ process_diff (void)
 		regfree (&reg1);
 
 	} else {
-		PD_LOG(LOG_DEBUG, "not supported diff type");
-		tracemsg("unified diff type required");
+		tracemsg("not supported diff type, unified diff required");
 		return (1);
 	}
 
 	/* call once for the target */
 	cnf.ring_curr = ring_tg;
-	filter_more("function");
 	update_focus(CENTER_FOCUSLINE, cnf.ring_curr);
 	cnf.ring_curr = ri_;
+	update_focus(FOCUS_ON_2ND_LINE, ri_);
+
+	/* and colorize the *diff* also */
+	bm_set("9");
+	filter_more("/^@@/");
+	color_tag("/^@@/");
 
 	return (0);
+}
+
+/*
+* engine to run [hg] diff with all the given arguments and process the outcome
+*/
+int hgdiff_eng (const char *fname, const char *hdr, const char *ext_cmd)
+{
+	int ret=0, orig_ri, diff_ri;
+	orig_ri = cnf.ring_curr;
+
+	/* necessary cleanup for the diff processing */
+	diff_ri = query_scratch_fname (hdr);
+	if (diff_ri != -1) {
+		cnf.ring_curr = diff_ri;
+		drop_file();
+		cnf.ring_curr = orig_ri;
+	}
+
+	/* create the diff, check if usable for processing */
+	ret = vcstool(ext_cmd);
+	if (ret || CURR_FILE.num_lines <= 3) {
+		if (orig_ri != cnf.ring_curr)
+			quit_file();
+		tracemsg("File '%s' has no changes in version control", fname);
+		return (ret);
+	}
+
+	/* the diff processing */
+	if (is_special("diff") || process_diff())
+		return (1);
+
+	return (0);
+}
+
+/*
+** internal_hgdiff - run hg diff on current file, or another given filename, and process the outcome
+*/
+int internal_hgdiff (const char *args)
+{
+	int ret=0;
+	char ext_cmd[25+FNAMESIZE];
+	const char *ptr = NULL;
+
+	if (args == NULL || args[0] == '\0') {
+		ptr = CURR_FILE.fname;
+	} else {
+		ptr = args;
+	}
+	snprintf(ext_cmd, sizeof(ext_cmd)-1, "hg diff -p --noprefix %s", ptr); // filename offset: 22
+
+	ret = hgdiff_eng (ext_cmd+22, "*hg*", ext_cmd);
+	return (ret);
+}
+
+/*
+** internal_gitdiff - run git diff on current file, or another given filename, and process the outcome
+*/
+int internal_gitdiff (const char *args)
+{
+	int ret=0;
+	char ext_cmd[25+FNAMESIZE]; // offset:21
+	const char *ptr = NULL;
+
+	if (args == NULL || args[0] == '\0') {
+		ptr = CURR_FILE.fname;
+	} else {
+		ptr = args;
+	}
+	snprintf(ext_cmd, sizeof(ext_cmd)-1, "git diff --no-prefix %s", ptr); // filename offset: 21
+
+	ret = hgdiff_eng (ext_cmd+21, "*git*", ext_cmd);
+	return (ret);
 }

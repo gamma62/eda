@@ -37,49 +37,6 @@
 extern CONFIG cnf;
 
 /*
- * get last word from the line
- */
-char *
-get_last_word (const char *dataline, int len)
-{
-	char *word = NULL, *s = NULL;
-	int i=0, j=0;
-	int size = len; /* allocate as much size as the input */
-	unsigned als=0;
-
-	/* init
-	*/
-	als = ALLOCSIZE(size);
-	word = (char *) MALLOC(als);
-	if (word == NULL) {
-		return (NULL);
-	}
-
-	/* get last word */
-	while (j<len && dataline[j] != '\n' && dataline[j] != '\r') {
-		if (dataline[j] == ' ' || dataline[j] == '\t')
-			i = 0;
-		else
-			word[i++] = dataline[j];
-		j++;
-	}
-	word[i] = '\0';
-
-	/* realloc
-	*/
-	als = ALLOCSIZE(i);
-	if (als < ALLOCSIZE(size)) {
-		s = (char *) REALLOC((void *)word, als);
-		if (s != NULL) {
-			word = s;
-		}
-		/* no problem */
-	}
-
-	return word;
-}
-
-/*
  * get rest of line, optionally strip newline and symlink part
  */
 int
@@ -88,15 +45,15 @@ get_rest_of_line (char **buffer, int *bufsize, const char *dataline, int from, i
 	char *word = *buffer;
 	int wl = *bufsize;
 	char *next=NULL;
-	int offset=0;
+	int offset=0, ret=0;
 
 	if (dataline == NULL || dlen < 0 || dlen <= from) {
 		word = NULL;
 		return (-1);
 	}
 
-	csere(&word, &wl, 0, 0, dataline+from, dlen-from);
-	if (word == NULL) {
+	ret = csere (&word, &wl, 0, 0, dataline+from, dlen-from);
+	if (ret || word == NULL) {
 		return (-1);
 	}
 
@@ -109,7 +66,7 @@ get_rest_of_line (char **buffer, int *bufsize, const char *dataline, int from, i
 	next = strstr(word, " -> ");
 	if (next != NULL) {
 		offset = next - word + 4;
-		csere(&word, &wl, 0, offset, "", 0);
+		(void) csere (&word, &wl, 0, offset, "", 0);
 	}
 
 	/* give pointers back */
@@ -120,175 +77,132 @@ get_rest_of_line (char **buffer, int *bufsize, const char *dataline, int from, i
 }
 
 /*
- * utility to get filenames by the TAB, as usual...
- * allocate space for choices; MUST BE free'd by caller
+ * internal utility for TILDE expansion and validating the directory part of path
  */
 int
-get_fname (char *path, unsigned maxsize, char **choices)
-{
-	char prop[CMDLINESIZE];
-	glob_t globbuf;
-	int r=0, i=0;
-	unsigned request=0, s=0, als=0, new=0, len=0, j=0;
-	char *qq, *pos;
-	int offset = 0;
-
-	if (path == NULL || maxsize <= 1) {
-		return -1;
-	}
-
-	*choices = NULL;
-	globbuf.gl_offs = 0;
-	if ((pos = strchr(path, '*')) != NULL) {
-		offset = pos - path;
-	}
-	if ((pos = strchr(path, '?')) != NULL) {
-		if (offset == 0) {
-			offset = pos - path;
-		} else {
-			offset = (offset < pos - path) ? offset : pos - path;
-		}
-	}
-	prop[0] = '\0';
-	strncat(prop, path, sizeof(prop)-2);
-	strncat(prop, "*", 2);
-
-	/* file or dir */
-	r = glob(prop, GLOB_ERR | GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
-
-	if (r==0) {		/* succesful completion */
-
-		r = globbuf.gl_pathc;
-		if (r==1) {
-			strncpy(path, globbuf.gl_pathv[0], maxsize-1);
-			path[maxsize-1] = '\0';
-
-		} else { /* r>1 */
-			if (offset == 0) {
-				/* no shell pattern -- guess the common prefix */
-				len = strlen(path);	/* original length */
-				new = maxsize-1;
-				strncpy(path, globbuf.gl_pathv[0], new);
-				for (i=1; i<r; i++) {
-					for (j=len; j<new; j++) {
-						if (path[j] == '\0' ||
-						    globbuf.gl_pathv[i][j] == '\0' ||
-						    path[j] != globbuf.gl_pathv[i][j])
-						{
-							new = j;
-							break;
-						}
-					}
-				}
-				path[new] = '\0';
-			}
-
-			/* return choices, but limit number of bytes, 500? */
-			request = 1;
-			i = 0;
-			while (i<r) {
-				s = strlen(globbuf.gl_pathv[i]);
-				if (request+s+1 < 500) {
-					request += s+1;
-					i++;
-				} else {
-					r = i; // skip the rest, mark with "..."
-					break;
-				}
-			}
-
-			als = ALLOCSIZE(request+10);
-			qq = (char *) MALLOC(als);
-			if (qq != NULL) {
-				*choices = qq;	/* save for return, to be freed by caller */
-				qq[0]='\0';
-				for (i=0; i<r; i++) {
-					strncat(qq, globbuf.gl_pathv[i], request);
-					strncat(qq, " ", 2);
-				}
-				if ((size_t)r < globbuf.gl_pathc)
-					strncat(qq, "...", 3);
-			} else {
-				r = -r;
-				/* beep(); beep(); */
-			}
-		}
-
-	/* failed... */
-	} else {
-		r = -r;
-		/* beep(); beep(); */
-	}
-	globfree(&globbuf);
-
-	return r;
-} /* get_fname */
-
-/*
- * internal utility to glob/expand filename -- mostly TILDE expansion
- * for validating existing filenames
- * and directory names where the file does not exist
- */
-int
-glob_name (char *fname, unsigned maxsize)
+glob_tilde_expansion (char *path, unsigned maxsize)
 {
 	int ret=1;
 	glob_t globbuf;
-	char probe[FNAMESIZE*2];
-	unsigned i=0, len=0, sl=0;
+	char fname[FNAMESIZE];
+	char dirname[FNAMESIZE];
+	unsigned len, flen;
 
-	if (fname == NULL || maxsize <= 1) {
+	if (path == NULL || maxsize < 10)
 		return -1;
-	}
 
-	maxsize = MIN(maxsize, FNAMESIZE);
-	fname[maxsize-1] = '\0';
+	mybasename(fname, path, FNAMESIZE);
+	flen = strlen(fname);
+	mydirname(dirname, path, FNAMESIZE);
 
-	glob(fname, GLOB_ERR | GLOB_TILDE, NULL, &globbuf);
-	if (globbuf.gl_pathc == 1) {
-		/* ok */
-		fname[0] = '\0';
-		strncat(fname, globbuf.gl_pathv[0], maxsize-1);
-		ret=0;
-	} else {
-		/* resolve dirname, maybe the file doesn't exist */
-		len = strlen(fname);
-		len = MIN(len, maxsize-1);
-		if (len>2 && fname[0]=='~') {
-			globfree(&globbuf);
-			for (i=0, sl=1; i <= len; i++) {
-				probe[i] = fname[i];
-				if (fname[i]=='/')
-					sl = i;
+	ret = glob(dirname, GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
+	if (ret == 0 && globbuf.gl_pathc == 1) {
+		len = strlen(globbuf.gl_pathv[0]);
+		if (maxsize > len + flen) {
+			//
+			// remove boring "./" prefix from relative path, except empty fname
+			//
+			memset(path, '\0', maxsize);
+			if (globbuf.gl_pathv[0][0] == '.' && globbuf.gl_pathv[0][1] == '/' && fname[0] != '\0') {
+				strncpy(path, globbuf.gl_pathv[0]+2, len);
+			} else {
+				strncpy(path, globbuf.gl_pathv[0], len);
 			}
-			probe[sl] = '\0';	/* sl>=1 && sl<len */
-			/* again */
-			glob(probe, GLOB_ERR | GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
-			if (globbuf.gl_pathc == 1) {
-				/* path resolved */
-				probe[0] = '\0';
-				strncat(probe, globbuf.gl_pathv[0], maxsize-1);
-#ifndef NO_GLOB_WORKAROUND
-				/* workaround
-				* for "~/no-more-slash" names, to avoid /home/whatever//no-more-slash
-				*/
-				len = strlen(probe);
-				if (len>2 && probe[len-1]=='/' && fname[sl]=='/') {
-					probe[--len] = '\0';
-				}
-#endif
-				strncat(probe, &fname[sl], maxsize-1);
-				/* and copy back to fname */
-				fname[0] = '\0';
-				strncat(fname, probe, maxsize-1);
-				ret=0;
-			}
+			strncat(path, fname, flen);
+			ret=0;
+		} else {
+			/* too long */
+			ret=3;
 		}
+	} else {
+		/* glob failed */
+		ret=2;
 	}
 	globfree(&globbuf);
 
 	return (ret);
-} /* glob_name */
+}
+
+/*
+ * internal utility to get names from filesysten matching pattern,
+ * write back common characters and if there is no exact match, return the choices
+ */
+int
+glob_tab_expansion (char *path, unsigned maxsize, char **choices)
+{
+	int ret=1;
+	glob_t globbuf;
+	unsigned len, i, j, end, request, items, als;
+	int copy_back_common_bytes=0;
+	char *qq;
+
+	if (path == NULL || maxsize < 10)
+		return -1;
+
+	*choices = NULL;
+	if ((strchr(path, '*') == NULL) && (strchr(path, '?') == NULL)) {
+		strncat(path, "*", 2);
+		copy_back_common_bytes = 1;
+	}
+
+	ret = glob(path, GLOB_TILDE | GLOB_MARK, NULL, &globbuf);
+	if (ret == 0 && globbuf.gl_pathc >= 1) {
+		ret=0;
+		if (globbuf.gl_pathc == 1) {
+			/* exact match */
+			len = strlen(globbuf.gl_pathv[0]);
+			if (len < maxsize) {
+				strncpy(path, globbuf.gl_pathv[0], maxsize-1);
+				path[len] = '\0';
+			} else {
+				/* too long */
+				ret=3;
+			}
+		} else {
+			/* partial match */
+			if (copy_back_common_bytes) {
+				end = 0;
+				for (j=0; j < maxsize && !end; j++) {
+					path[j] = globbuf.gl_pathv[0][j];
+					for (i=0; i < globbuf.gl_pathc; i++) {
+						if (globbuf.gl_pathv[i][j] == '\0' ||
+						    globbuf.gl_pathv[i][j] != path[j]) {
+						        end = j;
+							break;
+						}
+					}
+				}
+				path[end++] = '\0'; /* end < maxsize */
+			}
+			/* create list of choices (1000++ bytes), items count */
+			request = 1;
+			for (i=0; i < globbuf.gl_pathc && request < 1000; i++)
+				request += strlen(globbuf.gl_pathv[i]) +1;
+			items = i;
+			als = ALLOCSIZE(request+4); /* for optional 3+1 */
+			qq = (char *) MALLOC(als);
+			if (qq == NULL) {
+				ERRLOG(0xE031);
+				ret = 4;
+			} else {
+				*choices = qq;	/* save for return, to be freed by caller */
+				qq[0]='\0';
+				for (i=0; i < items; i++) {
+					strncat(qq, globbuf.gl_pathv[i], request);
+					strncat(qq, " ", 2);
+				}
+				if (items < globbuf.gl_pathc)
+					strncat(qq, "...", 3); /* optional 3+1 bytes */
+			}
+		}
+	} else {
+		// if (globbuf.gl_pathc >= 1) /* glob failed */
+		ret=2;
+	}
+	globfree(&globbuf);
+
+	return (ret);
+}
 
 /* ---------------------------------------------------------- */
 
@@ -407,12 +321,12 @@ yesno (const char *str)
 /*
  * return the filetype (by file extension)
  */
-int
+FXTYPE
 fname_ext (const char *cfname)
 {
 	int i=0, j = -1;
 	char ext[20];
-	int fxtype = UNKNOWN_FILETYPE;
+	FXTYPE fxtype = TEXT_FILETYPE;
 
 	for (i=0; i < FNAMESIZE-1 && cfname[i] != '\0'; i++) {
 		if (cfname[i] == '.') {
@@ -434,16 +348,11 @@ fname_ext (const char *cfname)
 		fxtype = C_FILETYPE;
 	} else if (j==2 && ext[0]=='p' && ext[1]=='l') {
 		fxtype = PERL_FILETYPE;
-	} else if (j==2 && ext[0]=='t' && ext[1]=='k') {
-		fxtype = TCL_FILETYPE;
-	} else if (j==3 && ext[0]=='t' && ext[1]=='c' && ext[2]=='l') {
-		fxtype = TCL_FILETYPE;
 	} else if (j==2 && ext[0]=='p' && ext[1]=='y') {
 		fxtype = PYTHON_FILETYPE;
 	} else if (j==2 && ext[0]=='s' && ext[1]=='h') {
 		fxtype = SHELL_FILETYPE;
 	} else {
-		/* hope the best */
 		fxtype = TEXT_FILETYPE;
 	}
 
@@ -456,13 +365,12 @@ fname_ext (const char *cfname)
 int
 slash_index (const char *string, int strsize, int from, int reverse, int get_first)
 {
-	int i=0, idx=0;
+	int i=0, idx = -1;
 
 	if (from > strsize || from < 0)
 		return (-1);
 
 	if (reverse) {
-		idx = strsize+1;
 		for (i = from; i >= 0; i--) {
 			if (string[i] == '/') {
 				idx = i;
@@ -470,7 +378,6 @@ slash_index (const char *string, int strsize, int from, int reverse, int get_fir
 			}
 		}
 	} else {
-		idx = -1;
 		for (i = from; string[i] != '\0' && i < strsize; i++) {
 			if (string[i] == '/') {
 				idx = i;
@@ -485,7 +392,7 @@ slash_index (const char *string, int strsize, int from, int reverse, int get_fir
 /*
  * helper function to get token in given string by delimiter(s),
  * return length of token, but
- * length can be 0 or strlen of input if no delimiters found
+ * length can be 0 if no delimiters found
  * index_rest is the next index after delimiters, and maybe -1
  */
 int
@@ -535,6 +442,8 @@ parse_token (const char *inputstr, const char *delim, int *index_rest)
 
 /*
  * return the base part of filename path (word after last slash)
+ * tilde belongs to directory part and simple "." and ".." is dirname
+ * do not stat the result here, simple "foo" is filename, caller must check it
  */
 void
 mybasename (char *outpath, const char *inpath, int outbuffsize)
@@ -548,14 +457,27 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
 	if (inpath != NULL && inpath[0] != '\0') {
 		ilen = strlen(inpath);
 		ilen = MIN(ilen, outbuffsize-1);
-		while (ilen > 1 && inpath[ilen-1] == '/') {
-			ilen--;
+		if (ilen >= 2 && inpath[ilen-2] == '/' && inpath[ilen-1] == '.') {
+			/* slash-dot at the end */
+			return;
+		} else if (ilen > 1 && inpath[ilen-1] == '/') {
+			/* slash at the end */
+			return;
 		}
 		last = slash_index (inpath, ilen, 0, SLASH_INDEX_FWD, SLASH_INDEX_GET_LAST);
 		if (last == -1) {
-			strncpy(outpath, &inpath[0], (size_t)ilen);
-			outpath[ilen] = '\0';
+			if (inpath[0] == '~') {
+				outpath[0] = '\0';
+			} else if (ilen==1 && inpath[0] == '.') {
+				outpath[0] = '\0';
+			} else if (ilen==2 && inpath[0] == '.' && inpath[1] == '.') {
+				outpath[0] = '\0';
+			} else {
+				strncpy(outpath, &inpath[0], (size_t)ilen);
+				outpath[ilen] = '\0';
+			}
 		} else if (ilen-last > 1) {
+			/* not empty */
 			strncpy(outpath, &inpath[last+1], (size_t)(ilen-last-1));
 			outpath[ilen-last-1] = '\0';
 		}
@@ -568,6 +490,8 @@ mybasename (char *outpath, const char *inpath, int outbuffsize)
  * return the dir part of filename path, before the last slash
  * but keep the "/" string
  * and return "." instead of empty string
+ * tilde belongs to directory part and simple "." and ".." is dirname
+ * do not stat the result here, simple "foo" is filename, caller must check it
  */
 void
 mydirname (char *outpath, const char *inpath, int outbuffsize)
@@ -582,19 +506,40 @@ mydirname (char *outpath, const char *inpath, int outbuffsize)
 	if (inpath != NULL && inpath[0] != '\0') {
 		ilen = strlen(inpath);
 		ilen = MIN(ilen, outbuffsize-1);
-		while (ilen > 1 && inpath[ilen-1] == '/') {
-			ilen--;
-		}
 		last = slash_index (inpath, ilen, 0, SLASH_INDEX_FWD, SLASH_INDEX_GET_LAST);
 		if (last == -1) {
-			outpath[0] = '.';
-			outpath[1] = '\0';
-		} else if (last == 0) {
-			outpath[0] = '/';
-			outpath[1] = '\0';
-		} else if (last > 0) {
-			strncpy(outpath, &inpath[0], (size_t)last);
-			outpath[last] = '\0';
+			if (inpath[0] == '~') {
+				strncpy(outpath, &inpath[0], (size_t)ilen);
+				outpath[ilen] = '\0';
+			} else if (ilen==1 && inpath[0] == '.') {
+				outpath[0] = '.';
+				outpath[1] = '\0';
+			} else if (ilen==2 && inpath[0] == '.' && inpath[1] == '.') {
+				outpath[0] = '.';
+				outpath[1] = '.';
+				outpath[2] = '\0';
+			} else {
+				/* do not return empty outpath */
+				outpath[0] = '.';
+				outpath[1] = '\0';
+			}
+		} else {
+			while (last > 1 && inpath[last-1] == '/') {
+				last--;
+			}
+			if (last == 0) {
+				/* keep special outpath */
+				outpath[0] = '/';
+				outpath[1] = '\0';
+			} else if (last+2 == ilen && inpath[last+1] == '.') {
+				/* slash-dot at the end */
+				strncpy(outpath, &inpath[0], (size_t)ilen);
+				outpath[ilen] = '\0';
+			} else if (last > 0) {
+				/* not empty */
+				strncpy(outpath, &inpath[0], (size_t)last);
+				outpath[last] = '\0';
+			}
 		}
 	}
 
@@ -617,16 +562,32 @@ canonicalpath (const char *path)
 
 	/* dup */
 	ilen = strlen(path);
-	csere (&dir, &size, 0, 0, &path[0], ilen);
-	if (dir == NULL) {
+	if (csere (&dir, &size, 0, 0, &path[0], ilen)) {
+		FREE(dir); dir = NULL;
 		return NULL;
 	}
 
-	/* add curpath if not absolute path */
-	if (dir[0] != '/') {
-		/* insert PWD into the dir */
-		csere (&dir, &size, 0, 0, "/", 1);
-		csere (&dir, &size, 0, 0, cnf._pwd, (int)cnf.l1_pwd);
+	/* replace tilde or insert pwd if not absolute path */
+	if (ilen == 0) {
+		/* replace empty dir with PWD */
+		if (csere (&dir, &size, 0, 0, cnf._pwd, (int)cnf.l1_pwd)) {
+			FREE(dir); dir = NULL;
+			return NULL;
+		}
+	} else if (dir[0] == '~') {
+		if (ilen == 1 || (ilen > 1 && dir[1] == '/')) {
+			/* replace tilde with HOME */
+			if (csere (&dir, &size, 0, 1, cnf._home, (int)cnf.l1_home)) {
+				FREE(dir); dir = NULL;
+				return NULL;
+			}
+		}
+	} else if (dir[0] != '/') {
+		/* insert PWD+"/" into the dir */
+		if (csere (&dir, &size, 0, 0, "/", 1) || csere (&dir, &size, 0, 0, cnf._pwd, (int)cnf.l1_pwd)) {
+			FREE(dir); dir = NULL;
+			return NULL;
+		}
 	}
 
 	/* simple replacement (dot-slash) and (slash-slash) */
@@ -651,14 +612,14 @@ canonicalpath (const char *path)
 			(dir[runner+3] == '\0' || dir[runner+3] == '/'))
 		{
 			if (runner == 0) {
-				FREE(dir);
-				dir = NULL;
+				FREE(dir); dir = NULL;
+				size = 0;
 				break; /* invalid path */
 			}
 			prev = slash_index (dir, size, runner-1, SLASH_INDEX_REVERSE, SLASH_INDEX_GET_FIRST);
-			if (prev == -1 || prev > size) {
-				FREE(dir);
-				dir = NULL;
+			if (prev == -1) {
+				FREE(dir); dir = NULL;
+				size = 0;
 				break; /* invalid path */
 			}
 			if (prev == 0 && dir[runner+3] == '\0') {
@@ -671,6 +632,21 @@ canonicalpath (const char *path)
 			runner = slash_index (dir, size, runner+1, SLASH_INDEX_FWD, SLASH_INDEX_GET_FIRST);
 			if (runner < 0) break;
 		}
+	}
+
+	/* finish */
+	if (size >= 2 && dir[size-2] == '/' && dir[size-1] == '.') {
+		if (size == 2) {
+			/* keep the only slash */
+			dir[--size] = '\0';
+		} else {
+			/* slash-dot */
+			size -= 2;
+			dir[size] = '\0';
+		}
+	}
+	if (size > 1 && dir[size-1] == '/') {
+		dir[--size] = '\0';
 	}
 
 	return (dir);

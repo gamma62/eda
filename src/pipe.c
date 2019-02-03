@@ -1,6 +1,6 @@
 /*
 * pipe.c
-* tools for fork/execve processes, external programs and filters, make, find, vcs tools, shell,
+* tools for fork/execvp processes, external programs and filters, make, find, vcs tools, shell,
 * utilities for background processing
 *
 * Copyright 2003-2016 Attila Gy. Molnar
@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
+#include <glob.h>		/* glob, globfree */
 #include "main.h"
 #include "proto.h"
 
@@ -44,9 +45,8 @@ extern CONFIG cnf;
 /* local proto */
 static int filter_cmd_eng (const char *ext_cmd, int opts);
 static int fork_exec (const char *ext_cmd, const char *ext_argstr, int *in_pipe, int *out_pipe, int opts);
-static int check_zombie (int ri);
+static int finish_in_fg (void);
 static int getxline (char *buff, int *count, int max, int fd);
-static void filter_esc_seq (char *buff, int *count);
 
 /*
 ** shell_cmd - launch shell to run given command with the optional arguments and catch output to buffer
@@ -58,7 +58,7 @@ shell_cmd (const char *ext_cmd)
 	char ext_argstr[CMDLINESIZE];
 	memset(ext_argstr, 0, sizeof(ext_argstr));
 
-	/* command is mandatory because this is not interactive */
+	/* command is mandatory */
 	if (ext_cmd[0] == '\0') {
 		return (0);
 	}
@@ -69,52 +69,6 @@ shell_cmd (const char *ext_cmd)
 		snprintf(ext_argstr, sizeof(ext_argstr)-1, "sh -c '%s'", ext_cmd);
 	}
 	ret = read_pipe ("*sh*", cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_TTY);
-
-	return (ret);
-}
-
-/*
-** ishell_cmd - launch interactive shell or given command with the optional arguments,
-**	catch output and show in buffer, read input from the last line;
-**	the Apostrophe character maybe used to enclose parameters
-*/
-int
-ishell_cmd (const char *ext_cmd)
-{
-	int ret=0;
-	char ext_argstr[CMDLINESIZE];
-	char head[30];
-	unsigned i=0, j=0, se=0, sh=0;
-
-	se = sizeof(ext_argstr);
-	sh = sizeof(head);
-	if (se < 1 || sh < 2) {
-		return (-1);
-	}
-	memset(ext_argstr, 0, se);
-	memset(head, 0, sh);
-
-	/* command is optional */
-	if (ext_cmd[0] == '\0') {
-		snprintf(ext_argstr, se-1, "sh -c %s", cnf.sh_path);
-		strncpy(head, "*ish*", 5);
-	} else {
-		head[i++] = '*';
-		if (ext_cmd[0] == 0x27) {
-			snprintf(ext_argstr, se-1, "sh -c %s", ext_cmd);
-			j=1;
-		} else {
-			snprintf(ext_argstr, se-1, "sh -c '%s'", ext_cmd);
-			j=0;
-		}
-		while (i < sh-2 && ext_cmd[j] != '\0' && ext_cmd[j] != ' ' && ext_cmd[j] != 0x27)
-			head[i++] = ext_cmd[j++];
-		head[i++] = '*';
-		head[i++] = '\0';
-
-	}
-
-	ret = read_pipe (head, cnf.sh_path, ext_argstr, OPT_REDIR_ERR | OPT_SILENT | OPT_INTERACT | OPT_TTY);
 
 	return (ret);
 }
@@ -397,15 +351,17 @@ filter_cmd_eng (const char *ext_cmd, int opts)
 }
 
 /*
-** lsdir_cmd - create directory listing in special buffer for easy navigation and opening, argument must be a directory
+** lsdir_cmd - create directory listing in special buffer for easy navigation and opening,
+**	the one optional argument must be a directory or a shell glob
 */
 int
 lsdir_cmd (const char *ext_cmd)
 {
 	int ret=0;
 	char dirpath[FNAMESIZE];
-	int xlen=0;
+	int xlen=0, empty_pattern=0;
 	struct stat test;
+	int origin = cnf.ring_curr;
 
 	cnf.lsdir_opts = LSDIR_OPTS;	/* defaults */
 
@@ -416,38 +372,41 @@ lsdir_cmd (const char *ext_cmd)
 	xlen = strlen(dirpath);
 	strip_blanks (STRIP_BLANKS_FROM_END|STRIP_BLANKS_FROM_BEGIN, dirpath, &xlen);	/* do not squeeze */
 	if (xlen < 1) {
+		empty_pattern = 1;
 		strncpy(dirpath, "./", 3);
-		xlen=2;
+		xlen = 2;
 	} else {
-
-		/* tilde expansion */
-		glob_name(dirpath, sizeof(dirpath));
+		if (glob_tilde_expansion(dirpath, sizeof(dirpath)))
+			return (1); /* useless */
 		xlen = strlen(dirpath);
 
-		/* if this is a filename, try to get the dirname */
-		if (stat(dirpath, &test)==0 && (S_ISREG(test.st_mode))) {
+		/* if this is a filename, get the dirname for ls */
+		if (xlen>0 && stat(dirpath, &test)==0 && (S_ISREG(test.st_mode))) {
 			while (xlen>0 && dirpath[xlen-1] != '/')
 				xlen--;
 			if (xlen>0 && dirpath[xlen-1] == '/')
 				dirpath[xlen] = '\0';
-		}
-
-		if (xlen>0 && stat(dirpath, &test)==0 && (S_ISDIR(test.st_mode))) {
-			if (dirpath[xlen-1] != '/') {
-				dirpath[xlen++] = '/';
-				dirpath[xlen] = '\0';
+			else {
+				strncpy(dirpath, "./", 3);
+				xlen=2;
 			}
-		} else {
-			tracemsg("%s is not a directory name", dirpath);
-			return 1;
 		}
+		/* dirpath: directory name or regexp pattern */
 	}
 
 	/* open or switch to */
-	if ((ret = scratch_buffer("*ls*")) != 0) {
+	ret = scratch_buffer("*ls*");
+	if (ret==0) {
+		/* switch to */
+		if (origin != cnf.ring_curr && empty_pattern && CURR_FILE.num_lines > 0)
+			return (0);
+		/* generate or re-generate */
+		if (CURR_FILE.num_lines > 0)
+			ret = clean_buffer();
+	}
+	if (ret) {
 		return (ret);
 	}
-	/* cnf.ring_curr is set now */
 
 	/* start the engine
 	*/
@@ -498,25 +457,26 @@ show_define (const char *fname, int lineno)
  * and return the specified lineno from the output
 */
 int
-read_extcmd_line (char *ext_cmd, int lineno, char *buff, int siz)
+read_extcmd_line (const char *ext_cmd, int lineno, char *buff, int siz)
 {
 	FILE *pipe_fp;
 	int lno=0, slen=0;
 	char *p, cache[1024];
 
-	pipe_fp = popen(ext_cmd, "r");
-	if (pipe_fp == NULL) {
+	if (buff == NULL || siz < 1) {
 		return (1);
 	}
-	if (buff == NULL || siz < 1) {
+
+	pipe_fp = popen(ext_cmd, "r");
+	if (pipe_fp == NULL) {
 		return (1);
 	}
 
 	memset(cache, '\0', 1024);
 	while ((p = fgets(cache, 1023, pipe_fp)) != NULL) {
 		if (++lno == lineno) {
-			memset(buff, '\0', (size_t)siz);
 			strncpy(buff, cache, (size_t)siz);
+			buff[siz-1] = '\0';
 
 			slen = strlen(buff);
 			if (slen > 0 && buff[slen-1] == '\n')
@@ -548,60 +508,29 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	char *args[MAXARGS], cmd[FNAMESIZE];
 	int xx=0;
 	int chrw=-1;
-	int ptm, pts;
-	char *slave;
 
 	/* copy and parse args[] */
 	strncpy(token_str, ext_argstr, sizeof(token_str));
 	token_str[sizeof(token_str)-1] = '\0';
 	if ((xx = parse_args (token_str, args)) < 1) {
-		PIPE_LOG(LOG_ERR, "parse_args() failed");
+		// failed
 		return (-1);
 	}
 
 	/* check command */
 	if (ext_cmd[0] == '\0') {
-		PIPE_LOG(LOG_ERR, "no command to launch");
+		// no command to launch
 		return (-1);
 	}
 	strncpy(cmd, ext_cmd, sizeof(cmd));
 	cmd[sizeof(cmd)-1] = '\0';
 
-	if (opts & OPT_INTERACT) {
-		ptm = open("/dev/ptmx", O_RDWR);
-		if (ptm == -1)
-			ptm = posix_openpt(O_RDWR);
-
-		if (ptm == -1
-			|| grantpt(ptm) == -1
-			|| unlockpt(ptm) == -1
-			|| (slave = ptsname(ptm)) == NULL)
-		{
-			PIPE_LOG(LOG_ERR, "ptm open failed (%s)", strerror(errno));
-			return (-1);
-		}
-
-		pts = open(slave, O_RDWR);
-		if (pts < 0) {
-			PIPE_LOG(LOG_ERR, "pts open failed (%s)", strerror(errno));
-			return (-1);
-		}
-
-		PIPE_LOG(LOG_NOTICE, "interactive: slave [%s] ptm %d pts %d", slave, ptm, pts);
-		/* parent */
-		out_pipe[XREAD] = ptm;
-		in_pipe[XWRITE] = ptm;
-		/* child */
-		out_pipe[XWRITE] = pts;
-		in_pipe[XREAD] = pts;
-	} else {
-		if (pipe(out_pipe) || pipe(in_pipe)) {
-			PIPE_LOG(LOG_ERR, "pipe() call failed (%s)", strerror(errno));
-			return (-1);
-		}
+	if (pipe(out_pipe) || pipe(in_pipe)) {
+		PIPE_LOG(LOG_ERR, "pipe() call failed (%s)", strerror(errno));
+		return (-1);
 	}
-	PIPE_LOG(LOG_DEBUG, "in pipe W %d R %d  out pipe W %d R %d",
-		in_pipe[XWRITE], in_pipe[XREAD], out_pipe[XWRITE], out_pipe[XREAD]);
+	// in pipe -- in_pipe[XWRITE], in_pipe[XREAD]
+	// out pipe -- out_pipe[XWRITE], out_pipe[XREAD]
 
 	if ((chrw = fork()) == -1) {
 		PIPE_LOG(LOG_ERR, "fork() [r/w] failed (%s)", strerror(errno));
@@ -631,7 +560,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		} else {
 			close(2);			/* drop stderr */
 		}
-		if (opts & (OPT_IN_OUT | OPT_INTERACT | OPT_TTY)) {
+		if (opts & (OPT_IN_OUT | OPT_TTY)) {
 			dup2(in_pipe[XREAD], 0);	/* stdin from pipe */
 		} else {
 			close(0);			/* no stdin */
@@ -645,14 +574,8 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		if (setsid() == -1)
 			perror("setsid");
 
-		/* set big terminal size for the child process */
-		setenv("COLUMNS", "512", 1);
-
-		if (opts & OPT_INTERACT) {
-			/* greetings */
-			fprintf(stderr, "Hello World! -- pid:%d (ppid:%d) sid:%d pgid:%d\n",
-				getpid(), getppid(), getsid(0), getpgid(0));
-		}
+		/* set terminal COLUMNS for the child process */
+		setenv("COLUMNS", "128", 0); // optional
 
 		/* reset signal handler for child
 		*/
@@ -665,10 +588,9 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		sigaction(SIGUSR1, &sigAct, NULL);
 		sigaction(SIGUSR2, &sigAct, NULL);
 
-		if (execvp (cmd, args) == -1) {
-			PIPE_LOG(LOG_ERR, "child log: pid=%d: execvp() [%s] failed (%s)", getpid(), cmd, strerror(errno));
-		}
-		exit(EXIT_SUCCESS);
+		(void)execvp (cmd, args);
+		PIPE_LOG(LOG_ERR, "child: execvp() [%s] failed (%s)", cmd, strerror(errno));
+		exit(EXIT_FAILURE);
 	}
 
 	/* parent process
@@ -681,8 +603,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 }
 
 /*
-** finish_in_fg - finish reading output of external process in foreground,
-**	read from pipe until process finished
+* read pipe of external process until finished
 */
 int
 finish_in_fg (void)
@@ -690,7 +611,6 @@ finish_in_fg (void)
 	int ret = 0;
 
 	CURR_FILE.pipe_opts |= OPT_NOBG;
-	PIPE_LOG(LOG_DEBUG, "ri=%d, start, calling readout_pipe ...", cnf.ring_curr);
 
 	/* loop stops if pipe_output closed
 	*/
@@ -699,7 +619,6 @@ finish_in_fg (void)
 		if (ret==1)
 			ret=0; /* that was an empty read */
 	}
-	PIPE_LOG(LOG_DEBUG, "ri=%d, return %d", cnf.ring_curr, ret);
 
 	return ret;
 }
@@ -747,7 +666,6 @@ read_stdin (void)
 	}
 
 	/* the rest is standard input processing */
-	PIPE_LOG(LOG_NOTICE, "stdin-pipe dup to pipe=%d, re-opened /dev/tty", pipeFD);
 
 	if ((ret = scratch_buffer("*sh*")) != 0) {
 		return (ret);
@@ -756,6 +674,8 @@ read_stdin (void)
 
 	CURR_FILE.chrw = -1;
 	CURR_FILE.pipe_opts = OPT_SILENT;
+	if (cnf.gstat & GSTAT_MACRO_FG)
+		CURR_FILE.pipe_opts |= OPT_NOBG; // ext.process in macro should remain in fg
 	CURR_FILE.pipe_input = 0;
 	CURR_FILE.pipe_output = pipeFD;
 
@@ -769,13 +689,22 @@ read_stdin (void)
 	CURR_FILE.curr_line = CURR_FILE.top;
 	CURR_FILE.lineno = 0;
 
-	if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
-		PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
-			CURR_FILE.pipe_output, strerror(errno));
+	if (CURR_FILE.pipe_opts & OPT_NOBG) {
+		/* finish in foreground -- loop stops if pipe_output closed
+		*/
+		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in FOREground", cnf.ring_curr);
+		ret = finish_in_fg();
+		/* finished */
+	} else {
+		/* continue in background
+		*/
+		if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
+			ERRLOG(0xE0B2);
+		}
+		PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in BACKground", cnf.ring_curr);
 	}
-	PIPE_LOG(LOG_NOTICE, "ri=%d stdin-pipe -- continue in background", cnf.ring_curr);
 
-	return (0);
+	return (ret);
 }
 
 /*
@@ -791,23 +720,10 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	int out_pipe[2];	/* childs output pipe, read back by the parent process */
 	int chrw = -1;
 	int lno_write=0, ring_i=0, ret = 0;
-
 	ring_i = cnf.ring_curr;
 
 	/* sanity check */
-	if ((opts & OPT_BASE_MASK) == OPT_STANDARD) {
-		if ((opts & (OPT_NOBG | OPT_INTERACT)) == (OPT_NOBG | OPT_INTERACT)) {
-			/* code error */
-			PIPE_LOG(LOG_CRIT, "wrong options 0x%x for %s, interactive must be background process!", opts, sbufname);
-			return (1);
-		}
-	} else {
-		if ((opts & ~(OPT_BASE_MASK | OPT_COMMON_MASK)) != 0) {
-			/* code error */
-			PIPE_LOG(LOG_CRIT, "wrong (non standard) options 0x%x for custom processing", opts);
-			return (1);
-		}
-	}
+	// bad opts: no-scratch only with OPT_BASE_MASK | OPT_COMMON_MASK bits
 
 	if ((opts & OPT_BASE_MASK) == OPT_STANDARD) {
 		/* open or switch to */
@@ -817,9 +733,7 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	}
 	/* cnf.ring_curr is set now */
 	if (CURR_FILE.pipe_output != 0) {
-		tracemsg("background process is already running in this buffer!");
-		PIPE_LOG(LOG_ERR, "cannot start, background process (%s) running! ri:%d pipe:%d",
-			sbufname, cnf.ring_curr, CURR_FILE.pipe_output);
+		tracemsg("cannot start, background process is running here!");
 		cnf.ring_curr = ring_i;
 		return (0);
 	}
@@ -835,17 +749,15 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	/* common */
 	chrw = fork_exec (ext_cmd, ext_argstr, in_pipe, out_pipe, opts);
 	if (chrw == -1) {
-		tracemsg("failed to start external tool"); /* remain in this buffer */
+		tracemsg("failed to start external command"); /* remain in this buffer */
 		return (2);
 	}
 	CURR_FILE.chrw = chrw;
 
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- ri:%d, new ri:%d -- pid:%d pipes: in=%d out=%d",
-		ring_i, cnf.ring_curr, chrw, in_pipe[XWRITE], out_pipe[XREAD]);
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- *process* pid:%d (ppid:%d) sid:%d pgid:%d",
-		cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
-	PIPE_LOG(LOG_NOTICE, "fork/parent -- *user* uid:%d gid:%d euid:%d egid:%d",
-		cnf.uid, cnf.gid, cnf.euid, cnf.egid);
+	PIPE_LOG(LOG_NOTICE, "fork/parent -- ri:%d, new ri:%d -- child:%d",
+		ring_i, cnf.ring_curr, chrw); // in_pipe[XWRITE], out_pipe[XREAD]
+	// "pid:%d (ppid:%d) sid:%d pgid:%d", cnf.pid, cnf.ppid, cnf.sid, cnf.pgid);
+	// "uid:%d gid:%d euid:%d egid:%d", cnf.uid, cnf.gid, cnf.euid, cnf.egid);
 
 	/* common */
 	if (opts & OPT_IN_OUT) {
@@ -872,12 +784,12 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		}
 		if (lno_write < 1)
 			ret = 100;
-		PIPE_LOG(LOG_NOTICE, "feed child process (ri:%d, opts:0x%x): pipe=%d -- wrote %d line(s)",
-			ring_i, (opts & OPT_IN_OUT_MASK), in_pipe[XWRITE], lno_write);
+		PIPE_LOG(LOG_NOTICE, "fed child:%d (opts:0x%x) with %d line(s)",
+			chrw, (opts & OPT_IN_OUT_MASK), lno_write); // in_pipe[XWRITE]
 	}
 
 	/* common */
-	if ((opts & (OPT_INTERACT | OPT_TTY)) == 0) {
+	if ((opts & OPT_TTY) == 0) {
 		close(in_pipe[XWRITE]);
 		in_pipe[XWRITE] = 0;
 	}
@@ -885,15 +797,8 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 	if ((opts & OPT_BASE_MASK) == OPT_STANDARD) {
 		/* additional flags */
 		CURR_FILE.fflag |= FSTAT_SPECW;
-		if (opts & OPT_INTERACT) {
-			CURR_FILE.fflag |= FSTAT_INTERACT;
-			/* for prompt recognition */
-			CURR_FILE.last_input_length = 0;
-			CURR_FILE.last_input[0] = '\0';
-		} else {
-			/* disable inline editing, adding lines */
-			CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
-		}
+		/* disable inline editing, adding lines */
+		CURR_FILE.fflag |= (FSTAT_NOEDIT | FSTAT_NOADDLIN);
 
 		if ((opts & OPT_SILENT) == 0) {
 			/* first line: header
@@ -908,14 +813,11 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 				ret = 200;
 			}
 		}
-		if (opts & OPT_INTERACT) {
-			split_line();
-			/* switch to text area */
-			CURR_FILE.fflag &= ~FSTAT_CMD;
-		}
 	}
 
 	/* common */
+	if (cnf.gstat & GSTAT_MACRO_FG)
+		opts |= OPT_NOBG; // ext.process in macro should remain in fg
 	CURR_FILE.pipe_opts = opts;
 	CURR_FILE.pipe_input = in_pipe[XWRITE];
 	CURR_FILE.pipe_output = out_pipe[XREAD];
@@ -937,17 +839,16 @@ read_pipe (const char *sbufname, const char *ext_cmd, const char *ext_argstr, in
 		if (opts & OPT_NOBG) {
 			/* finish in foreground -- loop stops if pipe_output closed
 			*/
-			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- finish in foreground", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in FOREground", cnf.ring_curr, sbufname);
 			ret = finish_in_fg();
 			/* finished */
 		} else {
 			/* continue in background
 			*/
 			if (fcntl(CURR_FILE.pipe_output, F_SETFL, O_NONBLOCK) == -1) {
-				PIPE_LOG(LOG_ERR, "fcntl F_SETFL (pipe=%d) failed (%s)",
-					CURR_FILE.pipe_output, strerror(errno));
+				ERRLOG(0xE0B1);
 			}
-			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in background", cnf.ring_curr, sbufname);
+			PIPE_LOG(LOG_NOTICE, "ri=%d [%s] -- continue in BACKground", cnf.ring_curr, sbufname);
 		}
 	} else {
 		PIPE_LOG(LOG_NOTICE, "ri=%d -- external processing", cnf.ring_curr);
@@ -968,15 +869,15 @@ readout_pipe (int ring_i)
 {
 	char *rb=NULL;
 	int ret=0;
-	int ni, total=0, finish=0, pull, got, count;
+	int ni, total=0, finish=0, pull, got, count, childpid=0, exitstatus=0;
 	int ring_orig = cnf.ring_curr;
-	static int zombie = 0;
 
 	/* init */
 	if (cnf.fdata[ring_i].readbuff == NULL) {
-		cnf.fdata[ring_i].readbuff = (char *) MALLOC(LINESIZE_INIT+1);
 		cnf.fdata[ring_i].rb_nexti = 0;
+		cnf.fdata[ring_i].readbuff = (char *) MALLOC(LINESIZE_INIT+1);
 		if (cnf.fdata[ring_i].readbuff == NULL) {
+			ERRLOG(0xE029);
 			cnf.ring_curr = ring_i;
 			stop_bg_process();	/* init failed */
 			cnf.ring_curr = ring_orig;
@@ -1001,31 +902,6 @@ readout_pipe (int ring_i)
 		}
 		cnf.fdata[ring_i].rb_nexti = ni;
 		ret = (finish) ? 1 : 0;
-		PIPE_LOG(LOG_DEBUG, "-- ri=%d count=%d finish=%d (ni=%d ret=%d)", ring_i, count, finish, ni, ret);
-
-	} else if (cnf.fdata[ring_i].fflag & FSTAT_INTERACT) {
-		/* interactive bg process */
-
-		cnf.ring_curr = ring_i;
-		got = read (cnf.fdata[ring_i].pipe_output, rb, LINESIZE_INIT);
-		if (got == -1 || got == 0) { //0, FreeBSD defunct process
-			ret = 1; /* nothing read */
-			/* not a problem, check if alive */
-			if (++zombie >= ZOMBIE_DELAY) {
-				if (check_zombie(ring_i) == -1) {
-					stop_bg_process();	/* defunct */
-					ret = 0; /* finish */
-				}
-				zombie = 0;
-			}
-		} else if (got > 0) {
-			rb[got] = '\0';
-			/* no real terminal handling here, just filter out ESC sequencies */
-			filter_esc_seq(rb, &got);
-			ret = type_text(rb);	/* add/append to text buffer */
-			zombie = 0;
-		}
-		cnf.ring_curr = ring_orig;
 
 	} else {
 		/* standard processing */
@@ -1060,9 +936,8 @@ readout_pipe (int ring_i)
 		if (finish) {
 			/* pipe_output must be closed -- that is the flag
 			*/
-			PIPE_LOG(LOG_DEBUG, "-- ri=%d, pipe=%d finished --- wait4",
-				ring_i, cnf.fdata[ring_i].pipe_output);
-			got = wait4_bg(ring_i);	/* finished */
+			childpid = cnf.fdata[ring_i].chrw;
+			exitstatus = wait4_bg(ring_i);	/* finished */
 
 			if ((cnf.fdata[ring_i].pipe_opts & OPT_SILENT) == 0) {
 				/* last line: footer
@@ -1075,11 +950,11 @@ readout_pipe (int ring_i)
 			}
 
 			if (cnf.fdata[ring_i].pipe_opts & OPT_NOBG) {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] FOREground task finished (wait %d, ret %d)",
-					ring_i, cnf.fdata[ring_i].fname, got, ret);
+				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d FOREground task finished (pid %d, exit %d)",
+					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			} else {
-				PIPE_LOG(LOG_DEBUG, "-- ri=%d [%s] BACKground task finished (wait %d, ret %d)",
-					ring_i, cnf.fdata[ring_i].fname, got, ret);
+				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d BACKground task finished (pid %d, exit %d)",
+					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			}
 		}
 
@@ -1112,7 +987,7 @@ background_pipes (void)
 		if (((cnf.fdata[ri].fflag & bits) == bits) && (cnf.fdata[ri].pipe_output != 0)) {
 			err = readout_pipe (ri);
 			if (err < 0) {
-				PIPE_LOG(LOG_ERR, "pipe read failure, ri=%d -- error %d", ri, err);
+				// pipe read failure
 				ret = -1;	/* error */
 			} else if (err == 0) {
 				/* change happened */
@@ -1150,48 +1025,19 @@ wait4_bg (int ri)
 			cnf.fdata[ri].readbuff = NULL;
 		}
 		if (cnf.fdata[ri].chrw > 0) {
-			if (waitpid(cnf.fdata[ri].chrw, &status, 0) == -1) {
-				PIPE_LOG(LOG_ERR, "waitpid() pid=%d failed: (%s) ... kill", cnf.fdata[ri].chrw, strerror(errno));
+			if (waitpid(cnf.fdata[ri].chrw, &status, WNOHANG) == -1) {
+				// failed
 				kill(cnf.fdata[ri].chrw, SIGHUP);
-				status = -1;
+				status = -SIGHUP;
 			} else {
 				if (WIFEXITED(status)) {
 					status = WEXITSTATUS(status);
-					PIPE_LOG(LOG_DEBUG, "--- ri=%d pid=%d status=%d (exited)", ri, cnf.fdata[ri].chrw, status);
 				} else {
-					PIPE_LOG(LOG_DEBUG, "--- ri=%d pid=%d unknown status 0x%X ... kill", ri, cnf.fdata[ri].chrw, status);
 					kill(cnf.fdata[ri].chrw, SIGKILL);
-					status = -1;
+					status = -SIGKILL;
 				}
 			}
 			cnf.fdata[ri].chrw = -1;
-		}
-	}
-
-	return status;
-}
-
-/*
-* check bg process if alive or defunct
-*/
-static int
-check_zombie (int ri)
-{
-	int status=0;
-
-	if (0 <= ri && ri < RINGSIZE) {
-		if (cnf.fdata[ri].chrw > 0) {
-			if (waitpid(cnf.fdata[ri].chrw, &status, WNOHANG) == -1) {
-				/* defunct -> gone */
-				PIPE_LOG(LOG_DEBUG, "defunct... pid=%d (%s)", cnf.fdata[ri].chrw, strerror(errno));
-				cnf.fdata[ri].chrw = -1;
-				status = -1;
-			} else {
-				/* Resource temporarily unavailable, or something similar */
-				status = 0;
-			}
-		} else {
-			status = -1;
 		}
 	}
 
@@ -1221,13 +1067,8 @@ stop_bg_process (void)
 		}
 		if (CURR_FILE.chrw > 0) {
 			status = kill(CURR_FILE.chrw, SIGKILL);
-			PIPE_LOG(LOG_DEBUG, "kill pid=%d -> status=%d", CURR_FILE.chrw, status);
 			waitpid(CURR_FILE.chrw, &status, WNOHANG);
-			PIPE_LOG(LOG_DEBUG, "waitpid pid=%d -> status=0x%X", CURR_FILE.chrw, status);
 			CURR_FILE.chrw = -1;
-		}
-		if (CURR_FILE.fflag & FSTAT_INTERACT) {
-			CURR_FILE.fflag &= ~FSTAT_INTERACT;
 		}
 	}
 
@@ -1235,14 +1076,13 @@ stop_bg_process (void)
 }
 
 /*
-* get a line like fgets() with getxline_filter(),
-* fix inline CR, let pass CR/LF through and drop control chars
+* get a line like fgets() and filter like getxline_filter(),
 * returns 0=eof, 1=ok, 2=EAGAIN, -1=error
 */
 static int
 getxline (char *buff, int *count, int max, int fd)
 {
-	char ch=0, ch_prev=0;
+	char ch=0;
 	int cnt=0, ret=0;
 
 	while (cnt < max-2) {
@@ -1256,7 +1096,7 @@ getxline (char *buff, int *count, int max, int fd)
 			if (errno == EAGAIN) {
 				ret = 2;
 			} else {
-				PIPE_LOG(LOG_ERR, "read (from pipe %d) failed (%s)", fd, strerror(errno));
+				// read from pipe failed
 				ret = -1;
 			}
 			break;
@@ -1264,16 +1104,14 @@ getxline (char *buff, int *count, int max, int fd)
 
 		ret = 1;
 		if (ch == '\n') {
-			if (ch_prev == '\r')
-				buff[cnt++] = '\r';
 			buff[cnt++] = '\n';
 			break;
+		} else if (ch == '\r') {
+			if ((cnf.gstat & GSTAT_FIXCR) == 0)
+				buff[cnt++] = ch;
 		} else if (ch == 0x09) {
 			/* tab */
 			buff[cnt++] = ch;
-		//} else if (ch == KEY_C_D) {
-		//	/* ^D */
-		//	break;
 		} else if ((unsigned char)ch >= 0x20 && (unsigned char)ch != 0x7f) {
 			/* printable */
 			buff[cnt++] = ch;
@@ -1282,69 +1120,10 @@ getxline (char *buff, int *count, int max, int fd)
 			if (cnt > 0)
 				buff[--cnt] = '\0';
 		}
-		ch_prev = ch;
 	}
 
 	buff[cnt] = '\0';
 	*count = cnt;
 
 	return ret;
-}
-
-/*
-* filter the input buffer to remove control characters, ESC sequencies, etc
-*/
-static void
-filter_esc_seq (char *buff, int *count)
-{
-	int i=0, j=0;
-	int seq = 0;
-
-	while (j < *count) {
-		if (j+1 < *count && buff[j] == '\r' && buff[j+1] == '\n') {
-			buff[i++] = '\n';
-			j += 2;
-		} else if (buff[j] == '\n' || buff[j] == '\r') {
-			buff[i++] = '\n';
-			j++;
-		} else if ((buff[j] == 0x09) || (buff[j] >= 0x20 && buff[j] != 0x7f)) {
-			buff[i++] = buff[j];
-			j++;
-		} else if (buff[j] == 0x08) {
-			/* backspace */
-			if (i > 0)
-				--i;
-			j++;
-		} else if (buff[j] == 0x1B) {
-			/* filter out terminal ESC sequencies (like 1B 5D 30 3B .... 07),
-			* interactive sessions, can push into the pipe
-			* ---- real terminal handling is not possible here
-			*/
-			seq = 0;
-			if (j+3 < *count && buff[j+1] == 0x5D && buff[j+2] == 0x30 && buff[j+3] == 0x3B) {
-				while (j+seq < *count && seq < 100) {
-					if (buff[j+seq] == 0x07) {
-						seq++;
-						break;
-					} else {
-						seq++;
-					}
-				}
-				if (j+seq < *count && seq < 100) {
-					j += seq;
-				} else {
-					j += 4;
-				}
-			} else {
-				j++;
-			}
-		} else {
-			j++;
-		}
-	}
-
-	buff[i] = '\0';
-	*count = i;
-
-	return;
 }

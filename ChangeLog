@@ -1,4 +1,82 @@
 
+* 2019, jan, v1.1.23
+
+  last RC fixes
+    - less logs; cmdline, do not move over the end; setenv
+    - coverity scan, some fixes
+    - palette samples and some minor fixes, rotate, execvp
+    - remove interactive shell (ish); rename parse_open to cp_name2open (Alt-x); LOGs cleanup, a lot
+    - diff engine for hgdiff/gitdiff, plus optinal argument and simplification; fix for diff calls (BSD), plus correction of try_add_file; lot of unittests
+    - fixed COLORS vs 8 mistake; tabhead update on ring size change; internal gitdiff as hgdiff, plus pattern fixes
+
+* 2018, nov-dec, v0.9.97
+
+  features:
+    - internal: added demo.txt
+    - automatic finish_in_fg for macros
+    - cmds.txt updated; added demo.txt; tutor.log with scores
+    - internal: engine tests completed: lsdir filter_func crlf abbrev frozen01 call_tree
+    - internal: ERRLOG for malloc/realloc, ferror, regerror and other errors
+    - tracemsg shall disable duplicate lines; lt (load tags) with optional filename
+    - dirname/basename/canonicalpath improvements with unit tests
+    - hgdiff as function instead of macro
+    - F12 is not reserved any more
+    - edarc refresh with set_defaults() and set() in rc.c
+    - internal: CFLAGS and dependencies
+    - edamacro refresh
+    - Alt-y and Alt-r for shorthands and switches for ls and ring lists
+    - find_window_switch revised (Alt-w) for find/make/sh buffers
+    - save/restore project: added focus setting
+    - internal: UPD_OPTIM; test tools in ed.c with #ifdef and upd_event/upd_funcname;
+      changes in cmd.c up/down/pgup/pgdown/type_cmd and in qoth/sall/hide/tf and process_diff
+    - internal: filename abbreviation (statusline) with regression tests
+    - internal: propagate truncate line, crlf regression tests
+    - added Meta-Left/Meta-Right keys for tabheader
+    - show_tabheader and tabhead_macro with changes in optimized/forced updates;
+      status line, xterm title and tabheader updates only if necessary;
+    - internal: stdscr only, resize no delay; focus and curpos sanity following terminal resize
+    - lf.switch instead of locsw.itch; show_diff arguments order; 'tag //' shorthand
+    - internal: 'purify' engine, purify_for_matching_(clang|other) functions with common_space;
+      and tomatch_eng is used in forcematch, fold_block, fold_thisfunc;
+      tomatch_eng in filter_func_eng_(clang|other|easy) for filter_func and block_name;
+
+  fixes:
+    - focus bugfix in save_project
+    - set sane focus value after hgdiff
+    - return value after change with 'g' flag shall be changed to 0
+    - status line update after tutor finish
+    - filter all/more/less :lno with 1 digit number was not working
+    - allow tab expansion for ('|' and '||') external filter calls also
+    - bookmarks, do overwrite with clear and set
+    - add_file with other name but same inode: force statusline refresh
+    - is_special, do not allow duplicate name of special buffers
+    - simple_parser, fixed internal pattern, missing ungreedy match
+    - ECMA-048 bug detection (character squeeze), revert to nc 5.9
+
+* 2018, sept-oct, v0.9.97
+
+  features:
+    - new color palette handling, 'eda -c' for testing, parser for edarc
+    - save project, file list shall start with the current buffer
+    - edaseq additions
+    - internal: eda-g and Makefiles
+    - tab expansion and tilde expansion simplified, added engine tests
+    - lsdir with sort by name(0)/mtime(1)/size(2)
+    - lsdir also with glob, added engine tests
+    - typing tutor, added stats
+
+* 2018, july-aug-sept, v0.9.97
+
+  features:
+    - typing tutor, simple and handy
+    - added filter 'alien' to find non-ascii characters
+
+  fixes:
+    - search starting on top line with a match on hidden 1st line, visible but hidden, strange
+    - set termsiz, COLUMNS=512, for child processes (workaround)
+    - refresh terminal title after save as
+    - added stop_bg_process call in drop_all and save_file
+
 * 2018, jan-feb, rc4 for 0.9.97
 
   features:
