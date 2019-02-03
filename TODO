@@ -1,8 +1,9 @@
 NOTES about ideas, plans
 
---- rc5 for v1.2.23
+--- after v1.2.23
 
   - hash tables for keys (loaded from edakeys) and maybe commands
   - add go language support and more python
   - column reorder like awk(1)
+  - eda(1) is outdated
 

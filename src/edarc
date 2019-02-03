@@ -82,7 +82,7 @@ find_opts	. -type f ( -name '*.[ch]' ) -exec egrep -nH -w
 make_path	/usr/bin/make
 make_opts	-w
 
-# mandatory tools
+# mandatory tools -- use the bash path for the sh_path
 sh_path		/bin/sh
 diff_path	/usr/bin/diff
 

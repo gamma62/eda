@@ -574,8 +574,8 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 		if (setsid() == -1)
 			perror("setsid");
 
-		/* set big terminal size for the child process */
-		setenv("COLUMNS", "512", 1);
+		/* set terminal COLUMNS for the child process */
+		setenv("COLUMNS", "128", 0); // optional
 
 		/* reset signal handler for child
 		*/

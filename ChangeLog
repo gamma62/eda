@@ -1,6 +1,10 @@
 
-* v1.1.23 rc fixes
-    - palette samples and some minor fixes, rotate, execvp and logs
+* 2019, jan, v1.1.23
+
+  last RC fixes
+    - less logs; cmdline, do not move over the end; setenv
+    - coverity scan, some fixes
+    - palette samples and some minor fixes, rotate, execvp
     - remove interactive shell (ish); rename parse_open to cp_name2open (Alt-x); LOGs cleanup, a lot
     - diff engine for hgdiff/gitdiff, plus optinal argument and simplification; fix for diff calls (BSD), plus correction of try_add_file; lot of unittests
     - fixed COLORS vs 8 mistake; tabhead update on ring size change; internal gitdiff as hgdiff, plus pattern fixes
