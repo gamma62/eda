@@ -1,4 +1,9 @@
 
+* 2019
+
+  post-release improvements
+    - improved parse_args; with quotes and escape now; used in fork and macros
+
 * 2019, jan, v1.1.23
 
   last RC fixes

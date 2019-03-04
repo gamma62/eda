@@ -653,59 +653,87 @@ canonicalpath (const char *path)
 }
 
 /*
- * break down input[] into array of strings, each in args[] is a pointer
- * into the original input string; '\0' replaces delimiter
- * return number of args and last element is NULL
- * special: keep 'word ...' patterns as is together in one string
+ * break down input[] into array of strings (words without whitechars),
+ * each element in args[] is a pointer into the original input string;
+ * '\0' replaces first whitechar delimiter;
+ * return number of args (limited by MAXARGS) and the last element is NULL;
+ * keep '...' and "..." patterns in the string as is, the first rules
+ * no nesting of same type, remove separator
+ * backspace handling only for: backspace, quote, space, tab
  */
 int
 parse_args (char *input, char **args)
 {
 #define NONE_WORD	0
 #define BASE_WORD	1
-#define SPEC_WORD	2
+#define WORD_IN_SQUOTE	2
+#define WORD_IN_DQUOTE	4
 
-	int pos=0, nb_args=0, mode=NONE_WORD;
+	int nb_args=0, mode=NONE_WORD;
+	char *tp, *sp, bsp;
 
 	if (input == NULL) {
 		args[0] = NULL;
 		return (0);
 	}
+	tp = sp = &input[0];
+	bsp = 0;
 
-	while (input[pos] != '\0' && nb_args < MAXARGS-1) {
-		switch (mode) {
-		case NONE_WORD:
-			if (input[pos] == ' ' || input[pos] == '\t') {
-				pos++;
-			} else if (input[pos] == '\'') {
-				args[nb_args++] = &input[++pos];
-				mode = SPEC_WORD;
-			} else {
-				args[nb_args++] = &input[pos];
+	while (*sp != '\0' && nb_args < MAXARGS-1) {
+		if ((bsp == 1) && (*sp == '\\' || *sp == '\'' || *sp == '\"' || *sp == ' ' || *sp == '\t')) {
+			if (mode == NONE_WORD) {
+				args[nb_args++] = tp;
 				mode = BASE_WORD;
 			}
-			break;
-		case BASE_WORD:
-			if (input[pos] == ' ' || input[pos] == '\t') {
-				input[pos++] = '\0';
-				mode = NONE_WORD;
-			} else {
-				pos++;	/* in word */
-			}
-			break;
-		case SPEC_WORD:
-			if (input[pos] == '\'') {
-				input[pos++] = '\0';
-				mode = NONE_WORD;
-			} else {
-				pos++;	/* in word */
-			}
-			break;
-		default:
-			break;
-		}
-	}/* while */
+			*tp++ = *sp;
+		} else {
+			if (*sp == '\\') {
+				;// ignore
 
+			} else if (*sp == '\'') {
+				if (mode == WORD_IN_DQUOTE) {
+					;// keep mode
+				} else if (mode == NONE_WORD) {
+					args[nb_args++] = tp;
+					mode = WORD_IN_SQUOTE;
+				} else if (mode == BASE_WORD) {
+					mode = WORD_IN_SQUOTE;
+				} else {
+					mode = BASE_WORD;
+				}
+
+			} else if (*sp == '\"') {
+				if (mode == WORD_IN_SQUOTE) {
+					;// keep mode
+				} else if (mode == NONE_WORD) {
+					args[nb_args++] = tp;
+					mode = WORD_IN_DQUOTE;
+				} else if (mode == BASE_WORD) {
+					mode = WORD_IN_DQUOTE;
+				} else {
+					mode = BASE_WORD;
+				}
+
+			} else if (*sp == ' ' || *sp == '\t') {
+				if (mode == WORD_IN_SQUOTE || mode == WORD_IN_DQUOTE) {
+					*tp++ = *sp;
+				} else if (mode == BASE_WORD) {
+					mode = NONE_WORD;
+					*tp++ = '\0';
+				}
+			} else { // regular chars except backspace, apostrophe, quote, space, tab
+				if (mode == NONE_WORD) {
+					args[nb_args++] = tp;
+					mode = BASE_WORD;
+				}
+				*tp++ = *sp;
+			}
+		}
+		bsp = (*sp == '\\') ? !bsp : 0;
+		sp++;
+	}
+
+	*tp++ = '\0';
 	args[nb_args] = NULL;
 	return (nb_args);
 } /* parse_args */

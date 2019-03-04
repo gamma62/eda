@@ -8,6 +8,7 @@ script=$1
 
 python -m py_compile $script
 res=$?
+[[ -f "$script"c ]] && rm "$script"c 2>/dev/null
 
 if [[ $res -ne 0 ]]; then
   echo syntax error
@@ -21,7 +22,7 @@ if [[ "`which pyflakes`" ]]; then
   res=$?
 
   if [[ $res -ne 0 ]]; then
-    echo content error
+    echo "content (logical) error"
     exit $res
   else
     echo content ok
@@ -33,7 +34,7 @@ if [[ "`which pylint`" ]]; then
   res=$?
 
   if [[ $res -ne 0 ]]; then
-    echo pylint warning
+    echo "pylint (style) warning"
   else
     echo pylint passed
   fi

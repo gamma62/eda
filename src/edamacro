@@ -37,6 +37,7 @@ KEY_S_F1	manual
 KEY_NONE	man
 #Description: open manual page
 	shell_cmd man -P cat $0
+	highlight_word $0
 	go_top
 .
 KEY_NONE	ts
@@ -59,7 +60,7 @@ KEY_NONE	git
 	vcstool git $0
 .
 KEY_NONE	hginfo
-#Description: run hg commands to get info: summary, diff stat, status
+#Description: run hg commands to get base info
 	vcstool hg sum
 	vcstool hg diff --stat
 	vcstool hg status
@@ -77,7 +78,7 @@ KEY_NONE	gitinfo
 .
 KEY_NONE	gitlog
 #Description: run git log, current branch only
-	vcstool git log --pretty=tformat:'%cd%n_%h_%ce_|_%s' --abbrev-commit --date=short -50
+	vcstool git log --pretty=tformat:"%cd%n %h %ce | %s" --abbrev-commit --date=short -50
 	go_top
 .
 #
@@ -130,5 +131,25 @@ KEY_NONE	>c
 #Description: copy visible selection lines to X11 CLIPBOARD -- an alternative to shift-control-c
 	filter_cmd xsel --input --clipboard
 	drop_file
+.
+###
+KEY_NONE	colortest
+#Description: text for testing color palette
+	set prefix on
+	set tabhead on
+	filter_all	/^selected:/
+	go_top
+	go_down
+	line_select
+	go_bottom
+	go_up
+	line_select
+	filter_all
+	go_top
+	highlight_word	/highlight/
+	search		/search/
+	color_tag	/tagged text/
+	go_home
+	goto_line	7
 .
 ###
