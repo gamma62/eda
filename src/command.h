@@ -96,6 +96,8 @@ TABLE table[] = {
 	{ "indent",	KEY_M_RSQBRAC, 3,	PN(indent_right),	0x02},
 	{ "shleft",	KEY_M_LCURBRAC, 3,	PN(shift_left),		0x02},
 	{ "shright",	KEY_M_RCURBRAC, 3,	PN(shift_right),	0x02},
+	{ "uncomm",	KEY_M_O, 4,		PN(uncomment),		0x02},
+	{ "comment",	KEY_M_P, 4,		PN(comment),		0x02},
 
 	/* multiline selection operations */
 	{ "padb",	-1, 3,			PN(pad_block),		0x13},

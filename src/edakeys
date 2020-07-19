@@ -78,6 +78,8 @@ KEY_M_LSQBRAC        unindent_left
 KEY_M_RSQBRAC        indent_right
 KEY_M_LCURBRAC       shift_left
 KEY_M_RCURBRAC       shift_right
+KEY_M_O              uncomment
+KEY_M_P              comment
 KEY_M_EQUAL          filter_tmp_all
 KEY_C_U              filter_expand_up
 KEY_C_N              filter_expand_down

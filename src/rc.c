@@ -1287,7 +1287,7 @@ macro key             macro name\n\
 void
 save_clhistory (void)
 {
-	char histfile[sizeof(cnf.myhome)+SHORTNAME];
+	char histfile[FNAMESIZE+SHORTNAME];
 	FILE *fp=NULL;
 	CMDLINE *runner;
 	char str[1024];
@@ -1298,7 +1298,7 @@ save_clhistory (void)
 	if (runner == NULL)
 		return;
 
-	strncpy(histfile, cnf.myhome, sizeof(cnf.myhome));
+	strncpy(histfile, cnf.myhome, FNAMESIZE);
 	strncat(histfile, "history", SHORTNAME);
 
 	if ((fp = fopen(histfile, "w")) != NULL) {
@@ -1331,14 +1331,14 @@ save_clhistory (void)
 void
 load_clhistory (void)
 {
-	char histfile[sizeof(cnf.myhome)+SHORTNAME];
+	char histfile[FNAMESIZE+SHORTNAME];
 	FILE *fp=NULL;
 	char str[1024];
 	int len=0;
 	int items=0;
 
 	memset(histfile, 0, sizeof(histfile));
-	strncat(histfile, cnf.myhome, sizeof(cnf.myhome));
+	strncat(histfile, cnf.myhome, FNAMESIZE);
 	strncat(histfile, "history", SHORTNAME);
 
 	if ((fp = fopen(histfile, "r")) != NULL) {

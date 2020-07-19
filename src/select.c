@@ -35,6 +35,7 @@ extern CONFIG cnf;
 /* local proto */
 static int over_select_eng (int src_ri, LINE *lp_src, LINE *lp_src_end);
 static int shift_engine (int type);
+static int comment_engine (int type);
 static int lcut_block_engine (int curpos, int left);
 
 /*
@@ -998,7 +999,7 @@ shift_engine (int type)
 				}
 				break;
 			case INDENT_RIGHT:
-				if (milbuff (lp, 0, 0, first_chars, (int)prefix)) {
+				if (milbuff (lp, 0, 0, first_chars, prefix)) {
 					err = 1;
 					break;
 				}
@@ -1030,6 +1031,115 @@ shift_engine (int type)
 		tracemsg ("failed");
 	} else if (mod==0) {
 		tracemsg ("nothing shifted");
+	} else {
+		if (SELECT_FI.curr_line->lflag & LSTAT_SELECT) {
+			SELECT_FI.lncol = get_col(SELECT_FI.curr_line, SELECT_FI.curpos);
+		}
+		SELECT_FI.fflag |= FSTAT_CHANGE;
+	}
+
+	return (0);
+}
+
+/**************************************** the comment engine **********************************/
+
+#define UNCOMMENT	1
+#define COMMENT		2
+
+/*
+** uncomment - remove comment mark from the begin of the selection lines
+*/
+int
+uncomment (void)
+{
+	return (comment_engine (UNCOMMENT));
+}
+
+/*
+** comment - insert comment mark at the begin of the selection lines
+*/
+int
+comment (void)
+{
+	return (comment_engine (COMMENT));
+}
+
+/*
+* comment or uncomment selection; the engine,
+* like the shift engine
+*/
+static int
+comment_engine (int type)
+{
+	LINE *lp=NULL;
+	int lineno=0, err=0;
+	char first_chars[10];
+	int prefix=0;
+	long mod=0;
+
+	if (cnf.select_ri != cnf.ring_curr) {
+		return (0);
+	}
+
+	lp = selection_first_line (&lineno);
+	if (TEXT_LINE(lp)) {
+		if (HIDDEN_LINE(cnf.select_ri,lp)) {
+			next_lp (cnf.select_ri, &lp, NULL);
+		}
+	}
+	if (!TEXT_LINE(lp) || !(lp->lflag & LSTAT_SELECT)) {
+		tracemsg ("selection not visible");
+		return (0);
+	}
+
+	memset(first_chars, '\0', sizeof(first_chars));
+	switch (CURR_FILE.ftype) {
+	case C_FILETYPE:
+		prefix = 2;
+		first_chars[0] = '/';
+		first_chars[1] = '/';
+		break;
+	case PYTHON_FILETYPE:
+	case PERL_FILETYPE:
+	case SHELL_FILETYPE:
+		prefix = 1;
+		first_chars[0] = '#';
+		break;
+	default:
+		/* n/a for plain text files */
+		return (0);
+	}
+
+	while (lp->lflag & LSTAT_SELECT) {
+		switch (type) {
+		case COMMENT:
+			if (milbuff (lp, 0, 0, first_chars, prefix)) {
+				err = 1;
+				break;
+			}
+			lp->lflag |= LSTAT_CHANGE;
+			mod++;
+			break;
+		case UNCOMMENT:
+			if (strncmp(first_chars, lp->buff, (unsigned)prefix) == 0) {
+				if (milbuff (lp, 0, prefix, "", 0)) {
+					err = 1;
+					break;
+				}
+				mod++;
+				lp->lflag |= LSTAT_CHANGE;
+			}
+			break;
+		default:
+			break;
+		}
+		next_lp (cnf.select_ri, &lp, NULL);
+	}
+
+	if (err) {
+		tracemsg ("failed");
+	} else if (mod==0) {
+		tracemsg ("nothing changed");
 	} else {
 		if (SELECT_FI.curr_line->lflag & LSTAT_SELECT) {
 			SELECT_FI.lncol = get_col(SELECT_FI.curr_line, SELECT_FI.curpos);

@@ -950,10 +950,10 @@ readout_pipe (int ring_i)
 			}
 
 			if (cnf.fdata[ring_i].pipe_opts & OPT_NOBG) {
-				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d FOREground task finished (pid %d, exit %d)",
+				PIPE_LOG((ret ? LOG_ERR : LOG_NOTICE), "-- ri=%d [%s] ret=%d FOREground task finished (pid %d, exit %d)",
 					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			} else {
-				PIPE_LOG(ret ? LOG_ERR : LOG_NOTICE, "-- ri=%d [%s] ret=%d BACKground task finished (pid %d, exit %d)",
+				PIPE_LOG((ret ? LOG_ERR : LOG_NOTICE), "-- ri=%d [%s] ret=%d BACKground task finished (pid %d, exit %d)",
 					ring_i, cnf.fdata[ring_i].fname, ret, childpid, exitstatus);
 			}
 		}

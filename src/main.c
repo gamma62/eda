@@ -172,6 +172,16 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	/* setup syslog */
 #ifdef DEVELOPMENT_VERSION
 	openlog("eda", LOG_PID, LOG_LOCAL0);
+	// LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO
+	if (cnf.noconfig) {
+		setlogmask( LOG_MASK(LOG_EMERG) );
+	} else {
+		setlogmask( LOG_UPTO(LOG_INFO) );
+	}
+	MAIN_LOG(LOG_INFO, "... INFO pid=%d %s", getpid(), long_version_string);
+	MAIN_LOG(LOG_NOTICE, "... NOTICE pid=%d %s", getpid(), long_version_string);
+	MAIN_LOG(LOG_WARNING, "... WARNING pid=%d %s", getpid(), long_version_string);
+	MAIN_LOG(LOG_ERR, "... ERR pid=%d %s", getpid(), long_version_string);
 #endif
 
 	if (!isatty(1)) {

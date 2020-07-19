@@ -70,7 +70,7 @@ extern int type_cmd (const char *str);
 extern int cp_text2cmd (void);				/* public */
 extern int cp_name2open (void);				/* public */
 extern int csere (char **, int *, int, int, const char *, int);
-extern int csere0 (char **, int, int, const char *, int);
+//extern int csere0 (char **, int, int, const char *, int);
 extern int milbuff (LINE *, int, int, const char *, int);
 extern int type_text (const char *str);			/* public */
 extern int insert_chars (const char *input, int ilen);
@@ -336,6 +336,8 @@ extern int unindent_left (void);			/* public, macro */
 extern int indent_right (void);				/* public, macro */
 extern int shift_left (void);				/* public, macro */
 extern int shift_right (void);				/* public, macro */
+extern int uncomment (void);				/* public, macro */
+extern int comment (void);				/* public, macro */
 extern int pad_block (const char *curpos);		/* public */
 extern int pad_line (LINE *lp, int padsize);
 extern int cut_block (const char *curpos);		/* public, macro */

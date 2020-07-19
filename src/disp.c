@@ -77,7 +77,7 @@ upd_statusline (void)
 	lenleft = strlen(obuff_left);
 
 	/* right wing */
-	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? (unsigned)CURR_LINE->buff[CURR_FILE.lncol] : 0;
+	hexa = (CURR_FILE.lncol < CURR_LINE->llen) ? (unsigned)CURR_LINE->buff[CURR_FILE.lncol] & 0xff : 0;
 	if (cnf.ie > 0) {
 		snprintf(obuff_right, sizeof(obuff_right)-1, " Err:%u %5d,%-3d (0x%02X) ",
 			cnf.ie, CURR_FILE.lineno, CURR_FILE.curpos, hexa);

@@ -640,8 +640,13 @@ filter_func_eng_clang (int action, int fmask, char *symbol)
 							for (iy=0, ix = pmatch[nsub].rm_so; ix < pmatch[nsub].rm_eo && iy < TAGSTR_SIZE-1; ix++)
 								symbol[iy++] = lx->buff[ix];
 							symbol[iy] = '\0';
+#ifdef LINUX
+							FILT_LOG(LOG_NOTICE, "reg%d nsub %d -- %d %d symbol [%s]",
+								searching_for_header, nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+#else
 							FILT_LOG(LOG_NOTICE, "reg%d nsub %d -- %ld %ld symbol [%s]",
 								searching_for_header, nsub, pmatch[nsub].rm_so, pmatch[nsub].rm_eo, symbol);
+#endif
 						}
 						break;
 					}

@@ -1629,6 +1629,7 @@ view_bname (void)
 	char *dataline = NULL;
 	int orig_ri = cnf.ring_curr;
 	int jump = 0;
+	int bufsize = 0;
 
 	if (CURR_FILE.fflag & FSTAT_SPECW) {
 		/* special buffer */
@@ -1642,7 +1643,7 @@ view_bname (void)
 			}
 
 			/* copy and strip newline -- more space? */
-			if (csere0(&dataline, 0, 0, CURR_LINE->buff, CURR_LINE->llen-1)) {
+			if (csere(&dataline, &bufsize, 0, 0, CURR_LINE->buff, CURR_LINE->llen-1)) {
 				return (1);
 			}
 

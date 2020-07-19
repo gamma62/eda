@@ -1750,25 +1750,25 @@ csere (char **buffer, int *bufsize, int from, int length, const char *replacemen
 	return (0);
 }
 
-/* like csere, but without bufsize parameter
-*/
-int
-csere0 (char **buffer, int from, int length, const char *replacement, int rl)
-{
-	int bufsize = 0;
-	int ret = 0;
-
-	if (*buffer != NULL)
-		bufsize = strlen(*buffer);
-	if (from >= 0) {
-		ret = csere (buffer, &bufsize, from, length, replacement, rl);
-	} else {
-		/* append */
-		ret = csere (buffer, &bufsize, bufsize, length, replacement, rl);
-	}
-
-	return (ret);
-}
+///* like csere, but without bufsize parameter
+//*/
+//int
+//csere0 (char **buffer, int from, int length, const char *replacement, int rl)
+//{
+//	int bufsize = 0;
+//	int ret = 0;
+//
+//	if (*buffer != NULL)
+//		bufsize = strlen(*buffer);
+//	if (from >= 0) {
+//		ret = csere (buffer, &bufsize, from, length, replacement, rl);
+//	} else {
+//		/* append */
+//		ret = csere (buffer, &bufsize, bufsize, length, replacement, rl);
+//	}
+//
+//	return (ret);
+//}
 
 /* milbuff - the internal line buff manager,
 *

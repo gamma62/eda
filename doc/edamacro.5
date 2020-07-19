@@ -1,5 +1,5 @@
 .\"
-.TH "EDAMACRO" "5" "2019-02-17" "1.2.23" ""
+.TH "EDAMACRO" "5" "2019-09-29" "1.2.23" ""
 
 .SH "NAME"
 \fBeda\fR \- editor for programmers, the internal function API for macros
@@ -625,8 +625,11 @@ display text from the current line as message, mostly for macros
 .br
 
 .SS anything else
-go_text mouse_support nop stop_bg_process
+comment go_text mouse_support nop stop_bg_process uncomment
 .br
+.TP 9
+.B comment
+insert comment mark at the begin of the selection lines
 .TP 9
 .B go_text
 move cursor to the text area, useful for for macros
@@ -639,6 +642,9 @@ no operation
 .TP 17
 .B stop_bg_process
 stop running background process of current buffer
+.TP 11
+.B uncomment
+remove comment mark from the begin of the selection lines
 .br
 
 .SH "RESOURCES"
