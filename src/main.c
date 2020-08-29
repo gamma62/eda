@@ -172,16 +172,11 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	/* setup syslog */
 #ifdef DEVELOPMENT_VERSION
 	openlog("eda", LOG_PID, LOG_LOCAL0);
-	// LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO
 	if (cnf.noconfig) {
 		setlogmask( LOG_MASK(LOG_EMERG) );
 	} else {
 		setlogmask( LOG_UPTO(LOG_INFO) );
 	}
-	MAIN_LOG(LOG_INFO, "... INFO pid=%d %s", getpid(), long_version_string);
-	MAIN_LOG(LOG_NOTICE, "... NOTICE pid=%d %s", getpid(), long_version_string);
-	MAIN_LOG(LOG_WARNING, "... WARNING pid=%d %s", getpid(), long_version_string);
-	MAIN_LOG(LOG_ERR, "... ERR pid=%d %s", getpid(), long_version_string);
 #endif
 
 	if (!isatty(1)) {
@@ -198,6 +193,9 @@ along with Eda.  If not, see <http://www.gnu.org/licenses/>.\n\
 	}
 	if (process_macrofile(cnf.noconfig)) {
 		leave("macro processing failed");
+	}
+	if (init_hashtables()) {
+		leave("hash init failure");
 	}
 
 	/* set signal handler */
@@ -363,6 +361,12 @@ leave (const char *reason)
 
 	/* sequence tree */
 	free_seq_tree(cnf.seq_tree);
+
+	/* hash */
+	FREE(cnf.fkey_hash);
+	cnf.fkey_hash = NULL;
+	FREE(cnf.name_hash);
+	cnf.name_hash = NULL;
 
 	/* tags -- cnf.taglist */
 	tag_rm_all();

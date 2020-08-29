@@ -1,7 +1,14 @@
 
+* 2020
+
+    - hashtab feature merge (technology debt):
+      use static hash maps for fkey -> function and command name -> function searches
+
 * 2019
 
   post-release improvements
+    - comment/uncomment selection lines
+    - colortest resources added
     - improved parse_args; with quotes and escape now; used in fork and macros
 
 * 2019, jan, v1.1.23

@@ -2300,7 +2300,7 @@ int
 ed_common (int ch)
 {
 	int ret=4;
-	int mi=0, ti=0, ki=0;
+	int ti=0;
 	char args_buff[CMDLINESIZE];
 
 	switch (ch)
@@ -2318,21 +2318,17 @@ ed_common (int ch)
 		break;
 
 	default:
-		/* search down fkey in macros[].fkey and table[].fkey
+		/* search for fkey in macros[].fkey and table[].fkey
 		*/
 		memset(args_buff, 0, sizeof(args_buff));
 
-		mi = index_macros_fkey(ch);
-		if (mi >= 0 && mi < MLEN) {
-			run_macro_command (mi, args_buff);
-			break;	/* switch */
-		}
-
-		ki = index_key_value(ch);
-		if (ki > 0 && ki < KLEN) {
-			ti = keys[ki].table_index;
-			if (ti >= 0 && ti < TLEN) {
+		ti = hash_fkey(ch);
+		if (ti >= 0) {
+			if (ti < TLEN) {
 				run_command (ti, args_buff, ch);
+				break;	/* switch */
+			} else {
+				run_macro_command (ti-TLEN, args_buff);
 				break;	/* switch */
 			}
 		}

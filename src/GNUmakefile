@@ -25,12 +25,13 @@ ARCH = $(shell uname -m)
 OS = $(shell uname -s)
 REV = $(shell cat ../REV 2>/dev/null || echo 0)
 
-CFLAGS = -Wall -Wextra -O2 -pipe -std=c99 -fstack-protector -fno-strict-aliasing \
+CFLAGS = -Wall -O2 \
+	-pipe -std=c99 -fstack-protector -fno-strict-aliasing \
 	-Wstack-protector -Wshadow -Wpointer-arith -Wstrict-prototypes \
 	-Wformat -Wformat-security -Wsign-conversion -Wcast-qual -Wcast-align \
 	-Wwrite-strings -Wmissing-declarations -Wmissing-prototypes \
-	-D_GNU_SOURCE \
-	-I.. -I/usr/local/include -I/usr/local/include/ncurses
+	-Wno-format-truncation -Wno-stringop-truncation -Wno-stringop-overflow \
+	-I.. -DLINUX -D_GNU_SOURCE
 
 LDFLAGS = -lncurses
 

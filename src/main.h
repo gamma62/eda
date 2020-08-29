@@ -381,6 +381,10 @@ struct config_tag
 	int ring_size;		/* 0 if nothing, else 1 ... RINGSIZE */
 	FDATA fdata[RINGSIZE];
 
+	/* command key and name hashes */
+	short int *fkey_hash;	/* malloc and free */
+	short int *name_hash;	/* malloc and free */
+
 	/* selection */
 	int select_ri;		/* selection made at ring index (or -1) */
 	int select_w;		/* watch */

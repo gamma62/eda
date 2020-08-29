@@ -124,4 +124,3 @@ KEY_S_F2             view_bname
 KEY_C_W              word_case
 KEY_M_LEFT           prev_file
 KEY_M_RIGHT          next_file
-

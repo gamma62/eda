@@ -508,6 +508,12 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 	char *args[MAXARGS], cmd[FNAMESIZE];
 	int xx=0;
 	int chrw=-1;
+	const char *columns;
+
+	if (strncmp(ext_argstr, "sh -c 'man", 10) == 0)
+		columns = "80";
+	else
+		columns = "255";
 
 	/* copy and parse args[] */
 	strncpy(token_str, ext_argstr, sizeof(token_str));
@@ -575,7 +581,7 @@ fork_exec (const char *ext_cmd, const char *ext_argstr,
 			perror("setsid");
 
 		/* set terminal COLUMNS for the child process */
-		setenv("COLUMNS", "128", 0); // optional
+		setenv("COLUMNS", columns, 0);
 
 		/* reset signal handler for child
 		*/

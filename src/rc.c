@@ -807,11 +807,15 @@ reload_macros (void)
 
 	drop_macros();
 
-	ret = process_macrofile(0);
+	ret = process_macrofile(cnf.noconfig);
 	if (ret) {
 		tracemsg ("loading macros failed (%d)", ret);
 	} else {
 		tracemsg ("%d macros loaded", MLEN);
+	}
+	if (init_hashtables()) {
+		tracemsg ("ERROR: internal hash table load error");
+		tracemsg ("Press Ctrl-C twice to leave");
 	}
 
 	return ret;

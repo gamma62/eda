@@ -2,8 +2,9 @@ NOTES about ideas, plans
 
 --- after v1.2.23
 
-  - hash tables for keys (loaded from edakeys) and maybe commands
-  - add go language support and more python
-  - column reorder like awk(1)
-  - eda(1) is outdated
+  - column reorder like awk(1) -- maybe
+  - manual pages eda(1) and edamacro(5) update:
+    the overall description is outdated,
+    function descriptions: look it from the users perspective 
+  - README is outdated, check README.md also
 

@@ -167,6 +167,9 @@ extern int index_func_fullname (const char *fullname);
 extern int index_key_string (const char *key_string);
 extern int index_key_value (int key_value);
 extern int index_macros_fkey (int fkey);
+extern int init_hashtables(void);
+extern int hash_fkey (int ch);
+extern int hash_name (const char *ibuff, int clen);
 
 /* keys.c */
 extern int key_handler (NODE *seq_tree, int testing);
